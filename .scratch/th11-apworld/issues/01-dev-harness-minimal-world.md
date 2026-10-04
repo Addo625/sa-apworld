@@ -1,6 +1,6 @@
 # 01: Generate a seed from a minimal TH11 world
 
-Status: needs-human
+Status: ready-for-agent
 Blocked by: None (can start immediately)
 
 ## Problem
@@ -43,6 +43,5 @@ Nothing exists yet. Every later ticket needs a pinned Archipelago checkout, a ve
 - 2026-10-04 al-work plan broken: the unattended run has no network permission. These were all denied: `git ls-remote --tags https://github.com/ArchipelagoMW/Archipelago` (step 1), `curl` to the GitHub releases API, and WebFetch. Steps 1–2 need network (tag lookup, `git clone`, `pip install`), so the DoD can't be reached. No code was written. Fix one of these: (a) allow `git ls-remote`, `git clone` and `.venv/bin/pip install` (plus `python3.12 -m venv`) for this project in `.claude/settings.json`; or (b) run step 1–2 yourself: write the tag to `tools/AP_VERSION`, clone `.ap`, create `.venv`. The agent will then write `tools/setup_dev.sh` around what already exists.
 - 2026-10-04 human: granted option (a) in `.claude/settings.json` (git ls-remote/clone/add/commit, venv, pip install, pytest, WebFetch github.com). Back to ready-for-agent.
 - 2026-10-04 al-work stopped (not an attempt; nothing implemented): working tree was dirty at start. Uncommitted: `.claude/settings.json` drops the `Write(./.games/**)` and `Write(./ref-projects/**)` deny rules (modified 22:32, after 1aba69f); untracked `tools/AP_VERSION` (`0.6.8`) and `tools/setup_dev.sh` (looks like steps 1–2 from an interrupted run; `.ap/`, `.venv/`, `th11/` don't exist). Left both untouched. Human: commit, keep or discard them so `git status` is clean, then re-run.
-- 2026-10-04 al-work attempt failed: working tree still dirty at start, unchanged since the previous stop (same `.claude/settings.json` deny-rule removal, same untracked `tools/AP_VERSION` + `tools/setup_dev.sh`). Nothing implemented, nothing touched. Counted as an attempt so the loop escalates to needs-human instead of re-running on the same blocker. Next try: once `git status` is clean, keep `tools/` (it already matches steps 1–2) and run `tools/setup_dev.sh`.
-- 2026-10-04 al-work attempt failed: working tree dirty at start for the third time, unchanged (`.claude/settings.json` drops the `Write(./.games/**)` and `Write(./ref-projects/**)` deny rules; untracked `tools/AP_VERSION` = `0.6.8` and `tools/setup_dev.sh`). Nothing implemented, nothing touched. This is failure 2 of 2: the next run marks 01 `needs-human`. To unblock: commit or discard both changes so `git status` is clean, then re-run.
 - 2026-10-04 al-work stuck: 2 of 2 attempts failed, both on the same dirty working tree (the `.claude/settings.json` deny-rule removal and the untracked `tools/`). No code written. Set to `needs-human`. To unblock: commit or discard both changes, remove the two failure notes, set `Status: ready-for-agent`, re-run `agent-loop`.
+- 2026-10-04 human: committed `.claude/settings.json` and `tools/` (AP_VERSION 0.6.8 + setup_dev.sh from the interrupted run, not run yet); tree clean. Next: run `tools/setup_dev.sh`, then build the th11 world. Back to ready-for-agent.
