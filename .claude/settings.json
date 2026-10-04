@@ -18,9 +18,7 @@
     ],
     "deny": [
       "Edit(./.games/**)",
-      "Write(./.games/**)",
-      "Edit(./ref-projects/**)",
-      "Write(./ref-projects/**)"
+      "Edit(./ref-projects/**)"
     ]
   }
 }
