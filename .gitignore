@@ -1,0 +1,7 @@
+.games
+ref-projects
+.ap/
+.venv/
+.agent-loop/
+*.apworld
+__pycache__/

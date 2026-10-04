@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./ref-projects/**)"
+    ],
+    "ask": [
+      "Read(./.games/**)",
+      "Bash(*.games*)"
+    ],
+    "deny": [
+      "Edit(./.games/**)",
+      "Write(./.games/**)",
+      "Edit(./ref-projects/**)",
+      "Write(./ref-projects/**)"
+    ]
+  }
+}
