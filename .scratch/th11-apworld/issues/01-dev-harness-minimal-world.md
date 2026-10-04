@@ -1,6 +1,6 @@
 # 01: Generate a seed from a minimal TH11 world
 
-Status: needs-human
+Status: ready-for-agent
 Blocked by: None (can start immediately)
 
 ## Problem
@@ -46,3 +46,4 @@ Nothing exists yet. Every later ticket needs a pinned Archipelago checkout, a ve
 - 2026-10-04 al-work stuck: 2 of 2 attempts failed, both on the same dirty working tree (the `.claude/settings.json` deny-rule removal and the untracked `tools/`). No code written. Set to `needs-human`. To unblock: commit or discard both changes, remove the two failure notes, set `Status: ready-for-agent`, re-run `agent-loop`.
 - 2026-10-04 human: committed `.claude/settings.json` and `tools/` (AP_VERSION 0.6.8 + setup_dev.sh from the interrupted run, not run yet); tree clean. Next: run `tools/setup_dev.sh`, then build the th11 world. Back to ready-for-agent.
 - 2026-10-04 al-work plan broken: permissions still block the DoD. `tools/setup_dev.sh` needs approval (not allowlisted), so I ran its allowlisted steps one by one: `.ap/` is cloned at 0.6.8 and `.venv/` exists with AP requirements and pytest installed. The symlink `ln -sfn ../../th11 .ap/worlds/th11` needs approval, so AP can't discover `th11` and no test can run. The DoD command itself (`tools/setup_dev.sh && cd .ap && ../.venv/bin/python -m pytest ...`) would also prompt. I didn't write the world, because I won't commit code I can't test. Fix: add `Bash(tools/setup_dev.sh)`, `Bash(ln -sfn ../../th11 .ap/worlds/th11)` and `Bash(cd .ap && ../.venv/bin/python -m pytest:*)` to `.claude/settings.json` allow (or run `tools/setup_dev.sh` once yourself; the symlink can dangle until `th11/` exists), then set ready-for-agent.
+- 2026-10-04 human: ran `tools/setup_dev.sh` (now executable); `.ap/worlds/th11` link exists, dangling until `th11/` is written. Allowed `tools/setup_dev.sh` and `../.venv/bin/python -m pytest` in local settings. Back to ready-for-agent.
