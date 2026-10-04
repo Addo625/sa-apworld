@@ -5,3 +5,5 @@ ref-projects
 .agent-loop/
 *.apworld
 __pycache__/
+.claude/settings.json
+.claude/settings.local.json
