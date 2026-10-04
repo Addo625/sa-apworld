@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Read(./ref-projects/**)"
+      "Read(./ref-projects/**)",
+      "Bash(git ls-remote:*)",
+      "Bash(git clone:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(python3.12 -m venv:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "ask": [
       "Read(./.games/**)",

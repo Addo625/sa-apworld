@@ -1,6 +1,6 @@
 # 01: Generate a seed from a minimal TH11 world
 
-Status: needs-human
+Status: ready-for-agent
 Blocked by: None (can start immediately)
 
 ## Problem
@@ -41,3 +41,4 @@ Nothing exists yet. Every later ticket needs a pinned Archipelago checkout, a ve
 ## Comments
 
 - 2026-10-04 al-work plan broken: the unattended run has no network permission. These were all denied: `git ls-remote --tags https://github.com/ArchipelagoMW/Archipelago` (step 1), `curl` to the GitHub releases API, and WebFetch. Steps 1–2 need network (tag lookup, `git clone`, `pip install`), so the DoD can't be reached. No code was written. Fix one of these: (a) allow `git ls-remote`, `git clone` and `.venv/bin/pip install` (plus `python3.12 -m venv`) for this project in `.claude/settings.json`; or (b) run step 1–2 yourself: write the tag to `tools/AP_VERSION`, clone `.ap`, create `.venv`. The agent will then write `tools/setup_dev.sh` around what already exists.
+- 2026-10-04 human: granted option (a) in `.claude/settings.json` (git ls-remote/clone/add/commit, venv, pip install, pytest, WebFetch github.com). Back to ready-for-agent.
