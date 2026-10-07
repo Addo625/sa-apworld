@@ -1,6 +1,6 @@
 # 03: Build th11.apworld and prove AP loads the zip
 
-Status: needs-human
+Status: ready-for-agent
 Blocked by: 02
 
 ## Problem
@@ -39,3 +39,4 @@ Players install worlds as `.apworld` zips. We need a build, an example YAML and 
     - It deletes the symlink and recreates it with `ln -sfn ../../th11` (the same command as `setup_dev.sh`) instead of moving it aside.
     - It sets `SKIP_REQUIREMENTS_UPDATE=1`, because `Generate.py` runs `ModuleUpdate.update()`, which would stop at an `input()` prompt for the soe/zillion requirements that aren't installed.
   - **Unblock:** run `chmod +x tools/build_apworld.sh tools/check_apworld.sh`, then add `"Bash(tools/build_apworld.sh)"`, `"Bash(tools/check_apworld.sh)"` and `"Bash(unzip -l:*)"` to `.claude/settings.json` `allow` (or run `tools/check_apworld.sh` yourself and paste the output here). Then relabel `ready-for-agent`. The next run verifies the drafts and folds any fixes into this commit.
+- 2026-10-07 human: scripts made executable; allowed `tools/build_apworld.sh`, `tools/check_apworld.sh`, `unzip -l` in local settings. Back to ready-for-agent.

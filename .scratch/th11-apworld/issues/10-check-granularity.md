@@ -1,6 +1,6 @@
 # 10: Choose check and unlock granularity (by character, by shot type, by difficulty)
 
-Status: deferred
+Status: ready-for-agent
 Blocked by: 09
 
 ## Problem
@@ -36,3 +36,7 @@ EoSD lets the player choose how stage unlocks are grouped (`stage_unlock`: globa
 
 ## Deferred
 - An in-game check of difficulty-separated checks: covered by the next human smoke run after promotion. Add a `ready-for-human` ticket when promoting.
+
+## Comments
+
+- 2026-10-07 human: promoted to ready-for-agent as written. Still blocked by 09 (in-game smoke), so the loop picks it up only after 09 is done.
