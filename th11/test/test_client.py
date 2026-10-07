@@ -122,7 +122,7 @@ def thcrap_ranges():
 
 class TestClientIsolation(unittest.TestCase):
 	def test_client_modules_import_without_pymem(self):
-		logic = ["Variables", "probe", "patching"]
+		logic = ["Variables", "probe", "patching", "Client"]  # Client attaches lazily through gameController
 		package = __package__.rsplit(".", 1)[0]
 		saved = {name: sys.modules.get(name) for name in ["pymem", "kivy"] + [f"{package}.{m}" for m in logic]}
 		try:

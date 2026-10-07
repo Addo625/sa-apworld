@@ -1,4 +1,8 @@
+from typing import ClassVar
+
+import settings
 from worlds.AutoWorld import World
+from worlds.LauncherComponents import Component, Type, components, launch_subprocess
 
 from .Items import TItem, item_table
 from .Locations import location_table
@@ -11,10 +15,29 @@ from .Variables import *
 CORE_ITEMS = ["+1 Life", "+0.50 Power", "Lower Difficulty", "Next Stage"]
 
 
+def launch_client(*args: str):
+	from .Client import launch
+	launch_subprocess(launch, name="GameClient", args=args)
+
+
+components.append(Component(SHORT_NAME + " Client", func=launch_client, component_type=Type.CLIENT))
+
+
+class TSettings(settings.Group):
+	class TGameExe(settings.UserFilePath):
+		"""File path to the Touhou SA executable (v1.00a th11.exe)"""
+		description = "Touhou SA Executable"
+
+	game_exe: TGameExe = TGameExe("th11.exe")
+
+
 class TWorld(World):
 	game = DISPLAY_NAME
 	options: TH11Options
 	options_dataclass = TH11Options
+
+	settings_key = "touhou_sa_settings"
+	settings: ClassVar[TSettings]
 
 	item_name_to_id = {name: data.code for name, data in item_table.items()}
 	location_name_to_id = location_table

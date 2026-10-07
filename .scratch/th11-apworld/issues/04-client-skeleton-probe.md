@@ -1,6 +1,6 @@
 # 04: TH11 client attaches to the game and prints a memory probe
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01
 
 ## Problem
@@ -40,3 +40,19 @@ The agent can't run the game, so the TH11 address table (the "data extraction" t
 ## Deferred
 - Location detection and item application → 08.
 - Address corrections → 07.
+
+## Comments
+
+- 2026-10-07 al-work done: commits `04: seed the v1.00a address table…` and `04: add a Touhou SA Client with /probe and /launch`.
+  - **Sources:** thprac `thprac_th11.cpp` only. Its `Globals` struct at 0x4A56E0 gives score, power, chara, subshot, lives, life pieces, difficulty, stage and continues, plus game flags at 0x4A5758 (bit 0 = practice). The FearLess page and web search weren't allowed, and running ad-hoc Python against `th11.exe` needs approval, so nothing comes from FearLess or from disassembly.
+  - **`None` + `TODO(06)`:** the boss-present flag, the practice-unlock table, the extra unlock, and both starting-lives code sites (so `EXPECTED_BYTES` is empty). `/probe` prints `<unsourced>` for these.
+  - **Guesses:** `ADDR_GAME_MODE` (0x4A8ECC, the menu object, MoF's 0x7784C analogue) and `ADDR_MENU` / `ADDR_MENU_CURSOR`, which reuse MoF's +0xB0 / +0x24 offsets and are likely wrong.
+  - **What 06 should know:**
+    - The probe prints every value as a signed int32: flags are shown undecoded.
+    - The score may be stored ÷10.
+    - Ticket 07 can't fill the code sites by probing alone. Someone has to find them in a disassembler (writes to 0x4A5718) or a CE table.
+  - **DoD:**
+    - pytest → 48 passed, 390 subtests, including `test_probe_*`, `test_patch_sites_*` (the thcrap overlap test ran against `.games/`) and `test_client_modules_import_without_pymem`, which also imports `Client`.
+    - `grep -c "source:"` → 18, with 18 `ADDR_` entries.
+    - `tools/check_apworld.sh` still prints `apworld loaded from custom_worlds`.
+  - No deferred tickets.
