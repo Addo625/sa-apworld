@@ -1,0 +1,13 @@
+name: Player{number}
+game: Touhou Chireiden ~ Subterranean Animism
+description: Every option at its default.
+
+Touhou Chireiden ~ Subterranean Animism:
+  exclude_lunatic: 'false'
+  number_life_mid: 0
+  power_mid: 0
+  difficulty_mid: lunatic
+  number_life_end: 0
+  power_end: 0
+  difficulty_end: lunatic
+  death_link: 'false'

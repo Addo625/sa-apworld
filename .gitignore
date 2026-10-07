@@ -4,6 +4,7 @@ ref-projects
 .venv/
 .agent-loop/
 *.apworld
+dist/
 __pycache__/
 .claude/settings.json
 .claude/settings.local.json

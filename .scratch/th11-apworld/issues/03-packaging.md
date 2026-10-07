@@ -1,6 +1,6 @@
 # 03: Build th11.apworld and prove AP loads the zip
 
-Status: ready-for-agent
+Status: needs-human
 Blocked by: 02
 
 ## Problem
@@ -29,3 +29,13 @@ Players install worlds as `.apworld` zips. We need a build, an example YAML and 
 
 ## Deferred
 - Publishing to the AP index or GitHub releases: out of scope, the human decides.
+
+## Comments
+
+- 2026-10-07 al-work plan broken: the agent can't run the DoD. Running `tools/*.sh`, `chmod`, `unzip` and `git stash` all need approval, and the project allowlist (`.claude/settings.json`) doesn't cover them.
+  - **Drafted but never run** (committed only to keep the tree clean): `tools/build_apworld.sh`, `tools/check_apworld.sh`, `examples/th11.yaml`, README, and `dist/` in `.gitignore`. The scripts aren't executable yet (`chmod` was denied) and were written by reading AP's source, so treat them as untested.
+  - **Changes from the test plan:**
+    - The check passes `--player_files_path <tmpdir>` holding only `examples/th11.yaml`, instead of copying the YAML into `.ap/Players/`, so any YAMLs already there can't get in.
+    - It deletes the symlink and recreates it with `ln -sfn ../../th11` (the same command as `setup_dev.sh`) instead of moving it aside.
+    - It sets `SKIP_REQUIREMENTS_UPDATE=1`, because `Generate.py` runs `ModuleUpdate.update()`, which would stop at an `input()` prompt for the soe/zillion requirements that aren't installed.
+  - **Unblock:** run `chmod +x tools/build_apworld.sh tools/check_apworld.sh`, then add `"Bash(tools/build_apworld.sh)"`, `"Bash(tools/check_apworld.sh)"` and `"Bash(unzip -l:*)"` to `.claude/settings.json` `allow` (or run `tools/check_apworld.sh` yourself and paste the output here). Then relabel `ready-for-agent`. The next run verifies the drafts and folds any fixes into this commit.
