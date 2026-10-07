@@ -3,16 +3,11 @@ from BaseClasses import Region
 from .Locations import TLocation, location_table
 from .Variables import *
 
-GROUPS = {"Early": (1, 2), "Mid": (3, 4), "Late": (5, 6)}
-
 
 def create_regions(world):
-	"""Menu -> character -> Early/Mid/Late -> Stage N (EoSD shape). Connections live in Rules."""
+	"""Menu -> character -> Stage N, one gate per stage. Connections live in Rules."""
 	player, multiworld = world.player, world.multiworld
-	names = ["Menu"]
-	for character in CHARACTERS_LIST:
-		names += [character] + [f"[{character}] {group}" for group in GROUPS]
-	for name in names:
+	for name in ["Menu"] + CHARACTERS_LIST:
 		multiworld.regions.append(Region(name, player, multiworld))
 
 	for character in CHARACTERS_LIST:

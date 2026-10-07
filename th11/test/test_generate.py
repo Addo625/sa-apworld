@@ -1,10 +1,17 @@
 from BaseClasses import CollectionState
+from Fill import distribute_items_restrictive
 
 from .. import test as bases
+from ..Rules import stage_rooms
 from ..Variables import CHARACTER_TO_ITEM
 
 ALL_SHOTS = CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"]
 STAGE3 = "[Reimu] Yuugi Defeated"
+STAGE4 = "[Reimu] Satori Defeated"
+STAGE5 = "[Reimu] Orin Defeated"
+STAGE6 = "[Reimu] Utsuho Defeated"
+# Stage k: locations in stages < k (6, 6, 6, 4, 6 per stage) - (k-1) Next Stage - other shot - GATE_SLACK.
+DEFAULT_ROOMS = [-3, 2, 7, 12, 15, 20]
 
 
 class TestGenerate(bases.TH11TestBase):
@@ -49,24 +56,40 @@ class TestGenerate(bases.TH11TestBase):
 		self.assertTrue(self.multiworld.has_beaten_game(state, self.player))
 
 	def test_slot_data_keys(self):
-		self.assertEqual(set(self.multiworld.worlds[self.player].fill_slot_data()), {
+		slot_data = self.multiworld.worlds[self.player].fill_slot_data()
+		self.assertEqual(set(slot_data), {
 			"exclude_lunatic",
 			"number_life_mid", "power_mid", "difficulty_mid",
 			"number_life_end", "power_end", "difficulty_end",
 			"death_link",
+			"stage_requirements",
 		})
+		self.assertEqual(slot_data["stage_requirements"], [(0, 0, 0, 0)] * 6)
+
+	def test_rooms(self):
+		self.assertEqual(stage_rooms(self.world), DEFAULT_ROOMS)
 
 
 class TestLifeGate(bases.TH11TestBase):
 	options = {"number_life_mid": 8}
 
-	def test_stage3_blocked_by_life_gate(self):
+	def collect_lives(self):
 		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
-		lives = self.get_items_by_name("+1 Life")
-		self.collect(lives[:7])
+		return self.get_items_by_name("+1 Life")
+
+	def test_stage3_half_life_gate(self):
+		lives = self.collect_lives()
+		self.collect(lives[:3])
 		self.assertFalse(self.can_reach_location(STAGE3))
-		self.collect(lives[7])
+		self.collect(lives[3])
 		self.assertTrue(self.can_reach_location(STAGE3))
+
+	def test_stage4_full_life_gate(self):
+		lives = self.collect_lives()
+		self.collect(lives[:7])
+		self.assertFalse(self.can_reach_location(STAGE4))
+		self.collect(lives[7])
+		self.assertTrue(self.can_reach_location(STAGE4))
 
 
 class TestPowerGate(bases.TH11TestBase):
@@ -75,19 +98,69 @@ class TestPowerGate(bases.TH11TestBase):
 	def test_power_gate(self):
 		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
 		packs = self.get_items_by_name("+0.50 Power")
-		self.assertTrue(self.can_reach_location(STAGE3))
-		self.collect(packs[:7])
-		self.assertFalse(self.can_reach_location("[Reimu] Utsuho Defeated"))
+		self.assertTrue(self.can_reach_location(STAGE4))
+		self.collect(packs[:3])
+		self.assertFalse(self.can_reach_location(STAGE5))
+		self.collect(packs[3])
+		self.assertTrue(self.can_reach_location(STAGE5))
+		self.collect(packs[4:7])
+		self.assertFalse(self.can_reach_location(STAGE6))
 		self.collect(packs[7])
-		self.assertTrue(self.can_reach_location("[Reimu] Utsuho Defeated"))
+		self.assertTrue(self.can_reach_location(STAGE6))
 
 
 class TestDifficultyGateExcludeLunatic(bases.TH11TestBase):
 	options = {"exclude_lunatic": True, "difficulty_mid": "easy"}
 
 	def test_one_fewer_lower_difficulty(self):
+		# Easy minus the missing Lunatic step = 2: stage 3 needs 1, stage 4 needs 2.
 		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
-		self.assertEqual(len(self.get_items_by_name("Lower Difficulty")), 2)
+		lower = self.get_items_by_name("Lower Difficulty")
+		self.assertEqual(len(lower), 2)
 		self.assertFalse(self.can_reach_location(STAGE3))
-		self.collect_by_name("Lower Difficulty")
+		self.collect(lower[0])
 		self.assertTrue(self.can_reach_location(STAGE3))
+		self.assertFalse(self.can_reach_location(STAGE4))
+		self.collect(lower[1])
+		self.assertTrue(self.can_reach_location(STAGE4))
+
+
+class TestExcludedRoom(bases.TH11TestBase):
+	options = {"exclude_locations": ["[Reimu] Kisume - Midboss", "[Marisa] Yamame Defeated"]}
+
+	def test_room_ignores_excluded(self):
+		self.assertEqual(stage_rooms(self.world), DEFAULT_ROOMS[:1] + [room - 2 for room in DEFAULT_ROOMS[1:]])
+
+
+MAX_GATES = {
+	"number_life_mid": 8, "power_mid": 8, "difficulty_mid": "easy",
+	"number_life_end": 8, "power_end": 8, "difficulty_end": "easy",
+}
+EXTREMES = {
+	"max": MAX_GATES,
+	"max exclude_lunatic": {**MAX_GATES, "exclude_lunatic": True},
+	"max exclude stage 1-2": {**MAX_GATES, "exclude_locations": [
+		"[Reimu] Kisume - Midboss", "[Reimu] Parsee Defeated", "[Marisa] Yamame Defeated", "[Marisa] Stage 2 Clear",
+	]},
+	"defaults": {},
+}
+
+
+class TestMaxGates(bases.TH11TestBase):
+	options = MAX_GATES
+
+	def test_extremes_fill_fixed_seeds(self):
+		for name, options in EXTREMES.items():
+			self.options = options
+			for seed in range(1, 51):
+				with self.subTest(name, seed=seed):
+					self.world_setup(seed)
+					distribute_items_restrictive(self.multiworld)
+					self.assertTrue(self.multiworld.can_beat_game())
+
+	def test_clamp_warns(self):
+		with self.assertLogs(level="WARNING") as logs:
+			self.world_setup()
+		self.assertTrue(any("Stage 3" in line for line in logs.output))
+		# (4, 4, 1) needs 9 slots; stage 3 has room for 7.
+		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][2], (3, 3, 1, 0))

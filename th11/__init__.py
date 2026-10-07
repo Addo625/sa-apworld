@@ -55,9 +55,13 @@ class TWorld(World):
 		return "+0.05 Power"
 
 	def fill_slot_data(self) -> dict:
-		return self.options.as_dict(
-			"exclude_lunatic",
-			"number_life_mid", "power_mid", "difficulty_mid",
-			"number_life_end", "power_end", "difficulty_end",
-			"death_link",
-		)
+		return {
+			**self.options.as_dict(
+				"exclude_lunatic",
+				"number_life_mid", "power_mid", "difficulty_mid",
+				"number_life_end", "power_end", "difficulty_end",
+				"death_link",
+			),
+			# Per stage 1-6: (lives, power, lower difficulty, keys), after any fit cuts.
+			"stage_requirements": self.stage_requirements,
+		}

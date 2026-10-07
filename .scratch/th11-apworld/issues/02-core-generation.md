@@ -1,6 +1,6 @@
 # 02: Generate beatable core TH11 seeds (practice mode, global unlock, goal Utsuho)
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01
 
 ## Problem
@@ -72,3 +72,10 @@ AP's `test/general` is not part of this DoD: it fails only because other worlds'
     - (c) Accept the failure solo and only test max gates in a multiworld with a filler-heavy partner.
 
     My pick is (a): it keeps the ranges at EoSD parity and never produces an unfillable seed.
+
+- 2026-10-07 al-work done: per-stage gates with fit clamp (`2e23023`, amended).
+  - **DoD:** `cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → 40 passed, 390 subtests, exit 0 (2.2 s).
+  - **GATE_SLACK = 2**, unchanged: `test_extremes_fill_fixed_seeds` runs seeds 1–50 (not 1–10; the whole suite still takes ~2 s) for all four option sets and every one fills and is beatable.
+  - Default rooms per stage: −3, 2, 7, 12, 15, 20. At max gates, stages 3–5 are cut and warned; stage 6 (19 against room 20) is not. Stage 3 becomes (3, 3, 1).
+  - The stage rule ignores keys (always 0). Ticket 21 must add the Spell Card Key check to the rule in `Rules.set_rules`.
+  - No new deferred tickets.
