@@ -1,49 +1,64 @@
 # 02: Generate beatable core TH11 seeds (practice mode, global unlock, goal Utsuho)
 
-Status: needs-human
+Status: ready-for-agent
 Blocked by: 01
 
 ## Problem
-The v1 world needs EoSD's core randomization adapted to SA. See `../spec.md`: Content, Items (core), Options (core). The design source is `ref-projects/eosd-apworld` (Items, Locations, Regions, Rules, Options, `__init__`), with SA adaptations from `ref-projects/mof-apworld`.
+The v1 world needs EoSD's core randomization adapted to SA. See `../spec.md`: Content, Items (core), Options (core), and "Gates and Spell Card Keys". The design source is `ref-projects/eosd-apworld` (Items, Locations, Regions, Rules, Options, `__init__`), with SA adaptations from `ref-projects/mof-apworld`.
+
+**Revised 2026-10-07 (planning session).** The core world is committed (`af8cba5`, 21 tests green), but "all gates at maximum" can't fill: before stages 3/4 open only 12 locations are reachable, and the max Mid gate needs 19 items (see Comments). The user chose per-stage gates for all three resources, plus a fit check that lowers a stage's requirement to what fits and warns. This ticket finishes 02 with that change. It also lays the groundwork for Spell Card Keys (ticket 21): the gate function already takes a key requirement, which is 0 until 21.
 
 ## DoD
-`cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → exit 0, including the named tests below.
-`cd .ap && ../.venv/bin/python -m pytest test/general -q` → exit 0. It covers ID and name uniqueness and the data package for all installed worlds; note the runtime in the ticket comments.
+`cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → exit 0, including `test_extremes_fill_fixed_seeds` and the named tests below.
+AP's `test/general` is not part of this DoD: it fails only because other worlds' requirements aren't installed (soe, zillion, pokemon_emerald). That's a human Do-now item.
 
 ## Test plan
-- **Locations:** per character `Reimu` and `Marisa`, the stage 1–6 checks from the spec's Content table plus `Stage N Clear` = 2 × (6 stages × midboss/boss + 6 clears − Stage 4 midboss) = 2 × 17 = 34 locations. Extra and difficulty locations exist in the table (IDs reserved, as EoSD does) but are not created.
-  - `test_location_count`: 34 created locations by default.
-- **Items:**
-  - 6 shot types, one of them precollected.
-  - `Next Stage` ×5: Stage 1 is always open, stages 2–6 are unlocked in order.
-  - `+1 Life` ×8. Check SA's lives cap in `ref-projects`/thprac; MoF uses 9.
-  - `+0.50 Power` ×N, progression. N = enough packs to reach 4.00, from 0 (8 packs).
-  - `Lower Difficulty` ×3, or ×2 with `exclude_lunatic`.
-  - Locked `[Reimu] Ending - Utsuho` and `[Marisa] Ending - Utsuho` on the two `Stage 6 Clear` locations.
-  - Filler `+0.05 Power` = remaining locations.
-  - `test_item_count_matches_locations`.
-- **Rules:**
-  - A stage N region needs `Next Stage` ≥ N−1 and a shot type of that character.
-  - Stages 3/4 need lives ≥ `number_life_mid`, power packs ≥ `power_mid`, and `Lower Difficulty` ≥ `difficulty_mid` (minus 1 with `exclude_lunatic`, floored at 0).
-  - Stages 5/6 use the `_end` equivalents.
-  - Tests: `test_stage3_blocked_without_next_stage`, `test_stage3_blocked_by_life_gate` (`number_life_mid=8` → not reachable with 7 lives, reachable with 8), `test_power_gate`.
-- **Goal:** the completion condition is any `Ending - Utsuho` (EoSD `ONE_ENDING`). `test_goal_requires_ending`.
-- **Extreme combinations** (`WorldTestBase` subclasses with `options`), each passing `test_fill` and `test_all_state_can_reach_everything`:
-  - All gates at maximum.
-  - `exclude_lunatic` + maximum difficulty gates.
-  - Defaults.
-- **`fill_slot_data`:** returns every option the client needs (the gates, `exclude_lunatic`). `test_slot_data_keys`.
+- **`stage_requirements(mid, end, keys_required, rooms) -> (requirements, notes)`**, a pure function (no multiworld).
+  - In: `mid` and `end` are `(lives, power, difficulty)` tuples, with difficulty already adjusted for `exclude_lunatic` (minus 1, floored at 0). `keys_required` is the stage 6 key total (always 0 in this ticket). `rooms` is the room for each of stages 1–6.
+  - Out: one `(lives, power, difficulty, keys)` per stage 1–6, plus a list of notes, one per cut.
+  - Ramp per resource:
+    - stages 1–2 → 0;
+    - stage 3 → floor(mid/2);
+    - stage 4 → mid;
+    - stage 5 → floor((mid+end)/2);
+    - stage 6 → end.
+  - Keys: stages 1–2 → 0; stage k ≥ 3 → floor(R·(k−2)/4).
+  - Clamp: while a stage's total exceeds its room, take one off the largest of lives, power and keys. Ties go lives, then power, then keys. Difficulty is cut only once those are all 0. Each cut adds a note naming the stage and resource.
+  - Tests:
+    - `test_ramp_defaults`: all zeros.
+    - `test_ramp_max`: mid = end = (8, 8, 3) with big rooms → stage 3 (4, 4, 1), stage 4 and later (8, 8, 3).
+    - `test_ramp_end_below_mid`.
+    - `test_ramp_keys`: R=9 → keys 0, 0, 2, 4, 6, 9.
+    - `test_clamp_largest_first`.
+    - `test_clamp_difficulty_last`.
+    - `test_clamp_notes`.
+    - `test_no_clamp_when_room_suffices`: no notes.
+- **Room** for stage k is this world's created locations in stages < k, minus the locations named in `exclude_locations`, minus (k−1) for `Next Stage`, minus 1 for the other character's shot, minus `GATE_SLACK`. `GATE_SLACK` is a constant that starts at 2 and carries a `ponytail:` comment: raise it if a fixed seed fails.
+  - `test_room_ignores_excluded`: excluding two stage 1 checks lowers stage 2's room and every later stage's by 2.
+- **Rules:** one gate rule per stage replaces the Early/Mid/Late group rules. Stage N needs `Next Stage` ≥ N−1, a shot of that character, and that stage's requirement.
+  - `test_stage3_blocked_without_next_stage` and `test_stage_needs_character_shot` stay as they are.
+  - `test_stage3_half_life_gate`: `number_life_mid=8` → stage 3 needs 4 lives.
+  - `test_stage4_full_life_gate`: stage 4 needs 8 (blocked at 7). This replaces `test_stage3_blocked_by_life_gate`.
+  - `test_power_gate`: `power_end=8` → stage 5 needs 4 and stage 6 needs 8.
+  - `test_one_fewer_lower_difficulty` is updated to the ramp.
+- **Clamp wired:** the world logs one warning per note. `test_clamp_warns`: with max gates, re-run `self.world_setup()` inside `self.assertLogs(...)` and assert a warning names a stage.
+- **`test_extremes_fill_fixed_seeds`**: for each seed in a fixed list (e.g. 1–10) and each option set, call `world_setup(seed)`, then `distribute_items_restrictive`, and assert `multiworld.can_beat_game()`. The option sets:
+  - every gate at maximum;
+  - max + `exclude_lunatic`;
+  - max + `exclude_locations` holding four stage 1–2 checks;
+  - defaults.
+- **`fill_slot_data`** adds `stage_requirements`, the clamped list after any cuts. The raw options stay. `test_slot_data_keys` is updated.
 
 ## Steps
-1. Write the constants module (names, lists, IDs) for SA, mirroring `eosd-apworld/variables/globals.py` without addresses. Then write `Items.py` and `Locations.py`, reserving IDs for the deferred categories so they never shift later. Location and item count tests go green.
-2. Write `Regions.py` and `Rules.py` (EoSD's Early/Mid/Late region shape) and `Options.py` (core options only). Rule tests go green.
-3. Write `create_items` with computed filler and the locked endings, then `fill_slot_data`. Extreme-combination tests and `test/general` go green.
+1. Write `stage_requirements` and its unit tests (pure, no AP state). Green.
+2. Replace the group rules with one gate rule per stage, using the unclamped requirements. Update the gate tests. Green.
+3. Compute rooms from the created regions and `exclude_locations`, apply the clamp, log the notes, and add `stage_requirements` to `slot_data`. Add `test_room_ignores_excluded`, `test_clamp_warns` and `test_slot_data_keys`. Green.
+4. Add `test_extremes_fill_fixed_seeds`. If any seed fails, raise `GATE_SLACK` until all pass, and record the final value and why in the ticket comment. Run the DoD.
 
 ## Deferred
-- `stage_unlock`, `shot_type`, `difficulty_check` → 10.
-- Extra + goals → 11.
-- Normal mode → 12.
-- Traps → 13.
+- Spell Card Keys (capture locations, the key item, `keys_only`, `shared` slots) → 21.
+- Room per `stage_unlock` mode, and difficulty locations not counting as room → 10.
+- Ceiling: room counts only this world's locations, so a large multiworld may get gates cut that would have filled. Accepted: the warning names the stage and resource.
 
 ## Comments
 

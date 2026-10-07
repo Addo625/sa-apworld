@@ -21,7 +21,8 @@ EoSD lets the player choose how stage unlocks are grouped (`stage_unlock`: globa
   - `by_shot_type` without `shot_type`/`difficulty_check` falls back to by_character, as EoSD does.
   - A difficulty location needs `Lower Difficulty` ≥ (3 − difficulty index), adjusted for `exclude_lunatic`.
   - Tests for each mode.
-- **Extreme combinations:** each passes `test_fill`. Fewest locations is `by_shot_type` + no extra checks (fallback); most is `shot_type` + `difficulty_check` + all gates at maximum.
+- **Gate room** (from 02's fit check): room is computed per `stage_unlock` mode. `by_character` needs (k−1) `[<Char>] Next Stage` per character. Difficulty locations are gated by `Lower Difficulty`, so they don't count as room. `test_room_by_character`, `test_room_skips_difficulty_locations`.
+- **Extreme combinations:** each passes `test_fill` and joins 02's `test_extremes_fill_fixed_seeds`. Fewest locations is `by_shot_type` + no extra checks (fallback); most is `shot_type` + `difficulty_check` + all gates at maximum.
 - **Client** (pure):
   - `detect.step` emits shot-type and difficulty location IDs according to `slot_data`.
   - `check_multiple_difficulty` also emits the lower unlocked difficulties (EoSD `setCurrentStageBossBeaten(otherDifficulties)`).

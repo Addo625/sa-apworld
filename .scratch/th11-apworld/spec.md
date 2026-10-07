@@ -101,8 +101,60 @@ Filler count is always computed as locations minus placed items. It is never han
 
 - The Steam release of SA, which is a different exe with different addresses.
 - Publishing to GitHub or the AP index. The human pushes when they choose.
+- Toning down capture difficulty beyond `captures_per_stage`. The user will plan it separately.
+- Extra-stage capture slots: IDs are reserved in 21, and the slots are built with 11.
+- Smaller power packs (0.25, 0.20), which the user dropped.
 - A content-extraction script for th11.dat. There are about 15 names, and they are written by hand from `spells.js`.
+
+## Gates and Spell Card Keys (planned 2026-10-07)
+
+### Problem
+- Max gate settings make solo seeds unfillable. This was measured in 02's comment: AP's fill reports "No more spots to place 25 items", and in a multiworld that stops every player's generation.
+- The core seed has only 34 locations, so gates can't grow, and the game's main skill reward, spell captures, isn't part of the randomizer.
+
+### DoD
+- 02: `cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → exit 0, including `test_extremes_fill_fixed_seeds`, which runs over a fixed seed list with these option sets:
+  - max gates;
+  - max gates + `exclude_lunatic`;
+  - max gates + excluded stage 1–2 checks;
+  - defaults.
+- 21: the same command, including the spell-card option sets.
+- 24 (with the human probe 23): capturing a card in practice sends the next `Stage N - Capture k` check.
+
+### Solution
+1. **Per-stage gates (02).** A pure function `stage_requirements(mid, end, keys_required, rooms) -> (requirements, notes)`.
+   - `mid` and `end` are `(lives, power, difficulty)` tuples, with difficulty already adjusted for `exclude_lunatic`.
+   - Each resource ramps: stages 1–2 → 0, stage 3 → floor(mid/2), stage 4 → mid, stage 5 → floor((mid+end)/2), stage 6 → end.
+   - Keys: stages 1–2 → 0, stage k ≥ 3 → floor(R·(k−2)/4).
+2. **Fit check and clamp (02).**
+   - Room for stage k = this world's created locations in stages < k, minus `exclude_locations`, minus (k−1) `Next Stage`, minus 1 for the other character's shot, minus `GATE_SLACK` (starting at 2).
+   - While a stage's total exceeds its room, take one off the largest of lives, power and keys. Difficulty is cut only once those are 0.
+   - Each cut is logged as a warning, and `slot_data.stage_requirements` holds the clamped values.
+3. **Spell Card Keys (21, world side).** Capture-slot locations and a `Spell Card Key` item, with IDs appended to the tables. It defaults to `off` until the client sends captures.
+4. **Client side (22–24).** Capture address candidates, the human in-game probe, detection, and then the default flips to `alongside`.
+
+### Decisions
+- Power packs stay `+0.50 Power`. The user dropped the smaller-pack idea.
+- `spell_card_keys`: `off` / `alongside` / `keys_only`, with `alongside` as the target default.
+  - In `keys_only`, gates use keys only and lives, power and difficulty become `useful`.
+  - `keys_only` with zero keys warns and acts as `alongside`.
+- Capture locations are numbered slots, `[<Character>] Stage N - Capture k` (shared: `Stage N - Capture k`). Slot k is checked by the k-th *different* card captured in that stage with that character, across runs and on any difficulty.
+- `captures_per_stage`: 0–6, default 2. Each stage is capped at the fewest cards any difficulty offers, 2/4/4/4/5/6. Stage 1 is small because Kisume's card is Hard/Lunatic only. The difficulty assignment comes from memory plus spells.js's ID grouping, and 23 verifies it.
+- `capture_slots`: `per_character` (default) or `shared` (character-agnostic).
+- `spell_card_keys_in_pool`: the % of capture locations that hold a key (default 50).
+- `spell_card_keys_required`: the % of the pool needed by stage 6 (default 75).
+- Settings that don't fit: always clamp and warn, never `OptionError` or smaller ranges.
+  - In a multiworld, room counts only this world's locations, so a gate may be cut that would have filled. This trade-off is accepted.
+
+### Risk tree
+- **K1. Default-on before the client can send captures** → unbeatable default seeds. 21 asserts the default is `off`, and 24 flips it with its client tests.
+- **K2. The card-per-difficulty table is from memory.** 23 counts the cards per stage on Easy and Lunatic, and 24 fixes the caps if they differ.
+- **K3. Tight fills.** `test_extremes_fill_fixed_seeds` uses fixed seeds. `GATE_SLACK` is raised until it's green, and the final value is recorded.
+- **K4. Capture detection needs to know which card was captured.** 22 sources the current-spell-ID and capture entries. 24 unit-tests that only different cards count, and that a replay sends nothing twice.
+- **K5. Shared slots with per-character unlocks.** 21 tests that a shared slot opens from either character.
+- **K6. The room formula assumes global unlock and no gated locations.** Ticket 10's test plan computes room per `stage_unlock` mode.
+- **K7. `test/general` needs other worlds' requirements:** soe, zillion (installed via git+https), and pokemon_emerald, which has no requirements.txt, so its load error has to be found. This is a human Do-now item, not part of 02.
 
 ## Tickets
 
-Ticket files are in `issues/`. Tickets 01–09 make up v1. Tickets 10–20 are `deferred` and fully specified.
+Ticket files are in `issues/`. Tickets 01–09 make up v1. Tickets 10–24 are `deferred` and fully specified (21–24: Spell Card Keys).
