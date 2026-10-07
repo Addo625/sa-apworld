@@ -1,6 +1,6 @@
 # 03: Build th11.apworld and prove AP loads the zip
 
-Status: ready-for-agent
+Status: done
 Blocked by: 02
 
 ## Problem
@@ -40,3 +40,8 @@ Players install worlds as `.apworld` zips. We need a build, an example YAML and 
     - It sets `SKIP_REQUIREMENTS_UPDATE=1`, because `Generate.py` runs `ModuleUpdate.update()`, which would stop at an `input()` prompt for the soe/zillion requirements that aren't installed.
   - **Unblock:** run `chmod +x tools/build_apworld.sh tools/check_apworld.sh`, then add `"Bash(tools/build_apworld.sh)"`, `"Bash(tools/check_apworld.sh)"` and `"Bash(unzip -l:*)"` to `.claude/settings.json` `allow` (or run `tools/check_apworld.sh` yourself and paste the output here). Then relabel `ready-for-agent`. The next run verifies the drafts and folds any fixes into this commit.
 - 2026-10-07 human: scripts made executable; allowed `tools/build_apworld.sh`, `tools/check_apworld.sh`, `unzip -l` in local settings. Back to ready-for-agent.
+- 2026-10-07 al-work done: the drafts from 3546722 work as written. The first run turned up one problem: AP logged `Invalid or missing manifest file ... compatible_version` for the zip (it says such zips stop working in AP 0.7.0) and listed the world as v0.0.0. Fixed by adding `"version": 7, "compatible_version": 7` (AP 0.6.8's `container_version`) to `th11/archipelago.json`. Folder loading ignores these keys. Ceiling: when AP raises its container version, bump these by hand.
+  - **DoD:** `tools/check_apworld.sh` → exit 0, prints `apworld loaded from custom_worlds: .../.ap/custom_worlds/th11.apworld/th11/__init__.py` and `.ap/output/AP_58731976392485322737.zip`, lists `Touhou Chireiden ~ Subterranean Animism : v0.1.0`. After the run, `.ap/worlds/th11 -> ../../th11` is restored and `.ap/custom_worlds/` is empty.
+  - `unzip -l dist/th11.apworld` → `th11/` plus 9 files including `th11/archipelago.json`. No `test/`, `__pycache__` or `.DS_Store`.
+  - Tests: `cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → 40 passed, 390 subtests.
+  - No deferred tickets.
