@@ -78,7 +78,7 @@ class TestPatchSites(unittest.TestCase):
 
 	def test_patch_sites_have_expected_bytes(self):
 		for name, expected in Variables.EXPECTED_BYTES.items():
-			self.assertTrue(name in Variables.PROBE_TABLE, name)
+			self.assertIn(name, Variables.PROBE_TABLE)
 			if getattr(Variables, name) is not None:
 				self.assertTrue(expected, f"{name} has an address but no EXPECTED_BYTES")
 
@@ -99,9 +99,13 @@ def thcrap_address(text):
 	return BASE + int(text[2:], 16) if text.startswith("Rx") else int(text, 16)
 
 
+# [symbol] and <option> references assemble to 4 bytes.
+# ponytail: other thcrap code syntax (expressions) is counted as hex, extend if a v1.00a hack uses it.
+REFERENCE = re.compile(r"\[[^\]]*\]|<[^>]*>")
+
+
 def code_length(code):
-	# [symbol] and <option> references assemble to 4 bytes.
-	return len(re.sub(r"\[[^\]]*\]|<[^>]*>", "", code).replace(" ", "")) // 2 + 4 * len(re.findall(r"\[[^\]]*\]|<[^>]*>", code))
+	return len(REFERENCE.sub("", code).replace(" ", "")) // 2 + 4 * len(REFERENCE.findall(code))
 
 
 def thcrap_ranges():
@@ -137,3 +141,5 @@ class TestClientIsolation(unittest.TestCase):
 					sys.modules.pop(name, None)
 				else:
 					sys.modules[name] = module
+					if name.startswith(package):  # re-imports rebound the package attribute too
+						setattr(sys.modules[package], name.rsplit(".", 1)[1], module)

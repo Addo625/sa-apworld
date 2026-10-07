@@ -37,9 +37,9 @@ thprac = touhouworldcup/thprac thprac_th11.cpp; Globals struct at 0x4A56E0.
 GAME_NAME = "th11.exe"
 
 # General
-ADDR_GAME_MODE = 0x000A8ECC  # source: thprac menu/replay-select object ptr (0x4A8ECC), MoF-analogue of ADDR_GAME_MODE 0x7784C; 0 = in game
-ADDR_MENU = [0x000A8ECC, 0xB0]  # source: MoF-analogue offset, unverified (SA menu struct differs: thprac reads shot at +0x38)
-ADDR_MENU_CURSOR = [0x000A8ECC, 0x24]  # source: MoF-analogue offset, unverified
+ADDR_GAME_MODE = 0x000A8ECC  # source: thprac menu/replay-select object ptr (0x4A8ECC), MoF-analogue of ADDR_GAME_MODE 0x7784C; "0 = in game" is MoF's meaning, TODO(06)
+ADDR_MENU = [0x000A8ECC, 0xB0]  # source: MoF-analogue offset, likely wrong (SA menu struct differs: thprac reads shot at +0x38) TODO(06)
+ADDR_MENU_CURSOR = [0x000A8ECC, 0x24]  # source: MoF-analogue offset, likely wrong TODO(06)
 ADDR_GAME_FLAGS = 0x000A5758  # source: thprac, bit 0 = practice
 ADDR_STAGE = 0x000A5728  # source: thprac STAGE_NUM / Globals.stage
 ADDR_DIFFICULTY = 0x000A5720  # source: thprac Globals.difficulty
