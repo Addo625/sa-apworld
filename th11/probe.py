@@ -36,6 +36,32 @@ def write_int(writer, entry, value):
 	writer.write_bytes(resolve(writer, entry), value.to_bytes(4, "little", signed=True))
 
 
+def memsearch(reader, regions, pattern: bytes, cap=50, block=0x10000) -> list:
+	"""Addresses of pattern in regions [(start, size)], at most cap. Adjacent regions are joined and
+	blocks overlap by len(pattern) - 1, so a match may span either boundary. Unreadable blocks are skipped."""
+	joined = []
+	for start, size in sorted(regions):
+		if joined and sum(joined[-1]) == start:
+			joined[-1][1] += size
+		else:
+			joined.append([start, size])
+	found = []
+	for start, size in joined:
+		end = start + size
+		for address in range(start, end, block):
+			try:
+				data = reader.read_bytes(address, min(block + len(pattern) - 1, end - address))
+			except Exception:
+				continue
+			i = data.find(pattern)
+			while i != -1 and i < block:  # later matches start in the next block
+				found.append(address + i)
+				if len(found) >= cap:
+					return found
+				i = data.find(pattern, i + 1)
+	return found
+
+
 def format_probe(reader, table) -> str:
 	lines = []
 	for name, entry in table.items():

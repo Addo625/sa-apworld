@@ -16,11 +16,12 @@ from settings import get_settings
 from . import detect, receive
 from .Items import item_table
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
-from .probe import format_probe, write_int
+from .probe import format_probe, memsearch, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 POLL_SECONDS = 0.5
+MEMSEARCH_CAP = 50
 
 
 class TouhouClientProcessor(ClientCommandProcessor):
@@ -33,6 +34,28 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
 			return False
 		logger.info(format_probe(controller, PROBE_TABLE))
+		return True
+
+	def _cmd_memsearch(self, hex_pattern: str = ""):
+		"""Search th11.exe's readable memory for a hex byte pattern (e.g. from tools/scoredat.py)"""
+		from .gameController import gameController
+		try:
+			pattern = bytes.fromhex(hex_pattern)
+		except ValueError:
+			pattern = b""
+		if not pattern:
+			logger.error("Usage: /memsearch <hex bytes>")
+			return False
+		try:
+			controller = gameController()
+			regions = controller.readable_regions()
+		except Exception as e:
+			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
+			return False
+		found = memsearch(controller, regions, pattern, MEMSEARCH_CAP)
+		logger.info(f"{len(found)} match(es) in {len(regions)} regions" + (f" (capped at {MEMSEARCH_CAP})" if len(found) >= MEMSEARCH_CAP else ""))
+		for address in found:
+			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X})")
 		return True
 
 	def _cmd_launch(self):

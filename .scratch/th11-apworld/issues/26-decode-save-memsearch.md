@@ -1,6 +1,6 @@
 # 26: Decode scoreth11.dat and add /memsearch to locate the practice-unlock data
 
-Status: ready-for-agent
+Status: done
 Blocked by: 04
 
 ## Problem
@@ -31,3 +31,28 @@ The client must grant Practice stages, difficulties and shot types (`Next Stage`
 ## Deferred
 - Running `/memsearch` in-game → 27. Writing the unlock bytes → 28.
 - If the docs don't cover TH11's chunk layout, record what was decoded and set `needs-human` with the open question.
+
+## Comments
+
+**al-work (2026-10-10), done.** Commits: `26: decode scoreth11.dat and print practice progress per character`, `26: search the game's memory for a byte pattern with /memsearch` (+ review fixups). DoD: `cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → 143 passed (incl. `test_scoredat_*`, `test_memsearch_*`). Format source: ThScoreFileConverter @ feb02e2fa390cd0e0c599c97cc12399d9c07fd22 (cited in `th11/scoredat.py`). The sandbox only allowed pytest, so the output below comes from `test_scoredat_tool_prints_real_file` (`pytest -s`), which runs `tools/scoredat.py`'s `main` on `.games/sa/scoreth11.dat`:
+
+```
+CR at 0x00018 size 0x68D4
+  ReimuYukari (unlocked, cleared, score) per stage:
+    Easy    1:1/0/0 2:1/0/0 3:1/1/5284700 4:1/1/16980190 5:1/0/0 6:1/0/0
+    Normal  1:1/1/11247610 2:1/0/0 3:1/0/0 4:1/0/0 5:1/0/7458420 6:1/0/0
+    Hard    1:1/0/0 2:1/1/13583180 3:1/0/0 4:1/0/0 5:1/0/0 6:1/0/0
+    Lunatic 1:1/0/0 2:1/0/0 3:1/0/0 4:1/0/0 5:1/0/0 6:1/0/31160340
+CR at 0x068EC size 0x68D4   ReimuSuika      all 24 entries 1/0/0
+CR at 0x0D1C0 size 0x68D4   ReimuAya        all 24 entries 1/0/0
+CR at 0x13A94 size 0x68D4   MarisaAlice     all 24 entries 1/0/0
+CR at 0x1A368 size 0x68D4   MarisaPatchouli all 1/0/0 except Normal 2:1/1/5446940
+CR at 0x20C3C size 0x68D4   MarisaNitori    all 24 entries 1/0/0
+CR at 0x27510 size 0x68D4   Total           all 24 entries 0/0/0
+ST at 0x2DDE4 size 0x448
+/memsearch 0000000000010000000000000001000056  (first CR chunk's practice table, 17 bytes, unique in file)
+```
+
+(Identical rows are condensed here; the tool prints each one.) Each practice entry is 8 bytes: score/10 u32, cleared u8, unlocked u8, 2 pad. The table sits at CR chunk + 0x5A4, with levels as the outer loop and stages 1–6 as the inner loop.
+
+**Open for 27/28:** in this save, `unlocked` = 1 for every stage, difficulty and shot type, including shot types that were never played. Either the save is fully unlocked, or this byte isn't what gates the Practice menu. 27's M2 ("unlock one more Practice stage") can't produce a change on this save. Possible tests: use a fresh save (move `scoreth11.dat` aside), or watch the `cleared` byte / score instead.

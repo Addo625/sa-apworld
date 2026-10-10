@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .. import Variables
 from ..patching import PatchMismatch, safe_patch
-from ..probe import format_probe
+from ..probe import format_probe, memsearch
 
 BASE = 0x400000
 CAPTURE_ENTRIES = ["ADDR_SPELL_ID", "ADDR_SPELL_BONUS", "ADDR_SPELL_HISTORY"]
@@ -73,6 +73,28 @@ class TestProbe(unittest.TestCase):
 		self.assertIn("ADDR_SPELL_HISTORY = 5 (addr 0x014B0080)", lines)
 		self.assertIn("ADDR_SPELL_ID = <unsourced>", lines)
 		self.assertIn("ADDR_SPELL_BONUS = <unsourced>", lines)
+
+
+class TestMemsearch(unittest.TestCase):
+	def test_memsearch_finds_pattern(self):
+		memory = FakeMemory()
+		memory.set(0x0F00, bytes(0x2100))
+		memory.set(0x0FFE, b"CRxy")  # spans the 0x1000 page boundary
+		memory.set(0x1FFE, b"CRzw")  # spans the boundary between the two regions
+		memory.set(0x2800, b"CRCR")
+		regions = [(0x2000, 0x1000), (0x1000, 0x1000), (0x0F00, 0x100)]
+		self.assertEqual(memsearch(memory, regions, b"CR", block=0x1000), [0x0FFE, 0x1FFE, 0x2800, 0x2802])
+		self.assertEqual(memsearch(memory, regions, b"Rxy", block=0x10), [0x0FFF])
+
+	def test_memsearch_skips_unreadable(self):
+		memory = FakeMemory()
+		memory.set(0x3000, b"..CR..")
+		self.assertEqual(memsearch(memory, [(0x1000, 0x100), (0x3000, 6)], b"CR"), [0x3002])
+
+	def test_memsearch_caps_results(self):
+		memory = FakeMemory()
+		memory.set(0x1000, b"\xAA" * 200)
+		self.assertEqual(memsearch(memory, [(0x1000, 200)], b"\xAA\xAA", cap=50), list(range(0x1000, 0x1000 + 50)))
 
 
 class TestPatchSites(unittest.TestCase):
