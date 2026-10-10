@@ -36,3 +36,5 @@ EoSD's `mode` option also offers Normal mode: a full run with only the starting 
 - 2026-10-10 al-work: not started, working tree dirty. Run 20261010-160855-2 hit the session limit mid step 2 and left uncommitted work in th11/{Client,Variables,detect,patching,receive}.py (dynamic difficulty writes, continue-lives patch via `patch_immediate`, `/peek` `/poke`), with no tests yet. Left untouched. Human: commit it as WIP, or `git stash`, then rerun the loop.
 
 - 2026-10-10 al-work attempt failed: working tree still dirty with the same uncommitted step-2 work (run 20261010-164554-2); nothing implemented. Counts toward AL_MAX_FAILS so the loop stops instead of re-failing. Human: commit as WIP or `git stash`, then rerun.
+
+- 2026-10-10 al-work attempt failed: working tree still dirty with the same uncommitted step-2 work (run 20261010-164554-3); left untouched, nothing implemented. Second counted failure: the next run marks 12 `needs-human`. Human: `git stash` or commit it as WIP (or `git checkout -- th11/` to drop it), then rerun.
