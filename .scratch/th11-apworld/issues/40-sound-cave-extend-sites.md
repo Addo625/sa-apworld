@@ -1,6 +1,6 @@
 # 40: Find SA's sound cave and extend routine (static analysis)
 
-Status: needs-human
+Status: ready-for-agent
 Blocked by: 29
 
 ## Problem
@@ -27,3 +27,4 @@ Blocked by: 29
 ## Comments
 
 - 2026-10-10 al-work (29): created; 29 shipped the plumbing with every sound entry `None`.
+- 2026-10-10 human (via Claude): allowed `Bash(objdump:*)` in local settings. Back to ready-for-agent.
