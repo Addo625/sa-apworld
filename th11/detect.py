@@ -2,7 +2,7 @@
 Location detection: compares two decoded GameStates. Pure, no memory access.
 """
 from .Locations import location_table
-from .Variables import STAGE4_APPEARANCES, STAGES_LIST
+from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lower_difficulty_needed
 
 
 def run_checks(stage):
@@ -19,7 +19,26 @@ def run_checks(stage):
 	return runs
 
 
-def step(prev, state, runs=0):
+def location_names(state, names, slot_data, lower):
+	"""Run check names -> location names for this character or shot type, and difficulty (slot_data options).
+	lower: Lower Difficulty items received; check_multiple_difficulty also sends every unlocked lower difficulty."""
+	owner = state.shot if slot_data.get("shot_type") else state.character
+	if not slot_data.get("difficulty_check") or state.stage not in range(1, 7):  # Extra has no difficulty checks
+		return [f"[{owner}] {name}" for name in names]
+	difficulties = []
+	if state.difficulty in range(4):
+		lowest = state.difficulty
+		if slot_data.get("check_multiple_difficulty"):
+			unlocked = next(i for i in range(4) if lower_difficulty_needed(i, slot_data.get("exclude_lunatic")) <= lower)
+			lowest = min(lowest, unlocked)
+		difficulties = DIFFICULTY_LIST[lowest:state.difficulty + 1]
+	located = []
+	for name in names:  # clears stay per owner
+		located += [f"[{owner}] {name}"] if name.endswith(" Clear") else [f"[{d}][{owner}] {name}" for d in difficulties]
+	return located
+
+
+def step(prev, state, runs=0, slot_data=None, lower=0):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call."""
 	if not prev.in_game or prev.stage != state.stage:
 		runs = 0
@@ -32,4 +51,4 @@ def step(prev, state, runs=0):
 	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
 	checks = run_checks(state.stage)
 	names = checks[runs] if runs < len(checks) else []
-	return [location_table[f"[{state.character}] {name}"] for name in names], runs + 1
+	return [location_table[name] for name in location_names(state, names, slot_data or {}, lower)], runs + 1

@@ -80,3 +80,54 @@ class TestDetect(unittest.TestCase):
 
 	def test_detect_marisa(self):
 		self.assertEqual(run_stage(2, 1, ADDR_CHARACTER=1), ids("[Marisa] Parsee - Midboss"))
+
+
+SHOT = {"shot_type": True}
+DIFFICULTY = {"difficulty_check": True}
+MULTIPLE = {"difficulty_check": True, "check_multiple_difficulty": True}
+
+
+def boss_kill(slot_data, lower=0, **values):
+	"""Stage 1 boss leaves (the second run): Normal, Reimu A unless overridden."""
+	return step(play(boss=True, **values), play(**values), 1, slot_data, lower)[0]
+
+
+class TestDetectGranularity(unittest.TestCase):
+	def test_detect_shot_type(self):
+		self.assertEqual(boss_kill(SHOT, ADDR_CHARACTER=1, ADDR_SHOT_TYPE=2), ids("[Marisa C] Yamame Defeated", "[Marisa C] Stage 1 Clear"))
+
+	def test_detect_difficulty(self):
+		self.assertEqual(boss_kill(DIFFICULTY), ids("[Normal][Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear"))
+
+	def test_detect_shot_type_and_difficulty(self):
+		self.assertEqual(boss_kill({**SHOT, **DIFFICULTY}, ADDR_DIFFICULTY=3, ADDR_SHOT_TYPE=1), ids(
+			"[Lunatic][Reimu B] Yamame Defeated", "[Reimu B] Stage 1 Clear",
+		))
+
+	def test_detect_difficulty_without_multiple_sends_one(self):
+		self.assertEqual(boss_kill(DIFFICULTY, lower=3, ADDR_DIFFICULTY=2), ids("[Hard][Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear"))
+
+	def test_detect_multiple_difficulty_sends_unlocked_lower(self):
+		# Hard with 2 Lower Difficulty: Normal is unlocked, Easy isn't.
+		self.assertEqual(boss_kill(MULTIPLE, lower=2, ADDR_DIFFICULTY=2), ids(
+			"[Normal][Reimu] Yamame Defeated", "[Hard][Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear",
+		))
+		self.assertEqual(boss_kill(MULTIPLE, lower=3, ADDR_DIFFICULTY=3)[:4], ids(
+			"[Easy][Reimu] Yamame Defeated", "[Normal][Reimu] Yamame Defeated",
+			"[Hard][Reimu] Yamame Defeated", "[Lunatic][Reimu] Yamame Defeated",
+		))
+
+	def test_detect_multiple_difficulty_exclude_lunatic(self):
+		# Without Lunatic the game starts on Hard: 1 Lower Difficulty opens Normal.
+		self.assertEqual(boss_kill({**MULTIPLE, "exclude_lunatic": True}, lower=1, ADDR_DIFFICULTY=2)[:2], ids(
+			"[Normal][Reimu] Yamame Defeated", "[Hard][Reimu] Yamame Defeated",
+		))
+
+	def test_detect_unreadable_difficulty_still_clears(self):
+		self.assertEqual(boss_kill(DIFFICULTY, ADDR_DIFFICULTY=None), ids("[Reimu] Stage 1 Clear"))
+
+	def test_detect_extra_has_no_difficulty_checks(self):
+		self.assertEqual(
+			step(play(7, boss=True, ADDR_DIFFICULTY=4), play(7, ADDR_DIFFICULTY=4), 1, DIFFICULTY)[0],
+			ids("[Reimu] Koishi Defeated", "[Reimu] Stage Extra Clear"),
+		)

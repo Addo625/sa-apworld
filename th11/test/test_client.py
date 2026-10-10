@@ -216,6 +216,14 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertEqual(midboss_gone.writes, [])
 
+	async def test_poll_maps_checks_with_slot_data(self):
+		from ..Locations import location_table
+		ctx = self.context("Lower Difficulty")
+		ctx.on_package("Connected", {"slot_data": {"difficulty_check": True, "check_multiple_difficulty": True}})
+		prev, runs = await ctx.poll(game_memory(boss=0x3100000), None, 0)
+		await ctx.poll(game_memory(), prev, runs)  # Practice S3 is Normal; 1 Lower Difficulty doesn't open it
+		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Normal][Reimu] Kisume - Midboss"],)}])
+
 
 class TestClientIsolation(unittest.TestCase):
 	def test_client_modules_import_without_pymem(self):

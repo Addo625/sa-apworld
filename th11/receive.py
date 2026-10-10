@@ -5,7 +5,8 @@ Item application: received item names -> memory writes. Pure, no memory access.
 import logging
 
 from . import Variables
-from .Variables import CHARACTER_TO_ITEM, ENDING_NORMAL_ITEM
+from .Items import item_table
+from .Variables import ENDING_NORMAL_ITEM
 
 logger = logging.getLogger("Client")
 
@@ -13,7 +14,9 @@ MAX_LIVES = 9  # probe 06 S3: Practice starts at 9
 MAX_POWER = 80  # 4.00 in units of 0.05 (probe 06)
 POWER = {"+0.50 Power": 10, "+0.05 Power": 1}
 # These write the practice-unlock bytes, not found yet (26-27). Their counts stay in the received list for 28.
-PENDING_UNLOCK = {"Next Stage", "Lower Difficulty"} | {shot for shots in CHARACTER_TO_ITEM.values() for shot in shots}
+PENDING_UNLOCK = {"Lower Difficulty"} | {
+	name for name, data in item_table.items() if data.category == "Characters" or data.category.endswith("Stages")
+}
 
 
 def in_run(state):

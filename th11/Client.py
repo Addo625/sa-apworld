@@ -81,6 +81,7 @@ class TouhouContext(CommonContext):
 		self.items_applied = 0  # kept across server reconnects, which replay the list from index 0
 		self.applied_for = None  # (seed, slot) items_applied counts for
 		self.locations_found = set()
+		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 
 	async def server_auth(self, password_requested: bool = False):
 		if password_requested and not self.password:
@@ -97,15 +98,20 @@ class TouhouContext(CommonContext):
 			await self.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
 
 	def on_package(self, cmd: str, args: dict):
-		if cmd == "Connected" and self.applied_for != (self.seed_name, self.slot):
-			self.applied_for, self.items_applied = (self.seed_name, self.slot), 0
+		if cmd == "Connected":
+			self.slot_data = args.get("slot_data") or {}
+			if self.applied_for != (self.seed_name, self.slot):
+				self.applied_for, self.items_applied = (self.seed_name, self.slot), 0
 		if cmd == "ReceivedItems":
 			asyncio.create_task(self.check_goal())
 
 	async def poll(self, controller, prev, runs):
 		"""One loop tick: send checks for prev -> now, write new items. -> (state, runs)."""
 		state = read_state(controller)
-		locations, runs = detect.step(prev, state, runs) if prev else ([], 0)
+		# ponytail: checks found before the first connect use empty slot_data (per character, no difficulty);
+		# queue the raw runs instead if playing before connecting with shot_type/difficulty_check matters.
+		lower = self.received_names().count("Lower Difficulty")
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower) if prev else ([], 0)
 		self.locations_found.update(locations)
 		if self.slot is None:
 			return state, runs  # not connected: checks wait in locations_found

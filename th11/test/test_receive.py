@@ -36,7 +36,7 @@ class TestApply(unittest.TestCase):
 		self.assertEqual(apply_new(["+1 Life"], 0, play(lives=2)), ([(LIVES, 3)], 1))
 
 	def test_apply_pending_unlock_items_write_nothing(self):
-		for name in ("Next Stage", "Lower Difficulty", "Reimu A - Yukari"):
+		for name in ("Next Stage", "Lower Difficulty", "Reimu A - Yukari", "[Marisa] Next Stage", "[Reimu C] Stage 4", "Stage 2"):
 			with self.assertLogs("Client", "INFO"):
 				self.assertEqual(apply_new([name], 0, play()), ([], 1))
 
