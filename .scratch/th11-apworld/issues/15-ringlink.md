@@ -1,6 +1,6 @@
 # 15: RingLink (power sharing)
 
-Status: ready-for-agent
+Status: done
 Blocked by: 09
 
 ## Problem
@@ -26,3 +26,4 @@ EoSD and MoF link power gains and losses across players through RingLink.
 ## Comments
 
 - 2026-10-10 planner: promoted by the human after 09 passed. Written before 06/07 findings; use the current code: `ADDR_MENU_PTR` (not a game mode), in a stage = `ADDR_ENEMY_MANAGER` ≠ 0, boss = `ADDR_IS_BOSS_PRESENT`, power in 0.05 units (max 80). If an address this ticket needs is unsourced (e.g. Extra unlock, menu/continue sites), implement everything else, then set `needs-human` naming the probe needed.
+- 2026-10-10 al-work: done in "15: share power with RingLink". DoD: 326 passed. `ringlink.delta` takes states (not raw powers) so it can tell a run from a menu, like `deathlink.on_state`; it measures against the client's post-write `link_prev`, which excludes items, traps and received rings. No address needed. Bombs sending −20 is listed under 32's Decisions to confirm. Deferred: none.

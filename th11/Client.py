@@ -1,5 +1,6 @@
 import asyncio
 import os
+import random
 import subprocess
 import time
 
@@ -14,7 +15,7 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, receive, traps
+from . import Variables, deathlink, detect, receive, ringlink, traps
 from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
@@ -126,6 +127,17 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(f"DeathLink: {active or ('on' if 'DeathLink' in self.ctx.tags else 'off')}")
 		return True
 
+	def _cmd_ringlink(self, active: str = ""):
+		"""Turn RingLink on or off, or show it"""
+		active = active.lower()
+		if active not in ("", "on", "off"):
+			logger.error("Usage: /ringlink [on|off]")
+			return False
+		if active:
+			asyncio.create_task(self.ctx.update_ring_link(active == "on"))
+		logger.info(f"RingLink: {active or ('on' if 'RingLink' in self.ctx.tags else 'off')}")
+		return True
+
 	def _cmd_deathlink_trigger(self, value: str = ""):
 		"""Send a death on every life lost (life) or only on a game over (game_over), or show the setting"""
 		if value:
@@ -176,6 +188,18 @@ class TouhouContext(CommonContext):
 		self.link = deathlink.LinkState()
 		self.link_prev = None  # last poll's state after the client's writes, for deathlink.on_state
 		self.killed_at = -KILL_RETRY_SECONDS  # time.monotonic() of the last kill attempt
+		self.ring_link_id = random.randint(0, 999999)  # RingLink "source": our own bounces come back and are skipped
+		self.rings = 0  # received, applied at the next poll
+
+	async def update_ring_link(self, active: bool):
+		"""CommonContext.update_death_link for the RingLink tag."""
+		old_tags = self.tags.copy()
+		if active:
+			self.tags.add("RingLink")
+		else:
+			self.tags -= {"RingLink"}
+		if old_tags != self.tags and self.server and not self.server.socket.closed:
+			await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
 
 	async def server_auth(self, password_requested: bool = False):
 		if password_requested and not self.password:
@@ -202,6 +226,12 @@ class TouhouContext(CommonContext):
 					self.slot_data.get("death_link_trigger", DeathLinkTrigger.default),
 					self.slot_data.get("death_link_amnesty", DeathLinkAmnesty.default))
 				asyncio.create_task(self.update_death_link(bool(self.slot_data.get("death_link"))))
+				asyncio.create_task(self.update_ring_link(bool(self.slot_data.get("ring_link"))))
+		if cmd == "Bounced" and "RingLink" in args.get("tags", []) and "RingLink" in self.tags:
+			data = args.get("data") or {}
+			amount = data.get("amount")
+			if data.get("source") != self.ring_link_id and isinstance(amount, int) and not isinstance(amount, bool):
+				self.rings += amount
 		if cmd == "ReceivedItems":
 			asyncio.create_task(self.check_goal())
 
@@ -261,7 +291,18 @@ class TouhouContext(CommonContext):
 			if self.link.incoming and receive.in_run(state) and time.monotonic() - self.killed_at >= KILL_RETRY_SECONDS:
 				self.killed_at = time.monotonic()
 				await self.kill(controller)
-		self.link_prev = receive.with_writes(written, trap_writes)
+		written = receive.with_writes(written, trap_writes)
+		ring_writes = []
+		if "RingLink" in self.tags:
+			rings = ringlink.delta(self.link_prev, state)
+			if rings:
+				await self.send_msgs([{"cmd": "Bounce", "tags": ["RingLink"],
+					"data": {"time": time.time(), "source": self.ring_link_id, "amount": rings}}])
+			ring_writes = ringlink.receive(written, self.rings)
+		self.rings = 0
+		for entry, value in ring_writes:
+			write_int(controller, entry, value)
+		self.link_prev = receive.with_writes(written, ring_writes)
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names))
 		return state, runs

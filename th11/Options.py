@@ -290,6 +290,12 @@ class DeathLinkAmnesty(Range):
 	default = 0
 
 
+class RingLink(Toggle):
+	"""Whether power gained or lost in a stage is shared with other RingLink players (0.05 power is one ring, as in
+	MoF). Can be changed in the client with /ringlink."""
+	display_name = "RingLink"
+
+
 @dataclass
 class TH11Options(PerGameCommonOptions):
 	mode: Mode
@@ -326,3 +332,4 @@ class TH11Options(PerGameCommonOptions):
 	death_link: DeathLink
 	death_link_trigger: DeathLinkTrigger
 	death_link_amnesty: DeathLinkAmnesty
+	ring_link: RingLink

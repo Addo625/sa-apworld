@@ -51,6 +51,7 @@ Context: a received DeathLink kills the player by NOP-ing, for 0.1 s, the jump t
 - (14) DeathLink amnesty N forgives N deaths and sends the next (N = 2: every third death). EoSD sends when the count reaches N, so its 0 and 1 both send every death.
 - (14) A DeathLink received outside a run waits and kills the player in the next run (EoSD drops it on entering a stage). The next life lost after a received one is never sent, even if the player died on their own first. A kill that takes no life (bomb, respawn invincibility) is retried every 2 s.
 - (14) A received DeathLink while the kill site is unknown (until 36) is only logged; it doesn't wait.
+- (15) RingLink sends every power change the game makes in a run, one ring per 0.05 power (MoF's unit). A bomb costs 1.00 power in SA (none in MoF), so each bomb sends −20 rings, and a death sends its power loss too. Rings received outside a run are dropped (MoF).
 
 ## Steps
 1. Do the session setup, then every `R<n>` in order. Paste each one's output under `## Comments`, labeled `R<n>`.
