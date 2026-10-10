@@ -1,6 +1,6 @@
 # 14: DeathLink
 
-Status: deferred
+Status: ready-for-agent
 Blocked by: 09
 
 ## Problem
@@ -26,3 +26,7 @@ EoSD supports DeathLink with `death_link_trigger` (on a life lost or on game ove
 
 ## Deferred
 - None.
+
+## Comments
+
+- 2026-10-10 planner: promoted by the human after 09 passed. Written before 06/07 findings; use the current code: `ADDR_MENU_PTR` (not a game mode), in a stage = `ADDR_ENEMY_MANAGER` ≠ 0, boss = `ADDR_IS_BOSS_PRESENT`, power in 0.05 units (max 80). If an address this ticket needs is unsourced (e.g. Extra unlock, menu/continue sites), implement everything else, then set `needs-human` naming the probe needed.

@@ -1,6 +1,6 @@
 # 17: [human] Full in-game check under the thcrap English patch
 
-Status: deferred
+Status: ready-for-human
 Blocked by: 09
 
 ## Problem

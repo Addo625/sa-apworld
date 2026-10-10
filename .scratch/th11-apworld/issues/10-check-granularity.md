@@ -40,3 +40,5 @@ EoSD lets the player choose how stage unlocks are grouped (`stage_unlock`: globa
 ## Comments
 
 - 2026-10-07 human: promoted to ready-for-agent as written. Still blocked by 09 (in-game smoke), so the loop picks it up only after 09 is done.
+
+- 2026-10-10 planner: promoted by the human after 09 passed. Written before 06/07 findings; use the current code: `ADDR_MENU_PTR` (not a game mode), in a stage = `ADDR_ENEMY_MANAGER` ≠ 0, boss = `ADDR_IS_BOSS_PRESENT`, power in 0.05 units (max 80). If an address this ticket needs is unsourced (e.g. Extra unlock, menu/continue sites), implement everything else, then set `needs-human` naming the probe needed.

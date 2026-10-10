@@ -17,6 +17,7 @@ Blocked by: 08, 27
   - Shot type → that shot's rows.
   - Tests: `test_apply_next_stage_writes_unlock_rows`, `test_apply_lower_difficulty`, `test_apply_shot_type`, and the replay test from 08 extended to these items.
 - **Pending replay:** items received before this ticket (tracked by 08) are applied on connect.
+- **Lock what isn't received** (09 finding: a fully unlocked save let Reimu B send checks without owning it): on attach and on connect, write the practice table so only received shot types × unlocked difficulties × stages ≤ `Next Stage` + 1 are open, as EoSD rewrites practice access. Restoring the player's own save is the README's job (back up `scoreth11.dat`). `test_lock_unreceived_shots_on_connect`.
 
 ## Steps
 1. Add the address, with a fixture from 27's output. Green.
