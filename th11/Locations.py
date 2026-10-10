@@ -35,3 +35,11 @@ for prefix in [f"[{character}] " for character in ALL_CHARACTERS_LIST] + [""]:
 		for k in range(1, count + 1):
 			location_table[f"{prefix}Stage {level_name} - Capture {k}"] = STARTING_ID + location_id_offset
 			location_id_offset += 1
+
+# Stage 4 cat-Orin appearances (ticket 25), appended after the captures.
+for prefix in [f"[{character}] " for character in ALL_CHARACTERS_LIST] + [
+	f"[{difficulty}][{character}] " for difficulty in DIFFICULTY_LIST for character in ALL_CHARACTERS_LIST
+]:
+	for check in STAGE4_APPEARANCES:
+		location_table[f"{prefix}{check}"] = STARTING_ID + location_id_offset
+		location_id_offset += 1

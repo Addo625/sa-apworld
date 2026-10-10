@@ -10,7 +10,7 @@ You play stage by stage in Practice Mode and unlock the stages progressively. Ea
 
 ## Locations
 For each character (Reimu, Marisa), in stages 1 to 6:
-* Midboss Defeated (except Stage 4, whose midboss leaves on a timer)
+* Midboss Defeated (Stage 4 instead: Cat Orin's First and Second Appearance, each survived until she leaves)
 * Boss Defeated
 * Stage Cleared
 

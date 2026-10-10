@@ -50,8 +50,22 @@ class TestDetect(unittest.TestCase):
 	def test_detect_stage3_single_run(self):
 		self.assertEqual(run_stage(3, 1), ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
 
-	def test_detect_stage4_no_midboss(self):
-		self.assertEqual(run_stage(4, 3), ids("[Reimu] Satori Defeated", "[Reimu] Stage 4 Clear"))
+	def test_detect_stage4_first_appearance(self):
+		self.assertEqual(run_stage(4, 1), ids("[Reimu] Cat Orin - First Appearance"))
+
+	def test_detect_stage4_second_appearance(self):
+		self.assertEqual(step(play(4, boss=True), play(4), 1), (ids("[Reimu] Cat Orin - Second Appearance"), 2))
+
+	def test_detect_stage4_satori_after_two_runs(self):
+		self.assertEqual(run_stage(4, 3), ids(
+			"[Reimu] Cat Orin - First Appearance", "[Reimu] Cat Orin - Second Appearance",
+			"[Reimu] Satori Defeated", "[Reimu] Stage 4 Clear",
+		))
+
+	def test_detect_stage4_quit_mid_encounter_sends_nothing(self):
+		quit_to_menu = decode_state({**S0, "ADDR_STAGE": 4, "ADDR_LIVES": 6})  # S9
+		self.assertEqual(step(play(4, boss=True), quit_to_menu, 0), ([], 0))
+		self.assertEqual(step(play(4, boss=True), play(4, ADDR_MENU=0), 1), ([], 1))
 
 	def test_detect_full_stage(self):
 		self.assertEqual(run_stage(6, 2), ids("[Reimu] Orin - Midboss", "[Reimu] Utsuho Defeated", "[Reimu] Stage 6 Clear"))

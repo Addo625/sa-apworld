@@ -3,25 +3,26 @@ from Fill import distribute_items_restrictive
 
 from .. import test as bases
 from ..Rules import stage_rooms
-from ..Variables import CHARACTER_TO_ITEM
+from ..Locations import location_table
+from ..Variables import CHARACTER_TO_ITEM, STAGE4_APPEARANCES, STARTING_ID
 
 ALL_SHOTS = CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"]
 STAGE3 = "[Reimu] Yuugi Defeated"
 STAGE4 = "[Reimu] Satori Defeated"
 STAGE5 = "[Reimu] Orin Defeated"
 STAGE6 = "[Reimu] Utsuho Defeated"
-# Stage k: locations in stages < k (6, 6, 6, 4, 6 per stage) - (k-1) Next Stage - other shot - GATE_SLACK.
-DEFAULT_ROOMS = [-3, 2, 7, 12, 15, 20]
+# Stage k: locations in stages < k (6, 6, 6, 8, 6 per stage) - (k-1) Next Stage - other shot - GATE_SLACK.
+DEFAULT_ROOMS = [-4, 1, 6, 11, 18, 23]
 
 
 class TestGenerate(bases.TH11TestBase):
 	def test_location_count(self):
-		self.assertEqual(len(self.multiworld.get_locations(self.player)), 34)
+		self.assertEqual(len(self.multiworld.get_locations(self.player)), 38)
 
 	def test_item_count_matches_locations(self):
 		pool = [item for item in self.multiworld.itempool if item.player == self.player]
 		locked = [loc for loc in self.multiworld.get_locations(self.player) if loc.locked]
-		self.assertEqual(len(pool) + len(locked), 34)
+		self.assertEqual(len(pool) + len(locked), 38)
 		self.assertEqual(len(locked), 2)
 		self.assertEqual(len(self.get_items_by_name(ALL_SHOTS)), 5)
 		self.assertEqual(len(self.multiworld.precollected_items[self.player]), 1)
@@ -37,6 +38,17 @@ class TestGenerate(bases.TH11TestBase):
 		self.remove(self.get_items_by_name("Next Stage")[:4])
 		self.assertFalse(self.can_reach_location(STAGE3))
 		self.assertTrue(self.can_reach_location("[Reimu] Parsee Defeated"))
+
+	def test_cat_orin_gated_like_satori(self):
+		for check in STAGE4_APPEARANCES:
+			location = self.multiworld.get_location(f"[Marisa] {check}", self.player)
+			self.assertEqual(location.parent_region.name, "[Marisa] Stage 4")
+
+	def test_cat_orin_ids_appended(self):
+		appearances = [id for name, id in location_table.items() if " Appearance" in name]
+		self.assertEqual(len(appearances), 2 * 8 * 5)  # base + 4 difficulties, 8 characters/shots
+		self.assertEqual(sorted(appearances), sorted(location_table.values())[-len(appearances):])
+		self.assertEqual(location_table["[Reimu] Satori Defeated"], STARTING_ID + 9)
 
 	def test_stage_needs_character_shot(self):
 		start = self.multiworld.precollected_items[self.player][0].name
@@ -170,5 +182,5 @@ class TestMaxGates(bases.TH11TestBase):
 		with self.assertLogs(level="WARNING") as logs:
 			self.world_setup()
 		self.assertTrue(any("Stage 3" in line for line in logs.output))
-		# (4, 4, 1) needs 9 slots; stage 3 has room for 7.
-		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][2], (3, 3, 1, 0))
+		# (4, 4, 1) needs 9 slots; stage 3 has room for 6.
+		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][2], (2, 3, 1, 0))

@@ -2,7 +2,7 @@
 Location detection: compares two decoded GameStates. Pure, no memory access.
 """
 from .Locations import location_table
-from .Variables import STAGES_LIST
+from .Variables import STAGE4_APPEARANCES, STAGES_LIST
 
 
 def run_checks(stage):
@@ -11,7 +11,7 @@ def run_checks(stage):
 	if stage == 3:  # Yuugi stays from midboss into boss: one run. Ticket 22 splits it by spell ID.
 		runs = [checks]
 	elif stage == 4:  # Two cat-Orin runs (ticket 25), then Satori.
-		runs = [[], [], checks]
+		runs = [[check] for check in STAGE4_APPEARANCES] + [checks]
 	else:
 		runs = [[check] for check in checks]
 	# No tally signal: the field drops 1.7 s before the clear bonus (06 bossrec), so the last run's end is the clear.

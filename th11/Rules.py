@@ -4,7 +4,7 @@ from .Variables import *
 
 RESOURCES = ["lives", "power", "difficulty", "keys"]
 # ponytail: fixed slack for fill randomness; raise it if a fixed seed in test_extremes_fill_fixed_seeds fails.
-GATE_SLACK = 2
+GATE_SLACK = 3
 # ponytail: +1 slack per this many required keys; measured, 50 required keys failed 3-11 of 50
 # fixed seeds at slack 2-5 and 0 at 6-8. Scale with total gate size if non-key gates ever grow.
 KEYS_PER_SLACK = 10

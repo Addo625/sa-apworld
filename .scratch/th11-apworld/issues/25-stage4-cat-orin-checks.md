@@ -1,6 +1,6 @@
 # 25: Stage 4 gets two checks, one per cat-Orin appearance
 
-Status: ready-for-agent
+Status: done
 Blocked by: 08
 
 ## Problem
@@ -27,3 +27,6 @@ Stage 4 has no midboss location in v1, because cat Orin can't be defeated: she l
 
 ## Deferred
 - If a later stage 4 recording shows only one appearance on some difficulty, make the second location difficulty-gated, or drop it then.
+
+## Comments
+- al-work 2026-10-10: done in one commit. IDs appended after the capture slots (base + 4 difficulty variants × 8 characters/shots). DoD `pytest worlds/th11/test -q` → 136 passed, 994 subtests. The 4 new stage 4 locations widened the stage 5/6 rooms so max gates stopped clamping, and `test_extremes_fill_fixed_seeds` failed seeds 8 (max) and 15 (keys max); `GATE_SLACK` raised 2 → 3 per its ponytail note, which makes every gate's room one smaller (stage 3 max clamp now (2, 3, 1)). No new deferred tickets.

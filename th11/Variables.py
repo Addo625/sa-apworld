@@ -15,7 +15,8 @@ CHARACTER_TO_ITEM = {
 }
 DIFFICULTY_LIST = ["Easy", "Normal", "Hard", "Lunatic"]
 EXTRA_CHECKS = ["Sanae - Midboss", "Koishi Defeated"]
-# Stage 4's midboss has no spell card and leaves on a timer: no location.
+# Stage 4's cat Orin leaves on a timer, twice; her checks are STAGE4_APPEARANCES, appended
+# after the captures in the ID table so these IDs don't shift.
 STAGES_LIST = [
 	["Kisume - Midboss", "Yamame Defeated"],
 	["Parsee - Midboss", "Parsee Defeated"],
@@ -25,6 +26,7 @@ STAGES_LIST = [
 	["Orin - Midboss", "Utsuho Defeated"],
 	EXTRA_CHECKS,
 ]
+STAGE4_APPEARANCES = ["Cat Orin - First Appearance", "Cat Orin - Second Appearance"]
 # Capture slots per stage 1-6: the fewest spell cards any difficulty offers (stage 1:
 # Kisume's card is Hard/Lunatic only). From memory and spells.js's ID grouping; 23 verifies it.
 CAPTURE_CAPS = [2, 4, 4, 4, 5, 6]

@@ -18,7 +18,8 @@ def create_regions(world):
 		capture_names = [f"Stage {level} - Capture {k}" for k in range(1, captures + 1)]
 		for character in CHARACTERS_LIST:
 			region = Region(f"[{character}] Stage {level}", player, multiworld)
-			checks = [f"[{character}] {check}" for check in STAGES_LIST[level - 1]] + [f"[{character}] Stage {level} Clear"]
+			stage_checks = STAGES_LIST[level - 1] + (STAGE4_APPEARANCES if level == 4 else [])
+			checks = [f"[{character}] {check}" for check in stage_checks] + [f"[{character}] Stage {level} Clear"]
 			if not shared:
 				checks += [f"[{character}] {name}" for name in capture_names]
 			region.add_locations({name: location_table[name] for name in checks}, TLocation)

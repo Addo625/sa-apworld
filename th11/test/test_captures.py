@@ -14,10 +14,10 @@ def capture_locations(test):
 
 
 def assert_pool_fills(test, captures, keys):
-	"""34 core locations plus captures, all filled: pool + 2 locked endings."""
+	"""38 core locations plus captures, all filled: pool + 2 locked endings."""
 	pool = [item for item in test.multiworld.itempool if item.player == test.player]
-	test.assertEqual(len(test.multiworld.get_locations(test.player)), 34 + captures)
-	test.assertEqual(len(pool) + 2, 34 + captures)
+	test.assertEqual(len(test.multiworld.get_locations(test.player)), 38 + captures)
+	test.assertEqual(len(pool) + 2, 38 + captures)
 	test.assertEqual(len(test.get_items_by_name("Spell Card Key")), keys)
 
 
@@ -33,7 +33,7 @@ class TestOffCreatesNone(bases.TH11TestBase):
 
 	def test_off_creates_none(self):
 		self.assertEqual(capture_locations(self), [])
-		self.assertEqual(len(self.multiworld.get_locations(self.player)), 34)
+		self.assertEqual(len(self.multiworld.get_locations(self.player)), 38)
 
 
 class TestAlongside(bases.TH11TestBase):
@@ -48,9 +48,9 @@ class TestAlongside(bases.TH11TestBase):
 		assert_pool_fills(self, 24, 12)
 
 	def test_rooms_count_captures_and_key_slack(self):
-		# Stages hold 10, 10, 10, 8, 10 locations with 2 captures per character.
-		self.assertEqual(stage_rooms(self.world), [-3, 6, 15, 24, 31, 40])
-		self.assertEqual(stage_rooms(self.world, keys_required=20), [-5, 4, 13, 22, 29, 38])
+		# Stages hold 10, 10, 10, 12, 10 locations with 2 captures per character.
+		self.assertEqual(stage_rooms(self.world), [-4, 5, 14, 23, 34, 43])
+		self.assertEqual(stage_rooms(self.world, keys_required=20), [-6, 3, 12, 21, 32, 41])
 
 	def test_key_gate_stage3(self):
 		# 12 keys at 75 % -> 9 required by stage 6, floor(9/4) = 2 at stage 3.
