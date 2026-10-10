@@ -8,6 +8,7 @@ def create_regions(world):
 	"""Menu -> owner (character, or shot type with shot_type) -> Stage N, one gate per stage.
 	Difficulty checks live in "[<Difficulty>][<owner>] Stage N", entered from the owner's Stage N.
 	Shared capture slots get a "Stage N Captures" region entered from any owner's Stage N.
+	With extra_stage, "[<owner>] Stage Extra" is stage 7.
 	Connections live in Rules. world.stage_regions[N-1] lists stage N's owner and shared capture regions,
 	world.difficulty_regions[N-1] its difficulty regions as (difficulty, owner, region)."""
 	player, multiworld = world.player, world.multiworld
@@ -38,3 +39,9 @@ def create_regions(world):
 				world.difficulty_regions[level - 1].append((difficulty, owner, region(f"[{difficulty}][{owner}] Stage {level}", checks)))
 		if shared and capture_names:
 			world.stage_regions[level - 1].append(region(f"Stage {level} Captures", capture_names))
+	if world.options.extra_stage:  # stage 7: no difficulty or capture checks
+		world.stage_regions.append([
+			region(f"[{owner}] Stage Extra", [f"[{owner}] {check}" for check in EXTRA_CHECKS + ["Stage Extra Clear"]])
+			for owner in world.owners
+		])
+		world.difficulty_regions.append([])

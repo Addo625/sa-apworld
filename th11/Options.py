@@ -94,6 +94,56 @@ class DifficultyEnd(Choice):
 	default = 0
 
 
+class ExtraStage(Choice):
+	"""Whether the Extra stage (Sanae, Koishi) is included.
+	exclude: no Extra stage.
+	linear: Extra is a 7th stage, opened by one more Next Stage (progressive) or an Extra Stage item after Stage 6.
+	apart: Extra has its own Extra Stage item; the game opens it right away, logic still expects it after Stage 6.
+	Extra Stage items follow stage_unlock (global, per character or per shot type)."""
+	display_name = "Extra Stage"
+	option_exclude = 0
+	option_linear = 1
+	option_apart = 2
+	default = 0
+
+
+class NumberLifeExtra(Range):
+	"""Number of lives the randomizer expects you to have before facing Koishi"""
+	display_name = "Lives expected for the Extra stage"
+	range_start = 0
+	range_end = 8
+	default = 0
+
+
+class PowerExtra(Range):
+	"""Number of +0.50 Power packs the randomizer expects you to have before facing Koishi"""
+	display_name = "Power packs expected for the Extra stage"
+	range_start = 0
+	range_end = 8
+	default = 0
+
+
+class Goal(Choice):
+	"""Which boss's ending is the goal. koishi and both need the Extra stage; without it the goal is utsuho."""
+	display_name = "Goal"
+	option_utsuho = 0
+	option_koishi = 1
+	option_both = 2
+	default = 0
+
+
+class EndingRequired(Choice):
+	"""How many times each goal ending is needed.
+	once: with either character.
+	both_characters: with Reimu and with Marisa.
+	all_shot_types: with every shot type; needs shot_type, otherwise acts as both_characters."""
+	display_name = "Ending required"
+	option_once = 0
+	option_both_characters = 1
+	option_all_shot_types = 2
+	default = 0
+
+
 class SpellCardKeys(Choice):
 	"""Capturing spell cards becomes checks, and Spell Card Keys in the pool gate stages 3-6.
 	off: no capture checks or keys.
@@ -158,6 +208,11 @@ class TH11Options(PerGameCommonOptions):
 	number_life_end: NumberLifeEnd
 	power_end: PowerEnd
 	difficulty_end: DifficultyEnd
+	extra_stage: ExtraStage
+	number_life_extra: NumberLifeExtra
+	power_extra: PowerExtra
+	goal: Goal
+	ending_required: EndingRequired
 	spell_card_keys: SpellCardKeys
 	captures_per_stage: CapturesPerStage
 	capture_slots: CaptureSlots

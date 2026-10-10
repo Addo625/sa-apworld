@@ -23,6 +23,11 @@ class TestStageRequirements(unittest.TestCase):
 	def test_ramp_keys(self):
 		self.assertEqual([req[3] for req in ramp((0, 0, 0), (0, 0, 0), keys=9)], [0, 0, 2, 4, 6, 9])
 
+	def test_ramp_extra(self):
+		reqs = stage_requirements(MAX, MAX, 8, [100] * 7, (5, 2, 0))[0]
+		self.assertEqual(reqs[6], (5, 2, 0, 8))
+		self.assertEqual(len(stage_requirements(MAX, MAX, 8, BIG, (5, 2, 0))[0]), 6)
+
 	def test_clamp_largest_first(self):
 		rooms = [100, 100, 100, 5, 100, 100]
 		self.assertEqual(ramp((2, 5, 0), (2, 5, 0), rooms=rooms)[3], (2, 3, 0, 0))

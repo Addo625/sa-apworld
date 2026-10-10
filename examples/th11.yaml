@@ -15,4 +15,9 @@ Touhou Chireiden ~ Subterranean Animism:
   number_life_end: 0
   power_end: 0
   difficulty_end: lunatic
+  extra_stage: exclude
+  number_life_extra: 0
+  power_extra: 0
+  goal: utsuho
+  ending_required: once
   death_link: 'false'

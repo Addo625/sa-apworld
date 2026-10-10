@@ -12,18 +12,22 @@ KEYS_PER_SLACK = 10
 # clogs early spheres more. Measured at max gates over 100 fixed seeds, per group: by_character failed 3-6 at +1,
 # 0 at +2; shot types (6 groups) 5 at +1, 0-1 at +2, 0 at +3.
 SLACK_PER_UNLOCK_GROUP = 3
+# ponytail: the Extra stage adds a late stage item per group. Measured at max gates (Extra 8/8) over 100 fixed
+# seeds, per group: linear 3-5 failed at +0-1 (global, by_character not progressive), apart shot types 4 at +1; 0 at +2.
+EXTRA_SLACK = 2
 
 
-def stage_requirements(mid, end, keys_required, rooms):
-	"""Per-stage (lives, power, difficulty, keys) for stages 1-6, cut to fit each stage's room.
+def stage_requirements(mid, end, keys_required, rooms, extra=(0, 0, 0)):
+	"""Per-stage (lives, power, difficulty, keys) for stages 1-6, and Extra as stage 7 when rooms has 7 entries,
+	cut to fit each stage's room.
 
-	Each resource ramps 0, 0, mid/2, mid, (mid+end)/2, end. Over room, the largest of
+	Each resource ramps 0, 0, mid/2, mid, (mid+end)/2, end; Extra needs `extra` and stage 6's keys. Over room, the largest of
 	lives/power/keys loses one (ties: lives, power, keys); difficulty goes only once they're 0.
 	"""
 	requirements, notes = [], []
 	for stage, room in enumerate(rooms, 1):
-		req = [[0, 0, m // 2, m, (m + e) // 2, e][stage - 1] for m, e in zip(mid, end)]
-		req.append(0 if stage < 3 else keys_required * (stage - 2) // 4)
+		req = [[0, 0, m // 2, m, (m + e) // 2, e, x][stage - 1] for m, e, x in zip(mid, end, extra)]
+		req.append(keys_required * min(max(stage - 2, 0), 4) // 4)
 		while sum(req) > room:
 			index = max((0, 1, 3), key=lambda i: req[i])  # max() keeps the first of a tie
 			if req[index] == 0:
@@ -51,8 +55,10 @@ def stage_rooms(world, keys_required=0):
 	slack = GATE_SLACK + keys_required // KEYS_PER_SLACK
 	if not world.options.progressive_stage:
 		slack += SLACK_PER_UNLOCK_GROUP * groups
+	if world.options.extra_stage:
+		slack += EXTRA_SLACK * groups
 	open_before, rooms = 0, []
-	for stage in range(1, 7):
+	for stage in range(1, len(world.stage_regions) + 1):
 		rooms.append(open_before - (stage - 1) * groups - (len(world.owners) - 1) - slack)
 		regions = world.stage_regions[stage - 1] + [
 			region for difficulty, _, region in world.difficulty_regions[stage - 1] if not difficulty_lower(world, difficulty)
@@ -73,9 +79,12 @@ def owner_groups(world, owner):
 	return [shot for shot in SHOT_TYPE_LIST if SHOT_TO_CHARACTER[shot] == owner]  # by_shot_type with character checks
 
 
-def stage_unlocked(state, player, group, level, progressive):
+def stage_unlocked(state, player, group, level, progressive, apart=False):
+	"""Level 7 is Extra: one more Next Stage (linear, progressive), else the Extra Stage item."""
 	prefix = f"[{group}] " if group else ""
-	if progressive:
+	if level == 7 and (apart or not progressive):
+		unlocked = state.has(f"{prefix}Extra Stage", player)
+	elif progressive:
 		unlocked = state.has(f"{prefix}Next Stage", player, level - 1)
 	else:
 		# The game opens stage k with just its item; logic also wants the earlier ones, so stages < k
@@ -94,21 +103,27 @@ def set_rules(world):
 
 	mid = (options.number_life_mid.value, options.power_mid.value, difficulty(options.difficulty_mid))
 	end = (options.number_life_end.value, options.power_end.value, difficulty(options.difficulty_end))
+	extra = (options.number_life_extra.value, options.power_extra.value, 0)
 	if options.spell_card_keys == options.spell_card_keys.option_keys_only:
-		mid = end = (0, 0, 0)
+		mid = end = extra = (0, 0, 0)
 	keys_required = world.key_count * options.spell_card_keys_required.value // 100
-	world.stage_requirements, notes = stage_requirements(mid, end, keys_required, stage_rooms(world, keys_required))
+	world.stage_requirements, notes = stage_requirements(mid, end, keys_required, stage_rooms(world, keys_required), extra)
 	for note in notes:
 		logging.warning(f"{SHORT_NAME} ({world.player_name}): gate doesn't fit, {note}")
 
 	progressive = bool(options.progressive_stage)
+	apart = options.extra_stage == options.extra_stage.option_apart
 	for owner in world.owners:
 		shots = CHARACTER_TO_ITEM[owner]
 		groups = owner_groups(world, owner)
 		get("Menu").connect(get(owner), rule=lambda state, shots=shots: state.has_any(shots, player))
 		for level, (lives, power, lower, keys) in enumerate(world.stage_requirements, 1):
-			get(owner).connect(get(f"[{owner}] Stage {level}"), rule=lambda state, groups=groups, level=level, lives=lives, power=power, lower=lower, keys=keys: (
-				any(stage_unlocked(state, player, group, level, progressive) for group in groups)
+			# ponytail: logic puts Extra after Stage 6 even when apart (the game opens it with the item alone): an apart
+			# Extra gated by every life and power pack failed fill 9 of 100 fixed seeds, 0 once chained. To let apart
+			# Extra into logic early, connect it from the owner and cap its gate below stage 6's, then re-measure.
+			source = get(f"[{owner}] Stage 6") if level == 7 else get(owner)
+			source.connect(get(f"[{owner}] Stage {'Extra' if level == 7 else level}"), rule=lambda state, groups=groups, level=level, lives=lives, power=power, lower=lower, keys=keys: (
+				any(stage_unlocked(state, player, group, level, progressive, apart) for group in groups)
 				and state.has("+1 Life", player, lives)
 				and state.has("+0.50 Power", player, power)
 				and state.has("Lower Difficulty", player, lower)
@@ -129,5 +144,26 @@ def set_rules(world):
 				state.has("Lower Difficulty", player, lower)
 			))
 
-	endings = [f"[{character}] {ENDING_NORMAL_ITEM}" for character in CHARACTERS_LIST]
-	world.multiworld.completion_condition[player] = lambda state: state.has_any(endings, player)
+	goal, required = options.goal.value, options.ending_required.value
+	world.multiworld.completion_condition[player] = lambda state: goal_met(lambda name: state.count(name, player), goal, required)
+
+
+def goal_endings(goal):
+	"""Ending items the goal option (0 utsuho, 1 koishi, 2 both) needs."""
+	return [[ENDING_NORMAL_ITEM], [ENDING_EXTRA_ITEM], [ENDING_NORMAL_ITEM, ENDING_EXTRA_ITEM]][goal]
+
+
+def goal_met(count, goal, ending_required):
+	"""count(item name) -> int. ending_required: 0 once, 1 both characters, 2 all shot types
+	(each shot's clear holds one "[<character>] Ending", so one per shot)."""
+	for ending in goal_endings(goal):
+		if ending_required == 0:
+			met = any(count(f"[{character}] {ending}") for character in CHARACTERS_LIST)
+		else:
+			met = all(
+				count(f"[{character}] {ending}") >= (len(CHARACTER_TO_ITEM[character]) if ending_required == 2 else 1)
+				for character in CHARACTERS_LIST
+			)
+		if not met:
+			return False
+	return True

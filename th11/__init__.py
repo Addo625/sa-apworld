@@ -10,7 +10,7 @@ from .Items import TItem, item_table
 from .Locations import location_table
 from .Options import TH11Options
 from .Regions import create_regions
-from .Rules import set_rules
+from .Rules import goal_endings, set_rules
 from .Variables import *
 
 # Pooled at max_quantity (one fewer Lower Difficulty without Lunatic). Shot types and stages are added separately.
@@ -54,6 +54,11 @@ class TWorld(World):
 		# Too few locations for 30 stage items without extra checks (EoSD).
 		if options.stage_unlock == options.stage_unlock.option_by_shot_type and not (options.shot_type or options.difficulty_check):
 			options.stage_unlock.value = options.stage_unlock.option_by_character
+		# Koishi needs the Extra stage, and all shot types needs shot-type checks (EoSD).
+		if not options.extra_stage:
+			options.goal.value = options.goal.option_utsuho
+		if options.ending_required == options.ending_required.option_all_shot_types and not options.shot_type:
+			options.ending_required.value = options.ending_required.option_both_characters
 		self.unlock_groups = {
 			options.stage_unlock.option_global: [""],
 			options.stage_unlock.option_by_character: CHARACTERS_LIST,
@@ -83,9 +88,12 @@ class TWorld(World):
 	def create_items(self):
 		total_locations = len(self.multiworld.get_unfilled_locations(self.player))
 
+		endings = goal_endings(self.options.goal.value)
 		for owner in self.owners:
-			location = self.multiworld.get_location(f"[{owner}] Stage 6 Clear", self.player)
-			location.place_locked_item(self.create_item(f"[{SHOT_TO_CHARACTER.get(owner, owner)}] {ENDING_NORMAL_ITEM}"))
+			for ending, level in zip([ENDING_NORMAL_ITEM, ENDING_EXTRA_ITEM], [6, "Extra"]):
+				if ending in endings:
+					location = self.multiworld.get_location(f"[{owner}] Stage {level} Clear", self.player)
+					location.place_locked_item(self.create_item(f"[{SHOT_TO_CHARACTER.get(owner, owner)}] {ending}"))
 
 		pool = []
 		for name in CORE_ITEMS:
@@ -96,6 +104,9 @@ class TWorld(World):
 		for group in self.unlock_groups:
 			prefix = f"[{group}] " if group else ""
 			names = [f"{prefix}Next Stage"] * 5 if self.options.progressive_stage else [f"{prefix}Stage {level}" for level in range(2, 7)]
+			if self.options.extra_stage:  # linear and progressive: one more Next Stage; else an Extra Stage item
+				linear = self.options.extra_stage == self.options.extra_stage.option_linear
+				names.append(f"{prefix}Next Stage" if linear and self.options.progressive_stage else f"{prefix}Extra Stage")
 			pool += [self.create_item(name) for name in names]
 
 		shots = [shot for character in CHARACTERS_LIST for shot in CHARACTER_TO_ITEM[character]]
@@ -112,7 +123,7 @@ class TWorld(World):
 			early[f"{prefix}Next Stage" if self.options.progressive_stage else f"{prefix}Stage 2"] = 1
 		pool += [self.create_item("Spell Card Key") for _ in range(self.key_count)]
 
-		pool += [self.create_item(self.get_filler_item_name()) for _ in range(total_locations - len(self.owners) - len(pool))]
+		pool += [self.create_item(self.get_filler_item_name()) for _ in range(total_locations - len(self.owners) * len(endings) - len(pool))]
 		self.multiworld.itempool += pool
 
 	def get_filler_item_name(self) -> str:
@@ -126,10 +137,14 @@ class TWorld(World):
 				"exclude_lunatic",
 				"number_life_mid", "power_mid", "difficulty_mid",
 				"number_life_end", "power_end", "difficulty_end",
+				"extra_stage", "number_life_extra", "power_extra",
+				# goal and ending_required are in effect (koishi/both without Extra read utsuho,
+				# all_shot_types without shot_type reads both_characters).
+				"goal", "ending_required",
 				"death_link",
 				# spell_card_keys is the mode in effect (keys_only without keys reads alongside).
 				"spell_card_keys", "captures_per_stage", "capture_slots",
 			),
-			# Per stage 1-6: (lives, power, lower difficulty, keys), after any fit cuts.
+			# Per stage 1-6 and Extra: (lives, power, lower difficulty, keys), after any fit cuts.
 			"stage_requirements": self.stage_requirements,
 		}

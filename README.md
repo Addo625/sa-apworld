@@ -6,7 +6,7 @@ Ported from Nepley's EoSD apworld.
 ## How does this randomizer work ?
 At the start, you have only one shot type, zero resources and only the Lunatic difficulty.<br />
 You play stage by stage in Practice Mode and unlock the stages progressively. Each item makes the stages easier to clear.<br />
-**Goal:** clear Stage 6 (Utsuho) with either character.
+**Goal:** clear Stage 6 (Utsuho), the Extra stage (Koishi) or both; once, with both characters or with every shot type (see **Goal** and **Ending Required**).
 
 ## Locations
 For each character (Reimu, Marisa), or each shot type with **Shot Type Check**, in stages 1 to 6:
@@ -16,9 +16,12 @@ For each character (Reimu, Marisa), or each shot type with **Shot Type Check**, 
 
 With **Difficulty Check**, midboss and boss checks exist once per difficulty (`[Hard][Reimu] Yamame Defeated`).
 
+With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clear` per character or shot type (no difficulty checks).
+
 ## Items
 * Shot Types (Reimu A/B/C, Marisa A/B/C)
 * Next Stage (Practice Mode): global, per character or per shot type; `Stage 2` .. `Stage 6` without Progressive Stage Unlock
+* Extra Stage (with **Extra Stage** apart, or linear without Progressive Stage Unlock), grouped like Next Stage. Not written to the game yet: its unlock address is still unknown.
 * +0.50 Power
 * +1 Life
 * Lower Difficulty
@@ -39,6 +42,12 @@ With **Difficulty Check**, midboss and boss checks exist once per difficulty (`[
 **Exclude Lunatic:** You can exclude the Lunatic difficulty and therefore start on Hard.
 
 **Resources:** You can set the lives, power packs and difficulty expected for stages 3/4 (Yuugi, Satori) and stages 5/6 (Orin, Utsuho). The requirement ramps up stage by stage. If a gate can't fit in the locations open before its stage, it is lowered and generation logs a warning naming the stage.
+
+**Extra Stage:** exclude, linear (a 7th stage: one more Next Stage, or an Extra Stage item after Stage 6 without Progressive Stage Unlock) or apart (its own Extra Stage item; logic still expects Stage 6 first). Lives and power packs expected for Koishi are set separately.
+
+**Goal:** Utsuho, Koishi or both. Koishi and both need the Extra stage; without it the goal is Utsuho.
+
+**Ending Required:** once (either character), both characters, or all shot types (needs Shot Type Check; otherwise both characters).
 
 **Death Link:** Not implemented yet; the option does nothing.
 
