@@ -296,6 +296,15 @@ class RingLink(Toggle):
 	display_name = "RingLink"
 
 
+class LimitLives(Range):
+	"""Most lives a +1 Life (or a normal-mode continue) can give you. Only the client applies it, not the item pool
+	or logic. Can be changed in the client with /limits."""
+	display_name = "Lives limit"
+	range_start = 0
+	range_end = 9
+	default = 9
+
+
 @dataclass
 class TH11Options(PerGameCommonOptions):
 	mode: Mode
@@ -333,3 +342,4 @@ class TH11Options(PerGameCommonOptions):
 	death_link_trigger: DeathLinkTrigger
 	death_link_amnesty: DeathLinkAmnesty
 	ring_link: RingLink
+	limit_lives: LimitLives

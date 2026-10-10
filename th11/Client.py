@@ -17,7 +17,7 @@ from settings import get_settings
 
 from . import Variables, deathlink, detect, receive, ringlink, traps
 from .Items import item_table
-from .Options import DeathLinkAmnesty, DeathLinkTrigger
+from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_immediate, safe_patch
 from .probe import float_candidates, format_probe, memsearch, read_entry, read_float, write_float, write_int
@@ -158,6 +158,16 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(f"DeathLink amnesty: {self.ctx.link.amnesty}")
 		return True
 
+	def _cmd_limits(self, lives: str = ""):
+		"""Set the most lives a +1 Life can give (0-9), or show it"""
+		if lives:
+			if not lives.isdigit() or not LimitLives.range_start <= int(lives) <= LimitLives.range_end:
+				logger.error("Usage: /limits [0-9]")
+				return False
+			self.ctx.limit_lives = int(lives)
+		logger.info(f"Lives limit: {self.ctx.limit_lives}")
+		return True
+
 	def _cmd_launch(self):
 		"""Launch Touhou SA"""
 		game_exe = get_settings().touhou_sa_settings.game_exe
@@ -190,6 +200,7 @@ class TouhouContext(CommonContext):
 		self.killed_at = -KILL_RETRY_SECONDS  # time.monotonic() of the last kill attempt
 		self.ring_link_id = random.randint(0, 999999)  # RingLink "source": our own bounces come back and are skipped
 		self.rings = 0  # received, applied at the next poll
+		self.limit_lives = LimitLives.default
 
 	async def update_ring_link(self, active: bool):
 		"""CommonContext.update_death_link for the RingLink tag."""
@@ -227,6 +238,7 @@ class TouhouContext(CommonContext):
 					self.slot_data.get("death_link_amnesty", DeathLinkAmnesty.default))
 				asyncio.create_task(self.update_death_link(bool(self.slot_data.get("death_link"))))
 				asyncio.create_task(self.update_ring_link(bool(self.slot_data.get("ring_link"))))
+				self.limit_lives = self.slot_data.get("limit_lives", LimitLives.default)
 		if cmd == "Bounced" and "RingLink" in args.get("tags", []) and "RingLink" in self.tags:
 			data = args.get("data") or {}
 			amount = data.get("amount")
@@ -273,7 +285,7 @@ class TouhouContext(CommonContext):
 			await self.check_locations(self.locations_found)
 			self.locations_found.clear()
 		names = self.received_names()
-		writes, self.items_applied = receive.apply_new(names, self.items_applied, state)
+		writes, self.items_applied = receive.apply_new(names, self.items_applied, state, self.limit_lives)
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
@@ -304,7 +316,7 @@ class TouhouContext(CommonContext):
 			write_int(controller, entry, value)
 		self.link_prev = receive.with_writes(written, ring_writes)
 		if self.slot_data.get("mode"):
-			self.patch_continue_lives(controller, receive.continue_lives(names))
+			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		return state, runs
 
 	def patch_continue_lives(self, controller, lives):

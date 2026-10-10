@@ -81,6 +81,7 @@ class TestNormalClient(unittest.TestCase):
 		self.assertEqual(memory.writes, [])
 		self.assertEqual(receive.continue_lives(["+1 Life"] * 3 + ["Next Stage"]), 3)
 		self.assertEqual(receive.continue_lives(["+1 Life"] * 12), 8)
+		self.assertEqual(receive.continue_lives(["+1 Life"] * 5, limit_lives=2), 2)
 
 	def test_normal_run_stage_transitions(self):
 		states = [decode_state(S0), play(1), play(1, True), play(1), play(1, True), play(1), play(2), play(2, True), play(2)]

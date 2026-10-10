@@ -19,6 +19,12 @@ class TestApply(unittest.TestCase):
 	def test_apply_life_cap(self):
 		self.assertEqual(apply("+1 Life", play(lives=9)), [(LIVES, 9)])
 
+	def test_apply_life_respects_limit(self):
+		self.assertEqual(apply("+1 Life", play(lives=2), limit_lives=3), [(LIVES, 3)])
+		self.assertEqual(apply("+1 Life", play(lives=3), limit_lives=3), [(LIVES, 3)])
+		self.assertEqual(apply("+1 Life", play(lives=9), limit_lives=3), [(LIVES, 9)])  # never takes lives away
+		self.assertEqual(apply_new(["+1 Life"] * 3, 0, play(lives=2), 3)[0], [(LIVES, 3), (LIVES, 3), (LIVES, 3)])
+
 	def test_apply_power(self):
 		self.assertEqual(apply("+0.50 Power", play(power=33)), [(POWER, 43)])
 		self.assertEqual(apply("+0.05 Power", play(power=33)), [(POWER, 34)])

@@ -27,12 +27,12 @@ def in_run(state):
 	return state.in_game and state.lives is not None and state.lives >= 0
 
 
-def apply(item_name, state):
-	"""-> writes [(entry, value)] for one item."""
+def apply(item_name, state, limit_lives=MAX_LIVES):
+	"""-> writes [(entry, value)] for one item. limit_lives caps what +1 Life gives; it never takes lives away."""
 	if not in_run(state):
 		return []
 	if item_name == "+1 Life":
-		return [(Variables.ADDR_LIVES, min(state.lives + 1, MAX_LIVES))]
+		return [(Variables.ADDR_LIVES, max(state.lives, min(state.lives + 1, limit_lives, MAX_LIVES)))]
 	if item_name in POWER and state.power is not None:
 		return [(Variables.ADDR_POWER, min(state.power + POWER[item_name], MAX_POWER))]
 	return []
@@ -43,7 +43,7 @@ def with_writes(state, writes):
 	return state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value for entry, value in writes})
 
 
-def apply_new(item_names, applied, state):
+def apply_new(item_names, applied, state, limit_lives=MAX_LIVES):
 	"""-> (writes, items applied). Only items after `applied` take effect, so a reconnect's full replay writes nothing.
 	Outside a run nothing is applied: items wait for the next run."""
 	# ponytail: `applied` lives in the client only, so restarting the client replays every life and power once;
@@ -54,7 +54,7 @@ def apply_new(item_names, applied, state):
 	for name in item_names[applied:]:
 		if name in PENDING_UNLOCK:
 			logger.info(f"{name}: pending unlock address (tickets 28, 32)")
-		new = apply(name, state)
+		new = apply(name, state, limit_lives)
 		writes += new
 		state = with_writes(state, new)
 	return writes, len(item_names)
@@ -75,9 +75,9 @@ def difficulty_writes(state, lower, slot_data):
 	return [(Variables.ADDR_DIFFICULTY, target)]
 
 
-def continue_lives(item_names):
-	"""Lives a normal-mode continue restores: one per +1 Life received (MoF caps it at 8)."""
-	return min(list(item_names).count("+1 Life"), 8)
+def continue_lives(item_names, limit_lives=MAX_LIVES):
+	"""Lives a normal-mode continue restores: one per +1 Life received (MoF caps it at 8), at most limit_lives."""
+	return min(list(item_names).count("+1 Life"), 8, limit_lives)
 
 
 def goal_reached(item_names, slot_data):
