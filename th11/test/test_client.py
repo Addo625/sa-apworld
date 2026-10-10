@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .. import Variables
 from ..patching import PatchMismatch, safe_patch
-from ..probe import format_probe, memsearch
+from ..probe import format_probe, memsearch, ptrscan
 
 BASE = 0x400000
 CAPTURE_ENTRIES = ["ADDR_SPELL_ID", "ADDR_SPELL_BONUS", "ADDR_SPELL_HISTORY"]
@@ -95,6 +95,18 @@ class TestMemsearch(unittest.TestCase):
 		memory = FakeMemory()
 		memory.set(0x1000, b"\xAA" * 200)
 		self.assertEqual(memsearch(memory, [(0x1000, 200)], b"\xAA\xAA", cap=50), list(range(0x1000, 0x1000 + 50)))
+
+	def test_ptrscan_finds_static_pointer(self):
+		memory = FakeMemory()
+		memory.set(0x4A2000, bytes(0x40))
+		memory.set(0x4A2010, (0x03821BB8).to_bytes(4, "little"))  # save struct, table at + 0x5A4
+		memory.set(0x4A2020, (0x0382215C).to_bytes(4, "little"))  # the target itself
+		memory.set(0x4A2030, (0x0382315C).to_bytes(4, "little"))  # past the target
+		memory.set(0x4A2008, (0x03820000).to_bytes(4, "little"))  # before the window
+		self.assertEqual(ptrscan(memory, 0x4A2000, 0x4A2040, 0x0382215C),
+			[(0x4A2010, 0x03821BB8), (0x4A2020, 0x0382215C)])
+		with self.assertRaises(KeyError):  # unreadable tail: an error, not "no pointers"
+			ptrscan(memory, 0x4A2000, 0x4A2080, 0x0382215C)
 
 
 class TestPatchSites(unittest.TestCase):

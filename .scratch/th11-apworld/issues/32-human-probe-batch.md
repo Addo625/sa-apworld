@@ -19,7 +19,7 @@ Session setup (once):
 Context: `ADDR_EXTRA_UNLOCK` is `None`. The only lead is thcrap's `fix_extra_stage_relocking` patch at `Rxede8`. 27's practice table has no Extra row.
 - **E1:** with a save where at least one shot has Extra and one doesn't, run `tools/scoredat.py` and paste the `CR` chunk's clear counts per shot (the 5 counts after play time; the 5th level is Extra).
 - **E2:** in the running game, `/memsearch` the save struct around 27's copy 1 (`…1BB8`) for the field E1 points at; paste matches.
-- **E3:** change that byte (with 28's `/poke`, once it exists, or a memory editor) for a shot without Extra, open the Extra menu, and note whether the shot is now offered.
+- **E3:** change that byte (with `/poke <addr> <hex byte>`) for a shot without Extra, open the Extra menu, and note whether the shot is now offered.
 
 (R2 is reserved for 34's continue-lives check.)
 
@@ -51,6 +51,14 @@ Context: 16's guard moves the menu cursor off locked content. It is on for the d
 - **M2:** on the difficulty select, try to move the cursor onto Easy, Normal and Hard. Does the highlight jump back to Lunatic? Confirm one: which difficulty starts? Paste `/probe`'s `ADDR_DIFFICULTY` line in the stage.
 - **M3:** in Practice on Lunatic, pick a shot type you don't have and play to Stage 1's midboss and past it. Paste the client lines; expect no check sent. Then the same with the shot you have: expect the check.
 - Used for: `Variables.MENU_SHOT` in 38 (M1); M2 confirms that writing `ADDR_MENU_CURSOR` moves the selection (if not, the guard needs MoF's cursor hack); M3 confirms 16's locked-content filter.
+
+### R7, needed by 39 (from 28): which practice-table copy the game reads, and the static pointer to it
+Context: 27 found the practice table twice on the heap; both move every launch. Copy 1 (page offset `…215C`) is likely the live save struct, copy 2 (`…05C4`) the decoded file buffer. Use 27's save (Reimu A, Normal Stages 1–2 cleared, Stage 3 locked) or note which save you use. Do R7 before R3's poke and before R1's E3, so no other poke is in memory.
+- **U1:** with the Practice menu open (as in 27's M1), `/memsearch 00000000010100000000000001010000` (Normal Stages 1–2 cleared and unlocked; with another save, use its line from `tools/scoredat.py`). Paste the matches. For each match `M`, the table is `M − 0x30` and its chunk starts at `M − 0x5D4`.
+- **U2:** for each match, `/ptrscan <M − 0x30, hex>` and paste. If a match lists 0 pointers, also run `/ptrscan <M − 0x30> 8000` and paste.
+- **U3:** for each match, `/peek <M − 0x5D4> 16` and `/peek <M − 0x5D4 + 0x68D4> 16`, and paste. Expect `43 52` ("CR") at the start of both, with the shot index (00, then 01) at byte 12, if the copy keeps the file's chunk order.
+- **U4 (write test):** `/poke <copy 1's M + 0x15> 01` (Normal Stage 3 `unlocked`), open Practice → Reimu A → Normal: is Stage 3 offered? Paste the line and the answer. If not, `/poke` the same byte back to `00`, do the same on copy 2's match, and answer again. Afterwards poke every changed byte back to `00` before quitting, since the game may write the save on exit.
+- Used for: `ADDR_PRACTICE_UNLOCK` (pointer chain to the copy that U4 shows the menu reads) and the per-shot chunk stride, in 39.
 
 ## Decisions to confirm
 - (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits.

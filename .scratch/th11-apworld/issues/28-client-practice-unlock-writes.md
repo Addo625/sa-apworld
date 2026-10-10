@@ -1,6 +1,6 @@
 # 28: Received Next Stage, Lower Difficulty and shot types unlock Practice
 
-Status: ready-for-agent
+Status: done
 Blocked by: 08, 27
 
 ## Problem
@@ -33,3 +33,6 @@ Blocked by: 08, 27
 
 ## Deferred
 - In-game proof: ticket 09's smoke run covers it.
+
+## Comments
+- 2026-10-10 al-work: added `/ptrscan <hex address> [hex range]` (pure `probe.ptrscan` over th11.exe's `.data`, `test_ptrscan_finds_static_pointer`); `/poke` already existed. Which copy the game reads, its static pointer and the per-shot chunk stride are in-game facts: request **R7** in probe batch 32. The address, item writes, replay and locking moved to **39** (blocked by 32). DoD: test suite green.

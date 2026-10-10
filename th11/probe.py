@@ -88,6 +88,15 @@ def memsearch(reader, regions, pattern: bytes, cap=50, block=0x10000) -> list:
 	return found
 
 
+def ptrscan(reader, start, end, target, window=0x1000) -> list:
+	"""[(address, value)] of aligned 4-byte words in [start, end) whose value is in [target - window, target]:
+	static pointers to the struct holding target. Unreadable memory raises, so it never reads as "no pointers".
+	ponytail: one level only; a pointer to a pointer needs a second scan of the heap object it finds."""
+	data = reader.read_bytes(start, end - start)
+	values = struct.unpack(f"<{len(data) // 4}I", data[:len(data) // 4 * 4])
+	return [(start + i * 4, value) for i, value in enumerate(values) if target - window <= value <= target]
+
+
 def format_probe(reader, table) -> str:
 	lines = []
 	for name, entry in table.items():

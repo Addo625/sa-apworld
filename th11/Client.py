@@ -20,12 +20,13 @@ from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_immediate, safe_patch
-from .probe import float_candidates, format_probe, memsearch, read_entry, read_float, write_float, write_int
+from .probe import float_candidates, format_probe, memsearch, ptrscan, read_entry, read_float, write_float, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 POLL_SECONDS = 0.5
 MEMSEARCH_CAP = 50
+DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
 KILL_SECONDS = 0.1  # how long the kill site stays patched (EoSD killPlayer)
 KILL_RETRY_SECONDS = 2  # a kill that took no life (bomb, respawn invincibility) is retried after this
 
@@ -98,6 +99,26 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			logger.error(f"Cannot write {GAME_NAME} at 0x{address:08X}: {e}")
 			return False
 		logger.info(f"0x{address:08X}: {before.hex(' ')} -> {data.hex(' ')}")
+		return True
+
+	def _cmd_ptrscan(self, hex_address: str = "", hex_range: str = "1000"):
+		"""List static pointers in th11.exe's .data into [address - range, address] (find a heap struct's owner)"""
+		from .gameController import gameController
+		try:
+			target, window = int(hex_address, 16), int(hex_range, 16)
+		except ValueError:
+			logger.error("Usage: /ptrscan <hex address> [hex range]")
+			return False
+		try:
+			controller = gameController()
+			start, end = (controller.base_address + offset for offset in DATA_SECTION)
+			found = ptrscan(controller, start, end, target, window)
+		except Exception as e:
+			logger.error(f"Cannot scan {GAME_NAME}'s .data: {e}")
+			return False
+		logger.info(f"{len(found)} pointer(s) into [0x{target - window:08X}, 0x{target:08X}]")
+		for address, value in found:
+			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X}) -> 0x{value:08X} (target - 0x{target - value:X})")
 		return True
 
 	def _cmd_playerfloats(self, count: str = "1000"):

@@ -14,8 +14,8 @@ logger = logging.getLogger("Client")
 MAX_LIVES = 9  # probe 06 S3: Practice starts at 9
 MAX_POWER = 80  # 4.00 in units of 0.05 (probe 06)
 POWER = {"+0.50 Power": 10, "+0.05 Power": 1}
-# These write the practice-unlock bytes, not found yet (26-27), or the Extra unlock (ADDR_EXTRA_UNLOCK, 32).
-# Their counts stay in the received list for 28 and 32.
+# These write the practice-unlock bytes (live copy pending probe 32 R7), or the Extra unlock (ADDR_EXTRA_UNLOCK, 32 R1).
+# Their counts stay in the received list for 39 and 33.
 PENDING_UNLOCK = {"Lower Difficulty"} | {
 	name for name, data in item_table.items()
 	if data.category == "Characters" or data.category.endswith(("Stages", "Extra Stage"))
@@ -53,7 +53,7 @@ def apply_new(item_names, applied, state, limit_lives=MAX_LIVES):
 	writes = []
 	for name in item_names[applied:]:
 		if name in PENDING_UNLOCK:
-			logger.info(f"{name}: pending unlock address (tickets 28, 32)")
+			logger.info(f"{name}: pending unlock address (tickets 39, 33)")
 		new = apply(name, state, limit_lives)
 		writes += new
 		state = with_writes(state, new)
