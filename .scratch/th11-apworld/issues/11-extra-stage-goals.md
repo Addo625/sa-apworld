@@ -1,7 +1,7 @@
 # 11: Extra stage and goals Koishi or both
 
-Status: needs-human
-Blocked by: 09, 32
+Status: done
+Blocked by: 09
 
 ## Problem
 EoSD/MoF offer the Extra stage (`extra_stage`: exclude, linear as stage 7, apart with its own unlock item), goals (`goal`: final boss, extra boss, both) and `ending_required` (once, both characters, all shot types). SA's are Utsuho and Koishi, with Sanae as the Extra midboss. This needs Extra addresses (the Extra unlock flag, the Extra boss flags), which 06 may not have reached.
@@ -39,3 +39,4 @@ EoSD/MoF offer the Extra stage (`extra_stage`: exclude, linear as stage 7, apart
   - Done: options `extra_stage`/`number_life_extra`/`power_extra`/`goal`/`ending_required` with the EoSD fallbacks; Extra locations; `Extra Stage` items (apart, or linear without progressive stages) and a 6th `Next Stage` (linear, progressive); locked `Ending - Koishi`; completion and the client's goal check share `Rules.goal_met`. Detection of stage 7 was already in (`test_detect_extra_has_no_difficulty_checks`, `test_detect_clear`). `Extra Stage` is logged as a pending unlock. README and example YAML updated.
   - Decision: logic puts Extra after Stage 6 even when apart (apart + Extra gate 8/8 failed fill on 9 of 100 fixed seeds; 0 once chained). Extra adds `EXTRA_SLACK` = 2 per unlock group (measured). Linear without progressive stages has no `Next Stage` to add, so it uses the `Extra Stage` item (no `Stage 7` item exists).
   - Left after 32: set `ADDR_EXTRA_UNLOCK` from 32's findings, make `receive.apply` write it on `Extra Stage` (per group like `stage_unlock`), with a test. Normal-mode `canExtra` waits for 12.
+- 2026-10-10 human (via Claude): closed under the new probe-batch rule (AGENTS.md). The Extra unlock question is R1 in batch 32; the write moved to 33 (blocked by 32).

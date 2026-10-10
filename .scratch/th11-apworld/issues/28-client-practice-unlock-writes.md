@@ -12,7 +12,7 @@ Blocked by: 08, 27
 ## Test plan
 - **Find the live copy first (27 left this open):** 27 found two heap copies of the practice table, which move every launch: copy 1 at page offset `…215C` (likely the live save struct, table = struct + 0x5A4) and copy 2 at `…05C4` (likely the decoded file buffer).
   - Add `/ptrscan <hex address> [range]`: lists every 4-byte word in `.data` (`0x4A2000–0x4CAE40`) whose value points into `[address − range, address]` (default range 0x1000), with its offset from the target. It's pure over the reader, like `memsearch`. `test_ptrscan_finds_static_pointer`.
-  - Then set `needs-human` with these steps for the human:
+  - Then add these as a request in the open probe batch (AGENTS.md: "In-game facts go to the probe batch"), move the address and the writes below into a follow-up blocked by that batch, and close this ticket. The request's steps:
     1. Start the game and open the Practice menu.
     2. `/memsearch 00000000010100000000000001010000` (or the current save's line from `tools/scoredat.py`).
     3. `/ptrscan <each match − 0x30>`.
