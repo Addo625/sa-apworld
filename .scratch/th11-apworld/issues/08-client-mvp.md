@@ -49,3 +49,9 @@ With verified addresses, the client must turn the game state into AP location ch
 - DeathLink → 14.
 - RingLink → 15.
 - Lives limit and menu guard rails → 16.
+
+## Comments
+
+- 2026-10-10 al-work (from 07):
+  - **Decoders:** use `state.read_state(reader)` / `decode_state(values)` → `GameState`, and `probe.write_int(writer, entry, value)` for every write.
+  - **Game over:** the enemy manager pointer at game over is unprobed (06 S10). Detect game over with `lives == -1`, not with `in_game` going false.

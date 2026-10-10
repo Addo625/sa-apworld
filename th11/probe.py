@@ -2,6 +2,7 @@
 Memory probe: prints every address table entry so the human can check it in-game.
 Pure: the reader only needs base_address and read_bytes(address, size).
 """
+from .Variables import PROBE_TABLE
 
 
 def read_int(reader, address, signed=False) -> int:
@@ -16,6 +17,23 @@ def resolve(reader, entry) -> int:
 	for offset in entry[1:]:
 		address = read_int(reader, address) + offset
 	return address
+
+
+def read_entry(reader, entry):
+	"""Signed int at a table entry, or None if unsourced or unreadable (e.g. a chain through a null pointer)."""
+	if entry is None:
+		return None
+	try:
+		return read_int(reader, resolve(reader, entry), signed=True)
+	except Exception:
+		return None
+
+
+def write_int(writer, entry, value):
+	"""The one way client logic writes game memory: a table entry, never a raw address."""
+	if entry is None or entry not in PROBE_TABLE.values():
+		raise ValueError(f"write to {entry!r}, which is not a sourced Variables entry")
+	writer.write_bytes(resolve(writer, entry), value.to_bytes(4, "little", signed=True))
 
 
 def format_probe(reader, table) -> str:

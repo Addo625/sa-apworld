@@ -30,29 +30,31 @@ ENDING_EXTRA_ITEM = "Ending - Koishi"
 
 """
 Addresses for th11.exe v1.00a, relative to the image base 0x400000 (MoF style).
-A list is a pointer chain [base, off, ...]; None is not sourced yet (ticket 06 probes, 07 fixes).
+A list is a pointer chain [base, off, ...]; None is not sourced yet (its TODO marks it not reached in 06).
+"probe 06 Sx" = verified against ticket 06's /probe capture of state Sx (fixtures in test/test_state.py).
 thprac = touhouworldcup/thprac thprac_th11.cpp; Globals struct at 0x4A56E0.
 """
 
 GAME_NAME = "th11.exe"
 
 # General
-ADDR_GAME_MODE = 0x000A8ECC  # source: thprac menu/replay-select object ptr (0x4A8ECC), MoF-analogue of ADDR_GAME_MODE 0x7784C; "0 = in game" is MoF's meaning, TODO(06)
-ADDR_MENU = [0x000A8ECC, 0xB0]  # source: MoF-analogue offset, likely wrong (SA menu struct differs: thprac reads shot at +0x38) TODO(06)
-ADDR_MENU_CURSOR = [0x000A8ECC, 0x24]  # source: MoF-analogue offset, likely wrong TODO(06)
-ADDR_GAME_FLAGS = 0x000A5758  # source: thprac, bit 0 = practice
-ADDR_STAGE = 0x000A5728  # source: thprac STAGE_NUM / Globals.stage
-ADDR_DIFFICULTY = 0x000A5720  # source: thprac Globals.difficulty
-ADDR_CHARACTER = 0x000A5710  # source: thprac Globals.chara
-ADDR_SHOT_TYPE = 0x000A5714  # source: thprac Globals.subshot
-ADDR_IS_BOSS_PRESENT = None  # source: none yet; enemy manager ptr is 0x4A8D7C (thprac), boss field offset TODO(06)
+ADDR_MENU_PTR = 0x000A8ECC  # source: probe 06 S0-S2, S9: menu object ptr, 0 in play but also 0 on some menus (S8b); not a game mode
+ADDR_ENEMY_MANAGER = 0x000A8D7C  # source: thprac enemy manager ptr; probe 06 S8b: 0 outside a stage, so non-zero = in a stage
+ADDR_MENU = [ADDR_MENU_PTR, 0xB0]  # source: probe 06 S0-S2, S9 (menu ptr + 0xB0)
+ADDR_MENU_CURSOR = [ADDR_MENU_PTR, 0x24]  # source: probe 06 S1/S1b (Normal 1, Lunatic 3)
+ADDR_GAME_FLAGS = 0x000A5758  # source: probe 06: 0x10 in Practice play (S3-S7, S11), 4 on character select (S2), 0 in Extra (S10)
+ADDR_STAGE = 0x000A5728  # source: probe 06 S3-S10: 1-6, Extra = 7
+ADDR_DIFFICULTY = 0x000A5720  # source: probe 06 S3-S11: Easy 0 .. Lunatic 3, Extra 4; set on confirm, not on cursor move
+ADDR_CHARACTER = 0x000A5710  # source: probe 06 S2-S7: Reimu 0, Marisa 1
+ADDR_SHOT_TYPE = 0x000A5714  # source: probe 06 S2-S7: A 0, B 1, C 2
+ADDR_IS_BOSS_PRESENT = [ADDR_ENEMY_MANAGER, 0x1C]  # source: 06 /bossrec + /bosswatch stages 1, 2, 5, 6: boss object ptr, non-zero while a midboss or boss is up
 
-# Resources
-ADDR_LIVES = 0x000A5718  # source: thprac Globals.lives
-ADDR_LIFE_PIECES = 0x000A571C  # source: thprac Globals.life_pieces
-ADDR_POWER = 0x000A56E8  # source: thprac Globals.power (0-80 in practice)
-ADDR_SCORE = 0x000A56E4  # source: thprac Globals.score
-ADDR_CONTINUES = 0x000A573C  # source: thprac Globals.continues (offset 0x5C)
+# Resources; outside a run these hold leftovers from the last run or the title demo (probe 06 S1, S9).
+ADDR_LIVES = 0x000A5718  # source: probe 06 S3-S11; -1 = game over (S10)
+ADDR_LIFE_PIECES = 0x000A571C  # source: probe 06 S6, S11b
+ADDR_POWER = 0x000A56E8  # source: probe 06 S4-S12: units of 0.05, max 80 (4.00), a bomb costs 20
+ADDR_SCORE = 0x000A56E4  # source: probe 06 S4-S11: stored /10
+ADDR_CONTINUES = 0x000A573C  # source: thprac Globals.continues (offset 0x5C); 0 in every 06 probe, no continue used
 
 # Save data (score.dat); MoF reads these through ptr 0x7783C, SA's pointer is unknown.
 ADDR_PRACTICE_UNLOCK = None  # source: none yet, MoF-analogue table (character x shot x difficulty x stage) TODO(06)

@@ -1,6 +1,6 @@
 # 07: Correct the TH11 address table from the probe results
 
-Status: ready-for-agent
+Status: done
 Blocked by: 06
 
 ## Problem
@@ -28,3 +28,20 @@ Ticket 06 recorded real memory values for each state. Wherever the table disagre
 
 ## Deferred
 - Entries not reached in 06 stay unverified and are listed here, with the ticket that first needs each one (11: Extra, 12: menus/continues).
+- Still `None` with `TODO(06)`, not reached in 06:
+  - `ADDR_PRACTICE_UNLOCK`: not reached in 06 → 26–28.
+  - `ADDR_EXTRA_UNLOCK`: not reached in 06 → 11.
+  - `ADDR_PRACTICE_STARTING_LIVES`: not reached in 06 → 12 (08's `+1 Life` starting lives).
+  - `ADDR_NORMAL_CONTINUE_LIVES`: not reached in 06 → 12.
+- `ADDR_CONTINUES` reads 0 in every 06 probe because no continue was used. Its thprac source is unverified → 12.
+
+## Comments
+
+- 2026-10-10 al-work: done.
+  - **Table:** `ADDR_GAME_MODE` is renamed `ADDR_MENU_PTR`. New entry `ADDR_ENEMY_MANAGER` (0x4A8D7C). `ADDR_IS_BOSS_PRESENT = [ADDR_ENEMY_MANAGER, 0x1C]`, and the menu chains build on `ADDR_MENU_PTR`. Source comments now read `probe 06 Sx`. No address changed: every sourced 04 address matched the captures. The problem was what the entries meant (game mode → menu ptr, the practice bit is 0x10, power is in 0.05 units).
+  - **Decoders:** `th11/state.py`. `decode_state(values)` and `read_state(reader)` return a `GameState`: `in_game`, `boss_present`, `menu`, `menu_cursor`, `stage`, `difficulty`, `character`, `shot`, `lives`, `power` (`None` when unreadable).
+  - **Writes:** `probe.write_int(writer, entry, value)` raises `ValueError` for anything that isn't a sourced table entry.
+  - **Tests:** `test/test_state.py` has one `test_probe_fixtures_*` per 06 state (S0–S11b) and the three `boss_present` cases. `test_every_write_address_in_table` is an AST check: no raw `write_bytes` outside the writers, and `safe_patch` only on `EXPECTED_BYTES` entries. Its `_recorded` variant is a recording fake: every sourced entry writes at its resolved address, and raw addresses raise.
+  - **thcrap:** `EXPECTED_BYTES` is still empty, so there is no overlap to check. `test_patch_sites_*` pass.
+  - **Fixture caveat:** `ADDR_ENEMY_MANAGER` was only probed in S8b (0). The fixtures infer non-zero in a stage and 0 on menus. At game over (S10) it is unknown, so that fixture doesn't assert `in_game`. 08 should detect game over by `lives == -1`.
+  - **DoD:** pytest → 70 passed. `grep -c "TODO(06)" th11/Variables.py` → 4, all listed above.
