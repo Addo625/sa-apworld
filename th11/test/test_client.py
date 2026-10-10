@@ -10,7 +10,8 @@ from ..patching import PatchMismatch, safe_patch
 from ..probe import format_probe
 
 BASE = 0x400000
-THCRAP = Path(__file__).resolve().parents[2] / ".games/sa/thcrap/repos/nmlgc/base_tsa"
+CAPTURE_ENTRIES = ["ADDR_SPELL_ID", "ADDR_SPELL_BONUS", "ADDR_SPELL_HISTORY"]
+THCRAP =Path(__file__).resolve().parents[2] / ".games/sa/thcrap/repos/nmlgc/base_tsa"
 
 
 class FakeMemory:
@@ -59,6 +60,19 @@ class TestProbe(unittest.TestCase):
 	def test_probe_table_covers_every_address(self):
 		self.assertIn("ADDR_LIVES", Variables.PROBE_TABLE)
 		self.assertEqual(set(Variables.PROBE_TABLE), {name for name in vars(Variables) if name.startswith("ADDR_")})
+
+	def test_capture_entries_present(self):
+		for name in CAPTURE_ENTRIES:
+			self.assertIn(name, Variables.PROBE_TABLE)
+
+	def test_probe_lists_capture_entries(self):
+		memory = FakeMemory()
+		memory.set(BASE + 0xC343C, (0x14AF998).to_bytes(4, "little"))
+		memory.set(0x14AF998 + 0x6E8, (5).to_bytes(4, "little"))
+		lines = format_probe(memory, Variables.PROBE_TABLE).splitlines()
+		self.assertIn("ADDR_SPELL_HISTORY = 5 (addr 0x014B0080)", lines)
+		self.assertIn("ADDR_SPELL_ID = <unsourced>", lines)
+		self.assertIn("ADDR_SPELL_BONUS = <unsourced>", lines)
 
 
 class TestPatchSites(unittest.TestCase):

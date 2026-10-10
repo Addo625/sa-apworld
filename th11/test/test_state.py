@@ -130,6 +130,7 @@ class TestWriteAddresses(unittest.TestCase):
 		memory = FakeMemory()
 		memory.set(BASE + Variables.ADDR_MENU_PTR, (0x3100000).to_bytes(4, "little"))
 		memory.set(BASE + Variables.ADDR_ENEMY_MANAGER, (0x3000000).to_bytes(4, "little"))
+		memory.set(BASE + Variables.ADDR_SPELL_HISTORY[0], (0x3200000).to_bytes(4, "little"))
 		entries = [entry for entry in Variables.PROBE_TABLE.values() if entry is not None]
 		expected = [resolve(memory, entry) for entry in entries]
 		for entry in entries:

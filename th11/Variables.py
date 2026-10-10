@@ -62,6 +62,12 @@ ADDR_POWER = 0x000A56E8  # source: probe 06 S4-S12: units of 0.05, max 80 (4.00)
 ADDR_SCORE = 0x000A56E4  # source: probe 06 S4-S11: stored /10
 ADDR_CONTINUES = 0x000A573C  # source: thprac Globals.continues (offset 0x5C); 0 in every 06 probe, no continue used
 
+# Spell captures. thprac_th11.cpp has no spell ID, bonus or history code (its spell practice
+# patches ECL), and FearLess and disassembly weren't reachable in 22: each entry has one source at most.
+ADDR_SPELL_ID = None  # source: none yet, current spell card ID (spells.js 0-174) or -1 TODO(23)
+ADDR_SPELL_BONUS = None  # source: none yet, spell bonus flag/value on capture TODO(23)
+ADDR_SPELL_HISTORY = [0x000C343C, 0x6E8]  # source: 06 dumps only: paired u32 counters (attempts/captures?) at a 0x20 stride that rose in play TODO(23)
+
 # Save data (score.dat); MoF reads these through ptr 0x7783C, SA's pointer is unknown.
 ADDR_PRACTICE_UNLOCK = None  # source: none yet, MoF-analogue table (character x shot x difficulty x stage) TODO(06)
 ADDR_EXTRA_UNLOCK = None  # source: none yet, MoF-analogue per-shot bytes TODO(06); thcrap fix_extra_stage_relocking patches Rxede8
