@@ -1,6 +1,6 @@
 # 12: Normal mode (dynamic/static difficulty), continues design A
 
-Status: ready-for-agent
+Status: needs-human
 Blocked by: 09
 
 ## Problem
@@ -38,3 +38,5 @@ EoSD's `mode` option also offers Normal mode: a full run with only the starting 
 - 2026-10-10 al-work attempt failed: working tree still dirty with the same uncommitted step-2 work (run 20261010-164554-2); nothing implemented. Counts toward AL_MAX_FAILS so the loop stops instead of re-failing. Human: commit as WIP or `git stash`, then rerun.
 
 - 2026-10-10 al-work attempt failed: working tree still dirty with the same uncommitted step-2 work (run 20261010-164554-3); left untouched, nothing implemented. Second counted failure: the next run marks 12 `needs-human`. Human: `git stash` or commit it as WIP (or `git checkout -- th11/` to drop it), then rerun.
+
+- 2026-10-10 al-work (run 20261010-164554-4): 2 failed attempts reached AL_MAX_FAILS → `needs-human`. Both failures had one cause: the uncommitted step-2 work in th11/{Client,Variables,detect,patching,receive}.py (+93/−7, no tests) blocks every run's clean-tree check. Not code failures. Human: `git stash` / commit as WIP / `git checkout -- th11/`, then set `Status: ready-for-agent` (optionally drop the two failure notes) and run `agent-loop`.
