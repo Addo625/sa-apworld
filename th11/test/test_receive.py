@@ -36,7 +36,7 @@ class TestApply(unittest.TestCase):
 		self.assertEqual(apply_new(["+1 Life"], 0, play(lives=2)), ([(LIVES, 3)], 1))
 
 	def test_apply_pending_unlock_items_write_nothing(self):
-		for name in ("Next Stage", "Lower Difficulty", "Reimu A - Yukari", "[Marisa] Next Stage", "[Reimu C] Stage 4", "Stage 2"):
+		for name in ("Next Stage", "Lower Difficulty", "Reimu A - Yukari", "[Marisa] Next Stage", "[Reimu C] Stage 4", "Stage 2", "Extra Stage", "[Marisa B] Extra Stage"):
 			with self.assertLogs("Client", "INFO"):
 				self.assertEqual(apply_new([name], 0, play()), ([], 1))
 
@@ -54,5 +54,10 @@ class TestApply(unittest.TestCase):
 
 class TestGoal(unittest.TestCase):
 	def test_goal_reached(self):
-		self.assertFalse(goal_reached(["+1 Life", "[Reimu] Ending - Koishi"]))
-		self.assertTrue(goal_reached(["+1 Life", "[Marisa] Ending - Utsuho"]))
+		self.assertFalse(goal_reached(["+1 Life", "[Reimu] Ending - Koishi"], {}))
+		self.assertTrue(goal_reached(["+1 Life", "[Marisa] Ending - Utsuho"], {}))
+
+	def test_goal_koishi_both_characters(self):
+		slot_data = {"goal": 1, "ending_required": 1}
+		self.assertFalse(goal_reached(["[Reimu] Ending - Koishi", "[Marisa] Ending - Utsuho"], slot_data))
+		self.assertTrue(goal_reached(iter(["[Reimu] Ending - Koishi", "[Marisa] Ending - Koishi"]), slot_data))

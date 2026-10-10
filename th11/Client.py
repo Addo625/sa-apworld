@@ -93,7 +93,7 @@ class TouhouContext(CommonContext):
 		return [ITEM_NAMES.get(item.item) for item in self.items_received]
 
 	async def check_goal(self):
-		if not self.finished_game and receive.goal_reached(filter(None, self.received_names())):
+		if not self.finished_game and receive.goal_reached(filter(None, self.received_names()), self.slot_data):
 			self.finished_game = True
 			await self.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
 

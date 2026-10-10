@@ -6,16 +6,18 @@ import logging
 
 from . import Variables
 from .Items import item_table
-from .Variables import ENDING_NORMAL_ITEM
+from .Rules import goal_met
 
 logger = logging.getLogger("Client")
 
 MAX_LIVES = 9  # probe 06 S3: Practice starts at 9
 MAX_POWER = 80  # 4.00 in units of 0.05 (probe 06)
 POWER = {"+0.50 Power": 10, "+0.05 Power": 1}
-# These write the practice-unlock bytes, not found yet (26-27). Their counts stay in the received list for 28.
+# These write the practice-unlock bytes, not found yet (26-27), or the Extra unlock (ADDR_EXTRA_UNLOCK, 32).
+# Their counts stay in the received list for 28 and 32.
 PENDING_UNLOCK = {"Lower Difficulty"} | {
-	name for name, data in item_table.items() if data.category == "Characters" or data.category.endswith("Stages")
+	name for name, data in item_table.items()
+	if data.category == "Characters" or data.category.endswith(("Stages", "Extra Stage"))
 }
 
 
@@ -45,12 +47,14 @@ def apply_new(item_names, applied, state):
 	writes = []
 	for name in item_names[applied:]:
 		if name in PENDING_UNLOCK:
-			logger.info(f"{name}: pending unlock table (ticket 28)")
+			logger.info(f"{name}: pending unlock address (tickets 28, 32)")
 		for entry, value in apply(name, state):
 			writes.append((entry, value))
 			state = state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value})
 	return writes, len(item_names)
 
 
-def goal_reached(item_names):
-	return any(name.endswith(ENDING_NORMAL_ITEM) for name in item_names)
+def goal_reached(item_names, slot_data):
+	"""Ending items received meet slot_data's goal and ending_required (missing: Utsuho once)."""
+	item_names = list(item_names)
+	return goal_met(item_names.count, slot_data.get("goal", 0), slot_data.get("ending_required", 0))
