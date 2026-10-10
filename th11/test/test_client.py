@@ -172,6 +172,20 @@ def game_memory(lives=2, boss=0):
 	return memory
 
 
+# Practice S3's Reimu A on Normal; checks need both unlocked (ticket 16).
+UNLOCKED = ("Reimu A - Yukari", "Lower Difficulty", "Lower Difficulty")
+
+
+def menu_memory(menu, cursor):
+	"""FakeMemory on a menu (probe 06 S1): menu object with its id and cursor, no stage."""
+	memory, menu_object = FakeMemory(), 0x3100000
+	memory.set(BASE + Variables.ADDR_MENU_PTR, menu_object.to_bytes(4, "little"))
+	memory.set(BASE + Variables.ADDR_ENEMY_MANAGER, bytes(4))
+	memory.set(menu_object + Variables.ADDR_MENU[1], menu.to_bytes(4, "little"))
+	memory.set(menu_object + Variables.ADDR_MENU_CURSOR[1], cursor.to_bytes(4, "little"))
+	return memory
+
+
 def received(*names):
 	from NetUtils import NetworkItem
 	from ..Items import item_table
@@ -204,7 +218,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 
 	async def test_poll_sends_check_and_writes_items(self):
 		from ..Locations import location_table
-		ctx = self.context("+1 Life")
+		ctx = self.context(*UNLOCKED, "+1 Life")
 		midboss_up = game_memory(lives=2, boss=0x3100000)
 		prev, runs = await ctx.poll(midboss_up, None, 0)
 		self.assertEqual(ctx.sent, [])
@@ -240,16 +254,45 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 
 	async def test_poll_maps_checks_with_slot_data(self):
 		from ..Locations import location_table
-		ctx = self.context("Lower Difficulty")
+		ctx = self.context(*UNLOCKED)
 		ctx.on_package("Connected", {"slot_data": {"difficulty_check": True, "check_multiple_difficulty": True}})
 		prev, runs = await ctx.poll(game_memory(boss=0x3100000), None, 0)
-		await ctx.poll(game_memory(), prev, runs)  # Practice S3 is Normal; 1 Lower Difficulty doesn't open it
+		await ctx.poll(game_memory(), prev, runs)  # Practice S3 is Normal; 2 Lower Difficulty open Normal, not Easy
 		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Normal][Reimu] Kisume - Midboss"],)}])
+
+
+	async def test_poll_ignores_locked_shot(self):
+		ctx = self.context("Reimu B - Suika", "Lower Difficulty", "Lower Difficulty")
+		prev, runs = await ctx.poll(game_memory(boss=0x3100000), None, 0)
+		await ctx.poll(game_memory(), prev, runs)
+		self.assertEqual(ctx.sent, [])
+
+	async def test_poll_moves_cursor_off_locked_difficulty(self):
+		ctx = self.context("Reimu A - Yukari", "Lower Difficulty")  # Hard and Lunatic open
+		memory = menu_memory(menu=1, cursor=0)
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [(0x3100000 + Variables.ADDR_MENU_CURSOR[1], (2).to_bytes(4, "little"))])
+		memory = menu_memory(menu=1, cursor=3)
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])
+
+	async def test_poll_before_received_items_keeps_checks(self):
+		ctx = self.context()  # connected, ReceivedItems not in yet
+		prev, runs = await ctx.poll(game_memory(boss=0x3100000), None, 0)
+		await ctx.poll(game_memory(), prev, runs)
+		self.assertEqual(len(ctx.sent), 1)
+
+	async def test_poll_unconnected_leaves_menu(self):
+		ctx = self.context()
+		ctx.slot = None
+		memory = menu_memory(menu=1, cursor=0)
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])
 
 
 class TestClientIsolation(unittest.TestCase):
 	def test_client_modules_import_without_pymem(self):
-		logic = ["Variables", "probe", "patching", "state", "detect", "receive", "traps", "deathlink", "Client"]  # Client attaches lazily through gameController
+		logic = ["Variables", "probe", "patching", "state", "detect", "guard", "receive", "traps", "deathlink", "Client"]  # Client attaches lazily through gameController
 		package = __package__.rsplit(".", 1)[0]
 		saved = {name: sys.modules.get(name) for name in ["pymem", "kivy"] + [f"{package}.{m}" for m in logic]}
 		try:

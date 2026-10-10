@@ -45,6 +45,13 @@ Context: a received DeathLink kills the player by NOP-ing, for 0.1 s, the jump t
 - **K5:** `/deathlink_trigger game_over`, then lose every life in a Practice stage. On the game over screen, `/probe` and paste it; paste whether the client sent a death.
 - Used for: `ADDR_KILL_CONDITION` and its `EXPECTED_BYTES` in 36 (K1–K3); K4 confirms sending works and that a restart isn't taken for a death (if it is, 36 adds a guard); K5 confirms the game over send (`ADDR_ENEMY_MANAGER` there decides whether `on_state`'s torn-down-stage case is needed).
 
+### R6, needed by 38 (from 16): the shot select cursor, and the menu guard
+Context: 16's guard moves the menu cursor off locked content. It is on for the difficulty select (menu 1, cursor Easy 0 .. Lunatic 3) and off for the shot select: probe 06 S2 saw character select as menu 3 with cursor 1 on Marisa B, which fits both "the cursor is the shot" and "the cursor is the character". Use a seed whose start inventory has one shot type (not all six), receive no Lower Difficulty, and stay connected: only Lunatic is open (Hard and Lunatic with `exclude_lunatic`).
+- **M1:** Start (not Practice), on the character screen: `/probe` with the cursor on Reimu, then on Marisa. Then pick Marisa and on the partner screen (if SA has a separate one) `/probe` on A, B and C. Paste the `ADDR_MENU`, `ADDR_MENU_CURSOR`, `ADDR_CHARACTER` and `ADDR_SHOT_TYPE` lines of each, labeled with the screen and the highlighted choice.
+- **M2:** on the difficulty select, try to move the cursor onto Easy, Normal and Hard. Does the highlight jump back to Lunatic? Confirm one: which difficulty starts? Paste `/probe`'s `ADDR_DIFFICULTY` line in the stage.
+- **M3:** in Practice on Lunatic, pick a shot type you don't have and play to Stage 1's midboss and past it. Paste the client lines; expect no check sent. Then the same with the shot you have: expect the check.
+- Used for: `Variables.MENU_SHOT` in 38 (M1); M2 confirms that writing `ADDR_MENU_CURSOR` moves the selection (if not, the guard needs MoF's cursor hack); M3 confirms 16's locked-content filter.
+
 ## Decisions to confirm
 - (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits.
 - (13) Trap weight defaults copied from EoSD (−50% Power 20, −1 Life 0, No Focus 20, Reverse 20, Aya 20, Freeze 5, Power Drain 15); `traps` defaults to 0 %.
@@ -52,6 +59,10 @@ Context: a received DeathLink kills the player by NOP-ing, for 0.1 s, the jump t
 - (14) A DeathLink received outside a run waits and kills the player in the next run (EoSD drops it on entering a stage). The next life lost after a received one is never sent, even if the player died on their own first. A kill that takes no life (bomb, respawn invincibility) is retried every 2 s.
 - (14) A received DeathLink while the kill site is unknown (until 36) is only logged; it doesn't wait.
 - (15) RingLink sends every power change the game makes in a run, one ring per 0.05 power (MoF's unit). A bomb costs 1.00 power in SA (none in MoF), so each bomb sends −20 rings, and a death sends its power loss too. Rings received outside a run are dropped (MoF).
+
+- (16) `limit_lives` is 0–9, default 9 (SA's max; EoSD's is 0–8, default 8). It caps +1 Life and a normal-mode continue, but never takes lives away (a Practice run starts at 9 whatever the limit).
+- (16) A run on a locked shot type or difficulty sends no checks, but counts as a run so the stage's later checks stay aligned. Before connecting, or before the first received items arrive, nothing is filtered (the items are unknown), so those runs' checks are sent on connect.
+- (16) The difficulty guard moves the cursor to the nearest unlocked difficulty on every menu with id 1. If another screen also has id 1 (not seen in 06), its cursor would be moved too.
 
 ## Steps
 1. Do the session setup, then every `R<n>` in order. Paste each one's output under `## Comments`, labeled `R<n>`.

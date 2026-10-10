@@ -131,3 +131,14 @@ class TestDetectGranularity(unittest.TestCase):
 			step(play(7, boss=True, ADDR_DIFFICULTY=4), play(7, ADDR_DIFFICULTY=4), 1, DIFFICULTY)[0],
 			ids("[Reimu] Koishi Defeated", "[Reimu] Stage Extra Clear"),
 		)
+
+	def test_detect_ignores_locked_shot(self):
+		"""Practice S3 is Reimu A on Normal: without Reimu A's item the run counts but sends nothing."""
+		self.assertEqual(step(play(boss=True), play(), 0, shots={"Reimu B"}, lower=3), ([], 1))
+		self.assertEqual(step(play(boss=True), play(), 0, shots={"Reimu A"}, lower=3)[0], ids("[Reimu] Kisume - Midboss"))
+
+	def test_detect_ignores_locked_difficulty(self):
+		self.assertEqual(step(play(boss=True), play(), 0, shots={"Reimu A"}, lower=1), ([], 1))  # Normal needs 2
+		self.assertEqual(step(play(boss=True), play(), 0, shots={"Reimu A"}, lower=2)[0], ids("[Reimu] Kisume - Midboss"))
+		extra = step(play(7, boss=True, ADDR_DIFFICULTY=4), play(7, ADDR_DIFFICULTY=4), 1, shots={"Reimu A"})[0]
+		self.assertEqual(extra, ids("[Reimu] Koishi Defeated", "[Reimu] Stage Extra Clear"))  # Extra has no difficulty lock

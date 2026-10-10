@@ -2,6 +2,7 @@
 Location detection: compares two decoded GameStates. Pure, no memory access.
 """
 from .Locations import location_table
+from .guard import unlocked_difficulties
 from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lowest_unlocked
 
 
@@ -37,8 +38,14 @@ def location_names(state, names, slot_data, lower):
 	return located
 
 
-def step(prev, state, runs=0, slot_data=None, lower=0):
-	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call."""
+def locked(state, shots, lower, slot_data):
+	"""The run plays a shot type or difficulty the received items don't unlock."""
+	return state.shot not in shots or (state.difficulty in range(4) and state.difficulty not in unlocked_difficulties(lower, slot_data))
+
+
+def step(prev, state, runs=0, slot_data=None, lower=0, shots=None):
+	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
+	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected)."""
 	if not prev.in_game or prev.stage != state.stage:
 		runs = 0
 	ended = prev.boss_present and not state.boss_present
@@ -46,6 +53,8 @@ def step(prev, state, runs=0, slot_data=None, lower=0):
 	if not ended or not state.in_game or state.menu is not None or state.lives == -1:
 		return [], runs
 	if state.stage not in range(1, 8) or state.character is None:
+		return [], runs + 1
+	if shots is not None and locked(state, shots, lower, slot_data or {}):
 		return [], runs + 1
 	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
 	checks = run_checks(state.stage)

@@ -15,7 +15,7 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, receive, ringlink, traps
+from . import Variables, deathlink, detect, guard, receive, ringlink, traps
 from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
@@ -275,12 +275,17 @@ class TouhouContext(CommonContext):
 		# ponytail: checks found before the first connect use empty slot_data (per character, no difficulty);
 		# queue the raw runs instead if playing before connecting with shot_type/difficulty_check matters.
 		lower = self.received_names().count("Lower Difficulty")
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower) if prev else ([], 0)
+		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
+		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots) if prev else ([], 0)
 		self.locations_found.update(locations)
 		if self.slot is None or prev is None:
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:
 			return state, runs  # not connected: checks wait in locations_found
+		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)
+		if cursor is not None:
+			write_int(controller, Variables.ADDR_MENU_CURSOR, cursor)
 		if self.locations_found:
 			await self.check_locations(self.locations_found)
 			self.locations_found.clear()
