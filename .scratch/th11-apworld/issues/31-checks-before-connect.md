@@ -1,6 +1,6 @@
 # 31: Checks found before the first connect keep shot-type and difficulty mapping
 
-Status: ready-for-agent
+Status: done
 Blocked by: 10
 
 ## Problem
@@ -17,3 +17,7 @@ Blocked by: 10
 
 ## Deferred
 - None.
+
+## Comments
+
+- al-work (2026-10-10): done. Runs ended before the first connect queue as `(state, run index)` in `TouhouContext.runs_found` and map with `detect.run_locations` once connected and ReceivedItems is in (so `check_multiple_difficulty` sees Lower Difficulty and the ticket 16 lock filter applies). DoD: `pytest worlds/th11/test -q` → 347 passed. Tests: `test_checks_before_connect_use_slot_data`, `test_checks_before_connect_skip_locked_shot`. Not changed: the queue survives a connect to a different seed/slot, same as `locations_found` before.

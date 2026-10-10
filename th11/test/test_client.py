@@ -172,11 +172,11 @@ def thcrap_ranges():
 	return ranges
 
 
-def game_memory(lives=2, boss=0):
-	"""FakeMemory holding a Practice Stage 1 run (probe 06 S3) with the given lives and boss field."""
+def game_memory(lives=2, boss=0, **fields):
+	"""FakeMemory holding a Practice Stage 1 run (probe 06 S3) with the given lives, boss field and other entries."""
 	from .test_state import PRACTICE_S1
 	memory, manager = FakeMemory(), 0x3000000
-	for name, value in {**PRACTICE_S1, "ADDR_ENEMY_MANAGER": manager, "ADDR_LIVES": lives}.items():
+	for name, value in {**PRACTICE_S1, "ADDR_ENEMY_MANAGER": manager, "ADDR_LIVES": lives, **fields}.items():
 		entry = getattr(Variables, name)
 		if isinstance(entry, int) and value is not None:
 			memory.set(BASE + entry, value.to_bytes(4, "little", signed=True))
@@ -292,6 +292,31 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		await ctx.poll(game_memory(), prev, runs)  # Practice S3 is Normal; 2 Lower Difficulty open Normal, not Easy
 		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Normal][Reimu] Kisume - Midboss"],)}])
 
+	async def test_checks_before_connect_use_slot_data(self):
+		from ..Locations import location_table
+		ctx = self.context()
+		ctx.slot = None
+		hard_reimu_b = {"ADDR_DIFFICULTY": 2, "ADDR_SHOT_TYPE": 1}
+		prev, runs = await ctx.poll(game_memory(boss=0x3100000, **hard_reimu_b), None, 0)
+		state, runs = await ctx.poll(game_memory(**hard_reimu_b), prev, runs)
+		self.assertEqual(ctx.sent, [])
+		ctx.slot = 1
+		ctx.on_package("Connected", {"slot_data": {"shot_type": True, "difficulty_check": True}})
+		state, runs = await ctx.poll(game_memory(**hard_reimu_b), state, runs)
+		self.assertEqual(ctx.sent, [])  # waits for ReceivedItems: the lock filter needs them
+		ctx.items_received = received("Reimu B - Suika", "Lower Difficulty")  # Hard open
+		await ctx.poll(game_memory(**hard_reimu_b), state, runs)
+		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Hard][Reimu B] Kisume - Midboss"],)}])
+
+	async def test_checks_before_connect_skip_locked_shot(self):
+		ctx = self.context()
+		ctx.slot = None
+		prev, runs = await ctx.poll(game_memory(boss=0x3100000, ADDR_DIFFICULTY=2, ADDR_SHOT_TYPE=1), None, 0)
+		state, runs = await ctx.poll(game_memory(ADDR_DIFFICULTY=2, ADDR_SHOT_TYPE=1), prev, runs)
+		ctx.slot = 1
+		ctx.items_received = received("Reimu A - Yukari", "Lower Difficulty")  # Reimu B locked
+		await ctx.poll(game_memory(ADDR_DIFFICULTY=2, ADDR_SHOT_TYPE=1), state, runs)
+		self.assertEqual(ctx.sent, [])
 
 	async def test_poll_ignores_locked_shot(self):
 		ctx = self.context("Reimu B - Suika", "Lower Difficulty", "Lower Difficulty")

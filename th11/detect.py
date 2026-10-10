@@ -57,6 +57,11 @@ def step(prev, state, runs=0, slot_data=None, lower=0, shots=None):
 	if shots is not None and locked(state, shots, lower, slot_data or {}):
 		return [], runs + 1
 	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
+	return run_locations(state, runs, slot_data or {}, lower), runs + 1
+
+
+def run_locations(state, run, slot_data, lower):
+	"""Location IDs for the run-th boss-field run of state's stage ending."""
 	checks = run_checks(state.stage)
-	names = checks[runs] if runs < len(checks) else []
-	return [location_table[name] for name in location_names(state, names, slot_data or {}, lower)], runs + 1
+	names = checks[run] if run < len(checks) else []
+	return [location_table[name] for name in location_names(state, names, slot_data, lower)]

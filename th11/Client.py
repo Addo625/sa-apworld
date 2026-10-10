@@ -212,6 +212,7 @@ class TouhouContext(CommonContext):
 		self.items_applied = 0  # kept across server reconnects, which replay the list from index 0
 		self.applied_for = None  # (seed, slot) items_applied counts for
 		self.locations_found = set()
+		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.traps = traps.TrapState()
@@ -293,17 +294,22 @@ class TouhouContext(CommonContext):
 	async def poll(self, controller, prev, runs):
 		"""One loop tick: send checks for prev -> now, write new items. -> (state, runs)."""
 		state = read_state(controller)
-		# ponytail: checks found before the first connect use empty slot_data (per character, no difficulty);
-		# queue the raw runs instead if playing before connecting with shot_type/difficulty_check matters.
 		lower = self.received_names().count("Lower Difficulty")
 		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
 		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
 		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots) if prev else ([], 0)
-		self.locations_found.update(locations)
 		if self.slot is None or prev is None:
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:
-			return state, runs  # not connected: checks wait in locations_found
+			if locations:  # mapping needs slot_data (shot_type, difficulty_check): keep the raw run until connected
+				self.runs_found.append((state, runs - 1))
+			return state, runs
+		self.locations_found.update(locations)
+		if shots is not None:  # with the items in, for the lock filter and check_multiple_difficulty
+			for found, run in self.runs_found:
+				if not detect.locked(found, shots, lower, self.slot_data):
+					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower))
+			self.runs_found.clear()
 		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)
 		if cursor is not None:
 			write_int(controller, Variables.ADDR_MENU_CURSOR, cursor)
