@@ -27,3 +27,11 @@ for difficulty in DIFFICULTY_LIST:
 			for check in stage:
 				location_table[f"[{difficulty}][{character}] {check}"] = STARTING_ID + location_id_offset
 				location_id_offset += 1
+
+# Capture slots, appended after the table above ("" = shared slots).
+for prefix in [f"[{character}] " for character in ALL_CHARACTERS_LIST] + [""]:
+	for level in range(1, 8):
+		level_name, count = ("Extra", CAPTURE_IDS_EXTRA) if level == 7 else (level, CAPTURE_IDS_PER_STAGE)
+		for k in range(1, count + 1):
+			location_table[f"{prefix}Stage {level_name} - Capture {k}"] = STARTING_ID + location_id_offset
+			location_id_offset += 1

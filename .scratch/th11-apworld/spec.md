@@ -127,7 +127,7 @@ Filler count is always computed as locations minus placed items. It is never han
    - Each resource ramps: stages 1–2 → 0, stage 3 → floor(mid/2), stage 4 → mid, stage 5 → floor((mid+end)/2), stage 6 → end.
    - Keys: stages 1–2 → 0, stage k ≥ 3 → floor(R·(k−2)/4).
 2. **Fit check and clamp (02).**
-   - Room for stage k = this world's created locations in stages < k, minus `exclude_locations`, minus (k−1) `Next Stage`, minus 1 for the other character's shot, minus `GATE_SLACK` (starting at 2).
+   - Room for stage k = this world's created locations in stages < k, minus `exclude_locations`, minus (k−1) `Next Stage`, minus 1 for the other character's shot, minus `GATE_SLACK` (starting at 2), plus 1 per 10 required keys (21: a flat slack of 2–5 failed 50-key seeds, and raising it would cut no-key gates).
    - While a stage's total exceeds its room, take one off the largest of lives, power and keys. Difficulty is cut only once those are 0.
    - Each cut is logged as a warning, and `slot_data.stage_requirements` holds the clamped values.
 3. **Spell Card Keys (21, world side).** Capture-slot locations and a `Spell Card Key` item, with IDs appended to the tables. It defaults to `off` until the client sends captures.

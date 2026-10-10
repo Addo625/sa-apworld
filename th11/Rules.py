@@ -5,6 +5,9 @@ from .Variables import *
 RESOURCES = ["lives", "power", "difficulty", "keys"]
 # ponytail: fixed slack for fill randomness; raise it if a fixed seed in test_extremes_fill_fixed_seeds fails.
 GATE_SLACK = 2
+# ponytail: +1 slack per this many required keys; measured, 50 required keys failed 3-11 of 50
+# fixed seeds at slack 2-5 and 0 at 6-8. Scale with total gate size if non-key gates ever grow.
+KEYS_PER_SLACK = 10
 
 
 def stage_requirements(mid, end, keys_required, rooms):
@@ -29,14 +32,14 @@ def stage_requirements(mid, end, keys_required, rooms):
 	return requirements, notes
 
 
-def stage_rooms(world):
+def stage_rooms(world, keys_required=0):
 	"""Locations open before each stage that can hold its gate items."""
 	excluded = world.options.exclude_locations.value
+	slack = GATE_SLACK + keys_required // KEYS_PER_SLACK
 	open_before, rooms = 0, []
 	for stage in range(1, 7):
-		rooms.append(open_before - (stage - 1) - 1 - GATE_SLACK)
-		for character in CHARACTERS_LIST:
-			region = world.multiworld.get_region(f"[{character}] Stage {stage}", world.player)
+		rooms.append(open_before - (stage - 1) - 1 - slack)
+		for region in world.stage_regions[stage - 1]:
 			open_before += sum(location.name not in excluded for location in region.locations)
 	return rooms
 
@@ -51,21 +54,31 @@ def set_rules(world):
 
 	mid = (options.number_life_mid.value, options.power_mid.value, difficulty(options.difficulty_mid))
 	end = (options.number_life_end.value, options.power_end.value, difficulty(options.difficulty_end))
-	world.stage_requirements, notes = stage_requirements(mid, end, 0, stage_rooms(world))
+	if options.spell_card_keys == options.spell_card_keys.option_keys_only:
+		mid = end = (0, 0, 0)
+	keys_required = world.key_count * options.spell_card_keys_required.value // 100
+	world.stage_requirements, notes = stage_requirements(mid, end, keys_required, stage_rooms(world, keys_required))
 	for note in notes:
 		logging.warning(f"{SHORT_NAME} ({world.player_name}): gate doesn't fit, {note}")
 
 	for character in CHARACTERS_LIST:
 		shots = CHARACTER_TO_ITEM[character]
 		get("Menu").connect(get(character), rule=lambda state, shots=shots: state.has_any(shots, player))
-		# Keys are always 0 until ticket 21 adds the Spell Card Key item and its rule.
-		for level, (lives, power, lower, _keys) in enumerate(world.stage_requirements, 1):
-			get(character).connect(get(f"[{character}] Stage {level}"), rule=lambda state, stages=level - 1, lives=lives, power=power, lower=lower: (
+		for level, (lives, power, lower, keys) in enumerate(world.stage_requirements, 1):
+			get(character).connect(get(f"[{character}] Stage {level}"), rule=lambda state, stages=level - 1, lives=lives, power=power, lower=lower, keys=keys: (
 				state.has("Next Stage", player, stages)
 				and state.has("+1 Life", player, lives)
 				and state.has("+0.50 Power", player, power)
 				and state.has("Lower Difficulty", player, lower)
+				and state.has("Spell Card Key", player, keys)
 			))
+
+	# Shared capture slots open from either character's stage region.
+	for regions in world.stage_regions:
+		stages, shared = regions[:len(CHARACTERS_LIST)], regions[len(CHARACTERS_LIST):]
+		for captures in shared:
+			for stage in stages:
+				stage.connect(captures)
 
 	endings = [f"[{character}] {ENDING_NORMAL_ITEM}" for character in CHARACTERS_LIST]
 	world.multiworld.completion_condition[player] = lambda state: state.has_any(endings, player)

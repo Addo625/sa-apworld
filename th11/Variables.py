@@ -25,6 +25,12 @@ STAGES_LIST = [
 	["Orin - Midboss", "Utsuho Defeated"],
 	EXTRA_CHECKS,
 ]
+# Capture slots per stage 1-6: the fewest spell cards any difficulty offers (stage 1:
+# Kisume's card is Hard/Lunatic only). From memory and spells.js's ID grouping; 23 verifies it.
+CAPTURE_CAPS = [2, 4, 4, 4, 5, 6]
+# IDs are reserved up to these counts (Extra has 13 cards); only stages 1-6 are created.
+CAPTURE_IDS_PER_STAGE = 6
+CAPTURE_IDS_EXTRA = 13
 ENDING_NORMAL_ITEM = "Ending - Utsuho"
 ENDING_EXTRA_ITEM = "Ending - Koishi"
 

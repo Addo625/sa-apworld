@@ -1,6 +1,6 @@
 # 21: Spell captures become checks, and Spell Card Keys gate stages (world side)
 
-Status: ready-for-agent
+Status: done
 Blocked by: 02
 
 ## Problem
@@ -54,3 +54,7 @@ SA's core skill reward, capturing spell cards, isn't part of the randomizer, and
 - Detecting captures in the client and flipping the default to `alongside` → 24.
 - Extra-stage capture slots: IDs reserved here, created with 11.
 - Toning down capture difficulty beyond `captures_per_stage`: to be planned separately with the user.
+
+## Comments
+
+- 2026-10-10 al-work: done in one commit, "21: turn spell captures into checks gated by Spell Card Keys". DoD: `pytest worlds/th11/test -q` → 129 passed, 946 subtests. `GATE_SLACK` stays at 2. Instead, `KEYS_PER_SLACK = 10` adds 1 slack per 10 required keys. With the "keys max" set (50 required keys), a flat slack of 2–5 failed 3–11 of the 50 fixed seeds, and 6–8 passed. A flat raise would also have cut no-key max gates at stage 3 from (3,3,1) to (1,1,1). Keys in pool round half up (1.5 → 2). A `keys_only` fallback rewrites the option to `alongside`, so `slot_data` reports the mode in effect. No new deferred tickets.

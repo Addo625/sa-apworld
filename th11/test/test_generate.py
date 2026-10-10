@@ -62,6 +62,7 @@ class TestGenerate(bases.TH11TestBase):
 			"number_life_mid", "power_mid", "difficulty_mid",
 			"number_life_end", "power_end", "difficulty_end",
 			"death_link",
+			"spell_card_keys", "captures_per_stage", "capture_slots",
 			"stage_requirements",
 		})
 		self.assertEqual(slot_data["stage_requirements"], [(0, 0, 0, 0)] * 6)
@@ -143,6 +144,13 @@ EXTREMES = {
 		"[Reimu] Kisume - Midboss", "[Reimu] Parsee Defeated", "[Marisa] Yamame Defeated", "[Marisa] Stage 2 Clear",
 	]},
 	"defaults": {},
+	# The clamp trims keys too, and that must still fill.
+	"keys max": {
+		**MAX_GATES, "spell_card_keys": "alongside", "captures_per_stage": 6,
+		"spell_card_keys_in_pool": 100, "spell_card_keys_required": 100,
+	},
+	"keys no captures": {"spell_card_keys": "alongside", "captures_per_stage": 0},
+	"keys shared keys_only": {"spell_card_keys": "keys_only", "capture_slots": "shared"},
 }
 
 

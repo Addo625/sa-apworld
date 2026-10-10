@@ -24,6 +24,7 @@ item_table: Dict[str, TItemData] = {
 	"+0.50 Power":			TItemData("Items", STARTING_ID + 1, ItemClassification.progression, 8),
 	"Lower Difficulty":		TItemData("Items", STARTING_ID + 2, ItemClassification.progression, 3),
 	"+1 Continue":			TItemData("[Normal] Items", STARTING_ID + 3, ItemClassification.useful, 3),
+	"Spell Card Key":		TItemData("Items", STARTING_ID + 4, ItemClassification.progression),
 
 	# Characters
 	"Reimu A - Yukari":		TItemData("Characters", STARTING_ID + 100, ItemClassification.progression),
