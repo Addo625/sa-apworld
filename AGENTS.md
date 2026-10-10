@@ -48,6 +48,29 @@ Write code only when necessary. Before solving anything:
 - Edge case that changes behavior → a follow-up ticket labeled `deferred`, blocked by the phase it depends on, fully specified (DoD, Test plan, Steps) so promoting it is just a relabel. Whether something is deferred is the human's call, made during planning; an agent that finds one mid-ticket creates it and lists it in `.agent-loop/HUMAN.md` for that decision.
 - Known ceiling of a deliberate shortcut → a `ponytail:` comment naming the ceiling and the upgrade path (harvested with `/ponytail-debt`).
 
+## In-game facts go to the probe batch (this project)
+
+The agent can't run the game, and the human wants to launch it as rarely as possible. A missing in-game fact (an unsourced address, unconfirmed behavior, a value to observe) therefore **never stops the loop**. Do this instead:
+
+1. **Build everything else.**
+   - Leave the entry `None`, so the feature logs "pending <what>" and does nothing.
+   - Test against fake readers.
+   - Add any client command the human will need for the probe (`/probe`, `/memsearch`, `/ptrscan`, `/poke`, …) in the same ticket.
+2. **Add a request to the open probe batch:** the `ready-for-human` ticket titled `[human] Probe batch` (if none is open, create one with the next free number). Each request is one numbered `R<n>` block:
+   - the ticket that needs it;
+   - the game state to reach;
+   - the exact client commands;
+   - what to paste;
+   - how the answer will be used.
+
+   Group requests so that one play session covers them, and reuse states that earlier requests already reach.
+3. **Move the remainder to a follow-up ticket:** `ready-for-agent`, `Blocked by: <batch>`, fully specified (what to read from the batch, what to write, the test).
+4. **Close the ticket.** In its last commit, set `Status: done` with a note pointing to the request and the follow-up, then print `AL_STATUS: done`, never `plan-broken`.
+
+Open design questions with a reasonable default work the same way. Implement the default, list it under the batch's `## Decisions to confirm`, and keep going. Stop with `plan-broken` or `stuck` only for problems that neither a game session nor a default can resolve: tests you can't make pass, a plan that contradicts the code, a missing permission.
+
+The human runs a batch in one game session, pastes the results, and sets the batch `done`, which unblocks its follow-ups. The next agent that needs the game opens a new batch. HUMAN.md lists an open batch as **one** "Do now" item with its request count, not one item per request.
+
 ## .agent-loop/HUMAN.md — the loop's note to the human
 
 `.agent-loop/HUMAN.md` (gitignored with the rest of `.agent-loop/`; create the directory if missing) tells the human what the loop needs from them. Whoever changes loop state (planner, worker) **rewrites the whole file** — never appends — from the tracker state and git. Keep it short; when nothing is needed, "Do now" says so.
