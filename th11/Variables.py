@@ -107,17 +107,27 @@ ADDR_NORMAL_CONTINUE_LIVES = 0x0001FA38  # source: static disassembly (34): a co
 NORMAL_CONTINUE_LIVES_CODE = lambda lives: bytes([0xB8, lives, 0, 0, 0, 0xEB, 0x17, 0x90])  # source: 34; mov eax, lives; jmp 0x41FA56 (the Practice branch's mov [lives], eax); nop
 
 ADDR_KILL_CONDITION = None  # source: none yet, MoF-analogue of 0x25A91 (jmp E9 DC 02 00 00 past the hit, NOP'd to kill); EXPECTED_BYTES are the jump TODO(32 R5, 36)
-# Item sounds: MoF's code cave (initSoundHack) plays the sound ID written to a spare dword, then resets it to 0x30.
-ADDR_CUSTOM_SOUND_ID = None  # source: none yet, MoF-analogue of 0x75070 (spare .data dword) TODO(40)
-ADDR_SOUND_HACK_1 = None  # source: none yet, MoF-analogue of 0x13683 (per-frame check of the sound ID) TODO(40)
-ADDR_SOUND_HACK_2 = None  # source: none yet, MoF-analogue of 0x1369A (the cave calling the play-sound function) TODO(40)
-SOUND_IDS = {"extend": None, "power": None, "ok": None}  # source: none yet; MoF plays 0x1F on any item, 0x0D on traps TODO(40)
+# Item sounds (MoF initSoundHack): a code cave plays the sound ID the client writes to a spare dword, then zeroes it.
+# Static disassembly (40); relocations are stripped, so the absolute addresses in the cave are fixed. TODO(32 R9)
+ADDR_CUSTOM_SOUND_ID = 0x000CAF00  # source: 40: .data slack past its virtual end 0x4CAE40, mapped (page) and zero, never referenced
+ADDR_SOUND_HACK_1 = 0x00029058  # source: 40: call 0x44A340 (sound queue update) in the supervisor's per-frame calc 0x429030; becomes call cave
+ADDR_SOUND_HACK_2 = 0x0008AF00  # source: 40: zero slack past .text's end 0x48AE15, executable; holds SOUND_CAVE
+SOUND_IDS = {"extend": 0x2C, "power": 0x1D, "ok": 0x0A}  # source: 40: sound table 0x4A34F0 -> se_extend, se_powerup, se_ok00; extend 0x420950 and item pickup 0x423ABA play the first two
+_SOUND_ID = (0x400000 + ADDR_CUSTOM_SOUND_ID).to_bytes(4, "little")
+SOUND_HOOK = bytes.fromhex("e8 a3 1e 06 00")  # source: 40; call 0x48AF00 (the cave), which tail-jumps to the replaced call's 0x44A340
+SOUND_CAVE = (  # source: 40
+	bytes.fromhex("60 8b 35") + _SOUND_ID  # pushad; mov esi, [sound id]
+	+ bytes.fromhex("85 f6 74 1d c7 05") + _SOUND_ID + bytes(4)  # test esi, esi; jz done; mov [sound id], 0
+	+ bytes.fromhex("e8 c6 f2 fb ff")  # call 0x44A1E0: queue sound esi (what extend does)
+	+ bytes.fromhex("83 3d 84 8d 4a 00 00 74 05 e8 62 5a f9 ff")  # if the HUD [0x4A8D84] is up, call 0x42098A: extend's tail redraws lives/pieces
+	+ bytes.fromhex("61 e9 12 f4 fb ff")  # done: popad; jmp 0x44A340
+)
 EXPECTED_BYTES = {
 	"ADDR_PRACTICE_STARTING_LIVES": None,
 	"ADDR_NORMAL_CONTINUE_LIVES": bytes.fromhex("89 35 18 57 4a 00 eb 1b"),  # mov [lives], esi; jmp 0x41FA5B
 	"ADDR_KILL_CONDITION": None,
-	"ADDR_SOUND_HACK_1": None,
-	"ADDR_SOUND_HACK_2": None,
+	"ADDR_SOUND_HACK_1": bytes.fromhex("e8 e3 12 02 00"),  # call 0x44A340
+	"ADDR_SOUND_HACK_2": bytes(len(SOUND_CAVE)),
 }
 
 PROBE_TABLE = {name: value for name, value in globals().items() if name.startswith("ADDR_")}

@@ -72,6 +72,14 @@ Context: the title's Demo Play replays a run, and the client takes it for play (
 - **D3:** (optional) watch a saved replay from the Replay menu, `/probe` during it, paste it.
 - Used for: `ADDR_IN_DEMO` in 41: an entry that is non-zero in D1 (and D3) and zero in both D2 runs. `ADDR_REPLAY_MGR_PTR` qualifies if it is non-zero in D1 and 0 in D2; otherwise the agent compares `ADDR_GAME_FLAGS` and the other lines.
 
+### R9, needed by 40 (from 29): received items play a sound and redraw the lives
+Context: 40 found SA's play-sound function by static disassembly. On the first received item with a sound, the client writes a code cave into `.text`'s zero slack (`base + 0x8AF00`) and hooks the per-frame sound update (`base + 0x29058`); the cave plays the sound ID the client writes to `base + 0xCAF00` and redraws the lives stars. Reuse R4's seed and connection (`/send` as admin). Fits right after R4, in a Practice stage, in play.
+- **S1:** `/send <your slot> +1 Life` with fewer than 9 lives: do you hear the extend sound, and does the HUD show one more star? Paste the client lines.
+- **S2:** `/send` `+0.05 Power` (power-up sound?), then a shot type you don't have yet or `Lower Difficulty` (menu "ok" sound?). One line each on what you heard.
+- **S3:** `/peek 429058 5`, `/peek 48AF00 46` and `/peek 4CAF00 4`, paste all three (expect `e8 a3 1e 06 00`, the cave starting `60 8b 35 00 af 4c 00`, and `00 00 00 00`: the sound ID dword is mapped and the cave zeroed it).
+- **S4:** close and restart the client (game still running), reconnect, `/send` `+1 Life` again: sound and star as in S1, and no "unexpected game code" error? Paste the lines.
+- Used for: confirms `ADDR_SOUND_HACK_1/2`, `ADDR_CUSTOM_SOUND_ID` and `SOUND_IDS` in 40. A crash, silence or a wrong sound reopens 40 with the pasted lines; a missing star with the sound working means the HUD tail call needs another look (40's notes).
+
 ## Decisions to confirm
 - (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits.
 - (13) Trap weight defaults copied from EoSD (−50% Power 20, −1 Life 0, No Focus 20, Reverse 20, Aya 20, Freeze 5, Power Drain 15); `traps` defaults to 0 %.
@@ -85,6 +93,8 @@ Context: the title's Demo Play replays a run, and the client takes it for play (
 - (16) The difficulty guard moves the cursor to the nearest unlocked difficulty on every menu with id 1. If another screen also has id 1 (not seen in 06), its cursor would be moved too.
 
 - (34) In the normal modes, the `+1 Life` count also sets the starting lives of every new run, Extra included (vanilla: 2), not only lives after a continue. The game sets both with one instruction, and MoF's patch site does the same. No `+1 Life` received means 0 lives (just the current one) at the start and after a continue.
+
+- (40) Each tick plays at most one item sound (extend > power-up > ok), and the lives stars are redrawn only with it: lives changed by a trap or RingLink (no sound) stay stale on the HUD until the game redraws them.
 
 - (30) A replay counts as not playing, not only for checks: no DeathLink or RingLink sends, no traps or items applied during one (items wait for the next real run). A saved replay watched from the Replay menu is treated the same, if the flag covers it.
 

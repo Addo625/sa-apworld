@@ -12,6 +12,7 @@ from ..probe import format_probe, memsearch, ptrscan
 BASE = 0x400000
 CAPTURE_ENTRIES = ["ADDR_SPELL_ID", "ADDR_SPELL_BONUS", "ADDR_SPELL_HISTORY"]
 THCRAP =Path(__file__).resolve().parents[2] / ".games/sa/thcrap/repos/nmlgc/base_tsa"
+GAME = Path(__file__).resolve().parents[2] / ".games/sa/th11.exe"
 
 
 class FakeMemory:
@@ -124,6 +125,37 @@ class TestPatchSites(unittest.TestCase):
 		safe_patch(memory, 0x1000, b"\x6a\x02", b"\x6a\x09")
 		self.assertEqual(memory.writes, [(0x1000, b"\x6a\x09")])
 
+	@unittest.skipUnless(GAME.exists(), ".games/ is gitignored")
+	def test_sound_cave_sites_bytes(self):
+		"""th11.exe v1.00a: vanilla bytes at both sites, and each rel32 in the hook and cave lands on the function
+		the notes name (40). .text maps RVA 0x1000 to file offset 0x400 and holds 0x8A000 bytes, slack included."""
+		exe = GAME.read_bytes()
+
+		def code(rva, size):
+			return exe[rva - 0x1000 + 0x400:rva - 0x1000 + 0x400 + size]
+
+		def target(rva, code_bytes, at):  # the E8/E9 at code_bytes[at], placed at rva
+			return rva + at + 5 + int.from_bytes(code_bytes[at + 1:at + 5], "little", signed=True)
+
+		hook, cave, cave_code = Variables.ADDR_SOUND_HACK_1, Variables.ADDR_SOUND_HACK_2, Variables.SOUND_CAVE
+		self.assertLessEqual(cave + len(cave_code), 0x1000 + 0x8A000)
+		for name in ("ADDR_SOUND_HACK_1", "ADDR_SOUND_HACK_2"):
+			expected = Variables.EXPECTED_BYTES[name]
+			self.assertEqual(code(getattr(Variables, name), len(expected)), expected)
+		self.assertEqual(target(hook, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_1"], 0), 0x4A340)  # sound queue update
+		self.assertEqual(target(hook, Variables.SOUND_HOOK, 0), cave)
+		self.assertEqual(code(0x4A340, 3), bytes.fromhex("83 ec 08"))  # sub esp, 8: its entry
+		self.assertEqual(target(cave, cave_code, 0x15), 0x4A1E0)  # play sound esi
+		self.assertEqual(code(0x4A1E0, 9), bytes.fromhex("57 0f bf 3c f5 f6 34 4a 00"))  # push edi; movsx edi, [0x4A34F6 + esi*8]
+		self.assertEqual(target(cave, cave_code, 0x23), 0x2098A)  # extend's HUD tail
+		self.assertEqual(code(0x2098A, 0x1A), bytes.fromhex("a1 1c 57 4a 00 8b 15 18 57 4a 00 57 8b 3d 84 8d 4a 00 50 e8 be 96 ff ff 5f c3"))  # ... call 0x41A060 (HUD lives/pieces, ret 4); pop edi; ret
+		self.assertEqual(target(cave, cave_code, 0x29), 0x4A340)
+		self.assertEqual(cave_code[0x28], 0x61)  # popad, where both jz land
+		self.assertEqual(cave + 0x0B + cave_code[0x0A], cave + 0x28)
+		self.assertEqual(cave + 0x23 + cave_code[0x22], cave + 0x28)
+		sound_id = (BASE + Variables.ADDR_CUSTOM_SOUND_ID).to_bytes(4, "little")
+		self.assertEqual((cave_code[3:7], cave_code[0x0D:0x11]), (sound_id, sound_id))
+
 	def test_patch_sites_have_expected_bytes(self):
 		for name, expected in Variables.EXPECTED_BYTES.items():
 			self.assertIn(name, Variables.PROBE_TABLE)
@@ -181,6 +213,8 @@ def game_memory(lives=2, boss=0, **fields):
 		if isinstance(entry, int) and value is not None:
 			memory.set(BASE + entry, value.to_bytes(4, "little", signed=True))
 	memory.set(manager + Variables.ADDR_IS_BOSS_PRESENT[1], boss.to_bytes(4, "little"))
+	for site in ("ADDR_SOUND_HACK_1", "ADDR_SOUND_HACK_2"):  # vanilla code, so the sound cave installs
+		memory.set(BASE + getattr(Variables, site), Variables.EXPECTED_BYTES[site])
 	return memory
 
 
@@ -234,7 +268,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		midboss_up = game_memory(lives=2, boss=0x3100000)
 		prev, runs = await ctx.poll(midboss_up, None, 0)
 		self.assertEqual(ctx.sent, [])
-		self.assertEqual(midboss_up.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])
+		self.assertEqual(midboss_up.writes[0], (BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little")))  # then its sound
 		midboss_gone = game_memory(lives=3)
 		state, runs = await ctx.poll(midboss_gone, prev, runs)
 		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Kisume - Midboss"],)}])
@@ -244,23 +278,32 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 
 	async def test_poll_plays_item_sound_once(self):
 		from unittest import mock
-		ctx = self.context("+1 Life")
-		memory = game_memory(lives=2)
-		with self.assertLogs("Client", "INFO") as logs:
-			await ctx.poll(memory, None, 0)
-		self.assertIn("pending the sound cave", "\n".join(logs.output))
-		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # pending: no sound write
-		sound_id = 0x10
-		with mock.patch.multiple(Variables, ADDR_CUSTOM_SOUND_ID=sound_id), mock.patch.dict(Variables.SOUND_IDS, {"extend": 0x1F}), \
-				mock.patch.dict(Variables.PROBE_TABLE, {"ADDR_CUSTOM_SOUND_ID": sound_id}):
-			ctx = self.context("+1 Life")
+		lives = (BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))
+		extend = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (0x2C).to_bytes(4, "little"))
+		cave = [(BASE + Variables.ADDR_SOUND_HACK_2, Variables.SOUND_CAVE), (BASE + Variables.ADDR_SOUND_HACK_1, Variables.SOUND_HOOK)]
+		ctx, memory = self.context("+1 Life"), game_memory(lives=2)
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [lives] + cave + [extend])  # lives first: the cave redraws them with the sound
+		memory.writes.clear()
+		await ctx.poll(memory, None, 0)  # applied already: no second sound
+		self.assertEqual(memory.writes, [])
+		memory.set(BASE + Variables.ADDR_LIVES, (2).to_bytes(4, "little"))
+		await self.context("+1 Life").poll(memory, None, 0)  # a restarted client, same game: the cave stays
+		self.assertEqual(memory.writes, [lives, extend])
+		with mock.patch.multiple(Variables, ADDR_CUSTOM_SOUND_ID=None), mock.patch.dict(Variables.PROBE_TABLE, {"ADDR_CUSTOM_SOUND_ID": None}):
 			memory = game_memory(lives=2)
-			memory.set(BASE + sound_id, bytes(4))
-			await ctx.poll(memory, None, 0)
-			self.assertIn((BASE + sound_id, (0x1F).to_bytes(4, "little")), memory.writes)
-			memory.writes.clear()
-			await ctx.poll(memory, None, 0)  # applied already: no second sound
-			self.assertEqual(memory.writes, [])
+			with self.assertLogs("Client", "INFO") as logs:
+				await self.context("+1 Life").poll(memory, None, 0)
+			self.assertIn("pending the sound cave", "\n".join(logs.output))
+			self.assertEqual(memory.writes, [lives])
+
+	async def test_sound_cave_refuses_unexpected_code(self):
+		memory = game_memory(lives=2)
+		memory.set(BASE + Variables.ADDR_SOUND_HACK_2, b"\xcc" * len(Variables.SOUND_CAVE))  # slack used by something else
+		with self.assertLogs("Client", "ERROR") as logs:
+			await self.context("+1 Life").poll(memory, None, 0)
+		self.assertIn("not played, unexpected game code", "\n".join(logs.output))
+		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # no cave, no sound id
 
 	async def test_poll_fires_trap_once(self):
 		from unittest import mock
