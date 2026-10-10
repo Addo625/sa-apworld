@@ -19,7 +19,7 @@ from . import Variables, deathlink, detect, guard, receive, ringlink, traps
 from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
-from .patching import PatchMismatch, patch_immediate, safe_patch
+from .patching import PatchMismatch, patch_value, safe_patch
 from .probe import float_candidates, format_probe, memsearch, ptrscan, read_entry, read_float, write_float, write_int
 from .state import read_state
 
@@ -373,7 +373,7 @@ class TouhouContext(CommonContext):
 			logger.info(f"Continue lives ({lives}): pending the continue-lives code site (probe batch 32, R2)")
 			return
 		try:
-			patch_immediate(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], lives)
+			patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
 		except PatchMismatch as e:
 			logger.error(f"Continue lives not patched, unexpected game code: {e}")
 

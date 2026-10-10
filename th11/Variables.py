@@ -103,7 +103,9 @@ ADDR_EXTRA_UNLOCK = None  # source: none yet, MoF-analogue per-shot bytes TODO(0
 
 # Code patch sites; each carries its original bytes in EXPECTED_BYTES.
 ADDR_PRACTICE_STARTING_LIVES = None  # source: none yet, MoF-analogue of 0x1796A TODO(06)
-ADDR_NORMAL_CONTINUE_LIVES = None  # source: none yet, MoF-analogue of 0x17955: the one-byte lives immediate a continue sets; its EXPECTED_BYTES are the instruction bytes before it TODO(32 R2)
+ADDR_NORMAL_CONTINUE_LIVES = 0x0001FA38  # source: static disassembly (34): a continue re-runs the game init, whose non-Practice branch stores esi (mov esi, 2 at 0x41F947, shared with an ANM interrupt) into lives; rewritten by NORMAL_CONTINUE_LIVES_CODE TODO(32 R2)
+NORMAL_CONTINUE_LIVES_CODE = lambda lives: bytes([0xB8, lives, 0, 0, 0, 0xEB, 0x17, 0x90])  # source: 34; mov eax, lives; jmp 0x41FA56 (the Practice branch's mov [lives], eax); nop
+
 ADDR_KILL_CONDITION = None  # source: none yet, MoF-analogue of 0x25A91 (jmp E9 DC 02 00 00 past the hit, NOP'd to kill); EXPECTED_BYTES are the jump TODO(32 R5, 36)
 # Item sounds: MoF's code cave (initSoundHack) plays the sound ID written to a spare dword, then resets it to 0x30.
 ADDR_CUSTOM_SOUND_ID = None  # source: none yet, MoF-analogue of 0x75070 (spare .data dword) TODO(40)
@@ -112,7 +114,7 @@ ADDR_SOUND_HACK_2 = None  # source: none yet, MoF-analogue of 0x1369A (the cave 
 SOUND_IDS = {"extend": None, "power": None, "ok": None}  # source: none yet; MoF plays 0x1F on any item, 0x0D on traps TODO(40)
 EXPECTED_BYTES = {
 	"ADDR_PRACTICE_STARTING_LIVES": None,
-	"ADDR_NORMAL_CONTINUE_LIVES": None,
+	"ADDR_NORMAL_CONTINUE_LIVES": bytes.fromhex("89 35 18 57 4a 00 eb 1b"),  # mov [lives], esi; jmp 0x41FA5B
 	"ADDR_KILL_CONDITION": None,
 	"ADDR_SOUND_HACK_1": None,
 	"ADDR_SOUND_HACK_2": None,

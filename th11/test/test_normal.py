@@ -1,9 +1,10 @@
 import unittest
+from pathlib import Path
 
 from .. import Variables, receive, test as bases
 from ..Options import Mode
 from ..detect import step
-from ..patching import PatchMismatch, patch_immediate
+from ..patching import PatchMismatch, patch_value
 from ..state import decode_state
 from .test_detect import ids, play
 from .test_state import BASE, S0, FakeMemory
@@ -11,6 +12,7 @@ from .test_extra import EXTRA
 from .test_generate import ALL_SHOTS, STAGE6
 from .test_granularity import PER_OWNER, item_count, location_count
 
+GAME = Path(__file__).resolve().parents[2] / ".games/sa/th11.exe"
 STAGE_ITEMS = ["Next Stage", "[Reimu] Next Stage", "[Marisa] Next Stage"] + [f"Stage {level}" for level in range(2, 7)]
 
 
@@ -71,17 +73,34 @@ class TestNormalClient(unittest.TestCase):
 
 	def test_continue_lives_patch_uses_guard(self):
 		memory = FakeMemory()
-		site, prefix = BASE + 0x17955, b"\xc7\x40\x5c"
-		memory.set(site - len(prefix), prefix + b"\x02")
-		patch_immediate(memory, site, prefix, 5)
-		self.assertEqual(memory.writes, [(site - len(prefix), prefix + b"\x05")])
+		site, original, code = BASE + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE
+		memory.set(site, original)
+		patch_value(memory, site, original, code, 5)
+		self.assertEqual(memory.writes, [(site, bytes.fromhex("b8 05 00 00 00 eb 17 90"))])
+		patch_value(memory, site, original, code, 3)  # repeats over its own earlier patch
+		self.assertEqual(memory.read_bytes(site, len(original)), code(3))
 		memory.writes.clear()
+		memory.set(site, b"\x90" * len(original))
 		with self.assertRaises(PatchMismatch):
-			patch_immediate(memory, site, b"\x90\x90\x90", 6)
+			patch_value(memory, site, original, code, 6)
 		self.assertEqual(memory.writes, [])
 		self.assertEqual(receive.continue_lives(["+1 Life"] * 3 + ["Next Stage"]), 3)
 		self.assertEqual(receive.continue_lives(["+1 Life"] * 12), 8)
 		self.assertEqual(receive.continue_lives(["+1 Life"] * 5, limit_lives=2), 2)
+
+	@unittest.skipUnless(GAME.exists(), ".games/ is gitignored")
+	def test_continue_lives_site_bytes(self):
+		"""th11.exe v1.00a: the original bytes sit at the site, and the patch's jump lands on the Practice branch's
+		mov [lives], eax (A3 18 57 4A 00) right before the shared continuation at 0x41FA5B."""
+		exe = GAME.read_bytes()
+		offset = Variables.ADDR_NORMAL_CONTINUE_LIVES - 0x1000 + 0x400  # .text: RVA 0x1000 at file offset 0x400
+		original = Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"]
+		self.assertEqual(exe[offset:offset + len(original)], original)
+		self.assertEqual(exe[offset - 0xF1:offset - 0xEC], bytes.fromhex("be 02 00 00 00"))  # 0x41F947 mov esi, 2: vanilla lives
+		code = Variables.NORMAL_CONTINUE_LIVES_CODE(2)
+		target = offset + 7 + code[6]  # jmp rel8 ends at site + 7
+		self.assertEqual(exe[target:target + 5], bytes.fromhex("a3 18 57 4a 00"))
+		self.assertEqual(target + 5, offset + 8 + original[7])  # the original jmp's target, 0x41FA5B
 
 	def test_normal_run_stage_transitions(self):
 		states = [decode_state(S0), play(1), play(1, True), play(1), play(1, True), play(1), play(2), play(2, True), play(2)]

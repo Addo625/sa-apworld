@@ -21,7 +21,12 @@ Context: `ADDR_EXTRA_UNLOCK` is `None`. The only lead is thcrap's `fix_extra_sta
 - **E2:** in the running game, `/memsearch` the save struct around 27's copy 1 (`…1BB8`) for the field E1 points at; paste matches.
 - **E3:** change that byte (with `/poke <addr> <hex byte>`) for a shot without Extra, open the Extra menu, and note whether the shot is now offered.
 
-(R2 is reserved for 34's continue-lives check.)
+### R2, needed by 34 (from 12): continue lives come from received `+1 Life` items
+Context: 34 found the site by static disassembly. A continue re-runs the game init, whose non-Practice branch sets lives; the client rewrites that store (`base + 0x1FA38`) to its own value, the number of `+1 Life` received (capped by `limit_lives`). The same branch also sets a new run's starting lives. Needs a `normal_static` or `normal_dynamic` seed and R4's `/send` (admin).
+- **C1:** connected, `/send` yourself `+1 Life` three times. Start (not Practice) a run, Stage 1, in play: `/probe`, paste the `ADDR_LIVES` line (expect 3). Watch the stage-start loading screen: anything odd?
+- **C2:** lose every life, choose to continue: `/probe`, paste `ADDR_LIVES` and `ADDR_CONTINUES` (expect lives 3, continues 1).
+- **C3:** `/peek 41FA38 8` and paste (expect `b8 03 00 00 00 eb 17 90`). This assumes th11 loads at 0x400000. If `/probe` shows `ADDR_LIVES` somewhere other than `0x004A5718`, peek at that address − 0x85CE0 instead.
+- Used for: confirms `ADDR_NORMAL_CONTINUE_LIVES` in 34. If C1 or C2 shows 2 lives, the init isn't the continue path; reopen 34 with the pasted values.
 
 ### R3, needed by 35 (from 13): the player's speed fields
 Context: the speed traps rewrite four speed floats (normal, focus, normal diagonal, focus diagonal); in MoF they sit at player + 0x3D4..0x3E0. SA's player pointer is `ADDR_PLAYER_PTR` (from thprac), the fields are unknown.
@@ -78,6 +83,8 @@ Context: the title's Demo Play replays a run, and the client takes it for play (
 - (16) `limit_lives` is 0–9, default 9 (SA's max; EoSD's is 0–8, default 8). It caps +1 Life and a normal-mode continue, but never takes lives away (a Practice run starts at 9 whatever the limit).
 - (16) A run on a locked shot type or difficulty sends no checks, but counts as a run so the stage's later checks stay aligned. Before connecting, or before the first received items arrive, nothing is filtered (the items are unknown), so those runs' checks are sent on connect.
 - (16) The difficulty guard moves the cursor to the nearest unlocked difficulty on every menu with id 1. If another screen also has id 1 (not seen in 06), its cursor would be moved too.
+
+- (34) In the normal modes, the `+1 Life` count also sets the starting lives of every new run, Extra included (vanilla: 2), not only lives after a continue. The game sets both with one instruction, and MoF's patch site does the same. No `+1 Life` received means 0 lives (just the current one) at the start and after a continue.
 
 - (30) A replay counts as not playing, not only for checks: no DeathLink or RingLink sends, no traps or items applied during one (items wait for the next real run). A saved replay watched from the Replay menu is treated the same, if the flag covers it.
 
