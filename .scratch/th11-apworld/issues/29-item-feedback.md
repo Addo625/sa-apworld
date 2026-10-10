@@ -24,3 +24,7 @@ Blocked by: 08
 
 ## Deferred
 - **In-game check (human, after this ticket):** `/send Player1 +1 Life` plays a sound, and the lives row updates if the HUD part landed.
+
+## Comments
+
+- 2026-10-10 planner: lead from a static scan of `th11.exe`. `0x420951`–`0x420962` is the game's extend routine (`mov eax,[0x4A5718]; inc eax; cmp eax,9; mov [0x4A5718],eax; jle …; mov [0x4A5718],9`). Calling the game's own extend path for `+1 Life`, instead of writing the value, should redraw the HUD and play the extend sound. Find the function start and a safe way to invoke it (a code cave or a hook that runs on the game thread, as MoF's sound hack does) before porting the sound hack.
