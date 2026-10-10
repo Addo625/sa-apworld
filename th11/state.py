@@ -8,13 +8,13 @@ from .probe import read_entry
 
 STATE_ENTRIES = [
 	"ADDR_ENEMY_MANAGER", "ADDR_IS_BOSS_PRESENT", "ADDR_MENU", "ADDR_MENU_CURSOR", "ADDR_STAGE",
-	"ADDR_DIFFICULTY", "ADDR_CHARACTER", "ADDR_SHOT_TYPE", "ADDR_LIVES", "ADDR_POWER",
+	"ADDR_DIFFICULTY", "ADDR_CHARACTER", "ADDR_SHOT_TYPE", "ADDR_LIVES", "ADDR_POWER", "ADDR_IN_DEMO",
 ]
 
 
 class GameState(NamedTuple):
 	"""None = unreadable."""
-	in_game: bool  # a stage is running (enemy manager exists)
+	in_game: bool  # a stage is being played (enemy manager exists, not a replay)
 	boss_present: bool  # a midboss or boss is up
 	menu: Optional[int]  # menu id, None in play
 	menu_cursor: Optional[int]
@@ -28,7 +28,8 @@ class GameState(NamedTuple):
 
 def decode_state(values) -> GameState:
 	"""values: {entry name: int, or None when unreadable}; missing entries count as unreadable."""
-	in_game = bool(values.get("ADDR_ENEMY_MANAGER"))
+	# A replay (title Demo Play) isn't play: no checks, deaths, rings, traps or items in it (ticket 30).
+	in_game = bool(values.get("ADDR_ENEMY_MANAGER")) and not values.get("ADDR_IN_DEMO")
 	character, shot = values.get("ADDR_CHARACTER"), values.get("ADDR_SHOT_TYPE")
 	valid = character in (0, 1) and shot in (0, 1, 2)
 	return GameState(

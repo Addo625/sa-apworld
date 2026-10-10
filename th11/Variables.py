@@ -74,6 +74,8 @@ ADDR_DIFFICULTY = 0x000A5720  # source: probe 06 S3-S11: Easy 0 .. Lunatic 3, Ex
 ADDR_CHARACTER = 0x000A5710  # source: probe 06 S2-S7: Reimu 0, Marisa 1
 ADDR_SHOT_TYPE = 0x000A5714  # source: probe 06 S2-S7: A 0, B 1, C 2
 ADDR_IS_BOSS_PRESENT = [ADDR_ENEMY_MANAGER, 0x1C]  # source: 06 /bossrec + /bosswatch stages 1, 2, 5, 6: boss object ptr, non-zero while a midboss or boss is up
+ADDR_REPLAY_MGR_PTR = 0x000A8EB8  # source: thprac REPLAY_MGR_PTR; not probed, candidate for ADDR_IN_DEMO
+ADDR_IN_DEMO = None  # source: none yet, EoSD-analogue (th06 ADDR_IN_DEMO): non-zero while a replay plays, so the run is not play TODO(32 R8, 41)
 
 # Resources; outside a run these hold leftovers from the last run or the title demo (probe 06 S1, S9).
 ADDR_LIVES = 0x000A5718  # source: probe 06 S3-S11; -1 = game over (S10)

@@ -384,6 +384,10 @@ async def game_loop(ctx: TouhouContext):
 			except Exception:
 				continue
 			logger.info(f"Attached to {GAME_NAME}")
+			if Variables.ADDR_IN_DEMO is None:
+				logger.info("Demo Play: a title demo still sends checks, pending the demo flag (probe batch 32 R8, ticket 41)")
+			else:
+				logger.info("Demo Play: replays send no checks")
 		try:
 			controller.read_bytes(controller.base_address, 1)  # read_state hides read errors; this one means the process is gone
 		except Exception as e:

@@ -60,6 +60,13 @@ Context: 27 found the practice table twice on the heap; both move every launch. 
 - **U4 (write test):** `/poke <copy 1's M + 0x15> 01` (Normal Stage 3 `unlocked`), open Practice → Reimu A → Normal: is Stage 3 offered? Paste the line and the answer. If not, `/poke` the same byte back to `00`, do the same on copy 2's match, and answer again. Afterwards poke every changed byte back to `00` before quitting, since the game may write the save on exit.
 - Used for: `ADDR_PRACTICE_UNLOCK` (pointer chain to the copy that U4 shows the menu reads) and the per-shot chunk stride, in 39.
 
+### R8, needed by 41 (from 30): a flag that is set only while a replay plays
+Context: the title's Demo Play replays a run, and the client takes it for play (a demo sent a "midboss Orin" check). `ADDR_IN_DEMO` is `None`. The candidate is thprac's replay manager pointer, `ADDR_REPLAY_MGR_PTR` (`0x4a8eb8`), but the game may also keep it for recording during normal play. Fits any time; the demo needs the title screen, no seed.
+- **D1:** on the title screen, wait (no input) until a demo starts. During the demo, `/probe` and paste the whole output.
+- **D2:** in a run you start yourself (Start, Stage 1, in play), `/probe` and paste it. Then the same in Practice, Stage 1 (R3's P1 state works).
+- **D3:** (optional) watch a saved replay from the Replay menu, `/probe` during it, paste it.
+- Used for: `ADDR_IN_DEMO` in 41: an entry that is non-zero in D1 (and D3) and zero in both D2 runs. `ADDR_REPLAY_MGR_PTR` qualifies if it is non-zero in D1 and 0 in D2; otherwise the agent compares `ADDR_GAME_FLAGS` and the other lines.
+
 ## Decisions to confirm
 - (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits.
 - (13) Trap weight defaults copied from EoSD (−50% Power 20, −1 Life 0, No Focus 20, Reverse 20, Aya 20, Freeze 5, Power Drain 15); `traps` defaults to 0 %.
@@ -71,6 +78,8 @@ Context: 27 found the practice table twice on the heap; both move every launch. 
 - (16) `limit_lives` is 0–9, default 9 (SA's max; EoSD's is 0–8, default 8). It caps +1 Life and a normal-mode continue, but never takes lives away (a Practice run starts at 9 whatever the limit).
 - (16) A run on a locked shot type or difficulty sends no checks, but counts as a run so the stage's later checks stay aligned. Before connecting, or before the first received items arrive, nothing is filtered (the items are unknown), so those runs' checks are sent on connect.
 - (16) The difficulty guard moves the cursor to the nearest unlocked difficulty on every menu with id 1. If another screen also has id 1 (not seen in 06), its cursor would be moved too.
+
+- (30) A replay counts as not playing, not only for checks: no DeathLink or RingLink sends, no traps or items applied during one (items wait for the next real run). A saved replay watched from the Replay menu is treated the same, if the flag covers it.
 
 ## Steps
 1. Do the session setup, then every `R<n>` in order. Paste each one's output under `## Comments`, labeled `R<n>`.

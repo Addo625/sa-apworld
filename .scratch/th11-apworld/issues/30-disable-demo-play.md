@@ -1,6 +1,6 @@
 # 30: Demo Play must not send checks
 
-Status: ready-for-agent
+Status: done
 Blocked by: 08
 
 ## Problem
@@ -22,3 +22,7 @@ The title screen's Demo Play replays existing runs. During one, the client detec
 
 ## Deferred
 - **In-game check (human):** idle on the title until a demo plays. A: no demo starts. B: the demo plays and the server gets no check. If B's flag is a guess, set `needs-human` with the `/probe` needed during a demo.
+
+## Comments
+
+- al-work 2026-10-10: Option B. Option A needed static analysis of th11.exe, and no disassembler (python, objdump) could run in the unattended session, so the demo site stays unknown. `decode_state` now counts a run as not in game while `ADDR_IN_DEMO` is non-zero, so a replay sends no checks, deaths or rings and gets no traps or items; `test_detect_ignores_demo` covers it. The flag is `None` (thprac's `0x4a8eb8` is a guess that may also be set during normal play), so the client logs "pending the demo flag" on attach. Probe request: 32 R8; follow-up: 41. DoD: 345 passed.

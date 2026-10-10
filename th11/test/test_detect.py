@@ -30,6 +30,11 @@ class TestDetect(unittest.TestCase):
 	def test_detect_midboss(self):
 		self.assertEqual(run_stage(1, 1), ids("[Reimu] Kisume - Midboss"))
 
+	def test_detect_ignores_demo(self):
+		"""A title demo replays a run: its boss drops and clear send nothing."""
+		self.assertEqual(run_stage(1, 2, ADDR_IN_DEMO=1), [])
+		self.assertEqual(run_stage(1, 2, ADDR_IN_DEMO=0), ids("[Reimu] Kisume - Midboss", "[Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear"))
+
 	def test_detect_boss(self):
 		self.assertEqual(step(play(boss=True), play(), 1), (ids("[Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear"), 2))
 
