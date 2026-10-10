@@ -1,6 +1,6 @@
 # 14: DeathLink
 
-Status: ready-for-agent
+Status: done
 Blocked by: 09
 
 ## Problem
@@ -30,3 +30,4 @@ EoSD supports DeathLink with `death_link_trigger` (on a life lost or on game ove
 ## Comments
 
 - 2026-10-10 planner: promoted by the human after 09 passed. Written before 06/07 findings; use the current code: `ADDR_MENU_PTR` (not a game mode), in a stage = `ADDR_ENEMY_MANAGER` ≠ 0, boss = `ADDR_IS_BOSS_PRESENT`, power in 0.05 units (max 80). If an address this ticket needs is unsourced (e.g. Extra unlock, menu/continue sites), implement everything else, then set `needs-human` naming the probe needed.
+- 2026-10-10 al-work: done. Options `death_link_trigger`/`death_link_amnesty` in slot_data; `/deathlink`, `/deathlink_trigger`, `/deathlink_amnesty`; `deathlink.on_state` sends on lives lost against the client's post-write lives (so -1 Life traps and reattaches aren't deaths); `TouhouContext.kill` NOPs `ADDR_KILL_CONDITION` for 0.1 s, guarded both ways. The kill site is unsourced: a received death is logged as pending. Probe request 32 R5 (kill site, plus a send and pause-Restart check), follow-up 36 (set the site), human two-client check 37. A game over counts even if the stage is torn down in the same poll; a kill that takes no life is retried every 2 s. DoD: 311 passed. Amnesty and queueing defaults listed under 32's Decisions to confirm.

@@ -14,16 +14,19 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, detect, receive, traps
+from . import Variables, deathlink, detect, receive, traps
 from .Items import item_table
+from .Options import DeathLinkAmnesty, DeathLinkTrigger
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
-from .patching import PatchMismatch, patch_immediate
+from .patching import PatchMismatch, patch_immediate, safe_patch
 from .probe import float_candidates, format_probe, memsearch, read_entry, read_float, write_float, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 POLL_SECONDS = 0.5
 MEMSEARCH_CAP = 50
+KILL_SECONDS = 0.1  # how long the kill site stays patched (EoSD killPlayer)
+KILL_RETRY_SECONDS = 2  # a kill that took no life (bomb, respawn invincibility) is retried after this
 
 
 class TouhouClientProcessor(ClientCommandProcessor):
@@ -111,6 +114,38 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			logger.info(f"  +0x{offset:X} = {value:g} (addr 0x{player + offset:08X})")
 		return True
 
+	def _cmd_deathlink(self, active: str = ""):
+		"""Turn DeathLink on or off, or show it"""
+		active = active.lower()
+		if active not in ("", "on", "off"):
+			logger.error("Usage: /deathlink [on|off]")
+			return False
+		if active:
+			asyncio.create_task(self.ctx.update_death_link(active == "on"))
+			self.ctx.link.incoming = False  # a death received before turning it off doesn't wait
+		logger.info(f"DeathLink: {active or ('on' if 'DeathLink' in self.ctx.tags else 'off')}")
+		return True
+
+	def _cmd_deathlink_trigger(self, value: str = ""):
+		"""Send a death on every life lost (life) or only on a game over (game_over), or show the setting"""
+		if value:
+			if value.lower() not in DeathLinkTrigger.options:  # from_text would also take "random"
+				logger.error("Usage: /deathlink_trigger [life|game_over]")
+				return False
+			self.ctx.link.trigger = DeathLinkTrigger.options[value.lower()]
+		logger.info(f"DeathLink trigger: {DeathLinkTrigger.get_option_name(self.ctx.link.trigger)}")
+		return True
+
+	def _cmd_deathlink_amnesty(self, value: str = ""):
+		"""Set how many deaths are forgiven before one is sent (0-10), or show it"""
+		if value:
+			if not value.isdigit() or not DeathLinkAmnesty.range_start <= int(value) <= DeathLinkAmnesty.range_end:
+				logger.error("Usage: /deathlink_amnesty [0-10]")
+				return False
+			self.ctx.link.amnesty, self.ctx.link.deaths = int(value), 0
+		logger.info(f"DeathLink amnesty: {self.ctx.link.amnesty}")
+		return True
+
 	def _cmd_launch(self):
 		"""Launch Touhou SA"""
 		game_exe = get_settings().touhou_sa_settings.game_exe
@@ -138,6 +173,9 @@ class TouhouContext(CommonContext):
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.traps = traps.TrapState()
 		self.traps_seen = 0  # received items scanned for traps, kept across reconnects like items_applied
+		self.link = deathlink.LinkState()
+		self.link_prev = None  # last poll's state after the client's writes, for deathlink.on_state
+		self.killed_at = -KILL_RETRY_SECONDS  # time.monotonic() of the last kill attempt
 
 	async def server_auth(self, password_requested: bool = False):
 		if password_requested and not self.password:
@@ -159,8 +197,35 @@ class TouhouContext(CommonContext):
 			if self.applied_for != (self.seed_name, self.slot):
 				self.applied_for, self.items_applied, self.traps_seen = (self.seed_name, self.slot), 0, 0
 				self.traps = traps.TrapState()
+				# A new seed starts from its options; a reconnect keeps what the commands changed.
+				self.link = deathlink.LinkState(
+					self.slot_data.get("death_link_trigger", DeathLinkTrigger.default),
+					self.slot_data.get("death_link_amnesty", DeathLinkAmnesty.default))
+				asyncio.create_task(self.update_death_link(bool(self.slot_data.get("death_link"))))
 		if cmd == "ReceivedItems":
 			asyncio.create_task(self.check_goal())
+
+	def on_deathlink(self, data: dict):
+		super().on_deathlink(data)
+		if Variables.ADDR_KILL_CONDITION is None:
+			logger.info("DeathLink: can't kill the player yet, pending the kill code site (probe batch 32 R5, ticket 36)")
+		else:
+			self.link.incoming = True  # kills at the next poll in a run; waits outside one
+
+	async def kill(self, controller):
+		"""Patch the kill site for KILL_SECONDS so the player dies (EoSD/MoF setKill), then restore it."""
+		expected = Variables.EXPECTED_BYTES["ADDR_KILL_CONDITION"]
+		nops = b"\x90" * len(expected)
+		try:
+			safe_patch(controller, controller.base_address + Variables.ADDR_KILL_CONDITION, expected, nops)
+		except PatchMismatch as e:
+			logger.error(f"DeathLink: not killed, unexpected game code: {e}")
+			self.link.incoming = False
+			return
+		try:
+			await asyncio.sleep(KILL_SECONDS)
+		finally:
+			safe_patch(controller, controller.base_address + Variables.ADDR_KILL_CONDITION, nops, expected)
 
 	async def poll(self, controller, prev, runs):
 		"""One loop tick: send checks for prev -> now, write new items. -> (state, runs)."""
@@ -170,6 +235,8 @@ class TouhouContext(CommonContext):
 		lower = self.received_names().count("Lower Difficulty")
 		locations, runs = detect.step(prev, state, runs, self.slot_data, lower) if prev else ([], 0)
 		self.locations_found.update(locations)
+		if self.slot is None or prev is None:
+			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:
 			return state, runs  # not connected: checks wait in locations_found
 		if self.locations_found:
@@ -182,12 +249,19 @@ class TouhouContext(CommonContext):
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
 		self.traps_seen = len(names)
 		speeds = [read_float(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
-		written = state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value for entry, value in writes})
+		written = receive.with_writes(state, writes)
 		trap_writes, new_speeds = traps.tick(self.traps, time.monotonic(), written, None if None in speeds else speeds)
 		for entry, value in trap_writes:
 			write_int(controller, entry, value)
 		for name, value in zip(traps.SPEED_ENTRIES, new_speeds or []):
 			write_float(controller, getattr(Variables, name), value)
+		if "DeathLink" in self.tags:
+			if deathlink.on_state(self.link_prev, state, self.link):
+				await self.send_death()
+			if self.link.incoming and receive.in_run(state) and time.monotonic() - self.killed_at >= KILL_RETRY_SECONDS:
+				self.killed_at = time.monotonic()
+				await self.kill(controller)
+		self.link_prev = receive.with_writes(written, trap_writes)
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names))
 		return state, runs

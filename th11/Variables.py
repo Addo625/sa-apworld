@@ -98,9 +98,11 @@ ADDR_EXTRA_UNLOCK = None  # source: none yet, MoF-analogue per-shot bytes TODO(0
 # Code patch sites; each carries its original bytes in EXPECTED_BYTES.
 ADDR_PRACTICE_STARTING_LIVES = None  # source: none yet, MoF-analogue of 0x1796A TODO(06)
 ADDR_NORMAL_CONTINUE_LIVES = None  # source: none yet, MoF-analogue of 0x17955: the one-byte lives immediate a continue sets; its EXPECTED_BYTES are the instruction bytes before it TODO(32 R2)
+ADDR_KILL_CONDITION = None  # source: none yet, MoF-analogue of 0x25A91 (jmp E9 DC 02 00 00 past the hit, NOP'd to kill); EXPECTED_BYTES are the jump TODO(32 R5, 36)
 EXPECTED_BYTES = {
 	"ADDR_PRACTICE_STARTING_LIVES": None,
 	"ADDR_NORMAL_CONTINUE_LIVES": None,
+	"ADDR_KILL_CONDITION": None,
 }
 
 PROBE_TABLE = {name: value for name, value in globals().items() if name.startswith("ADDR_")}

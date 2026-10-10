@@ -38,6 +38,11 @@ def apply(item_name, state):
 	return []
 
 
+def with_writes(state, writes):
+	"""state as it reads once lives/power writes land."""
+	return state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value for entry, value in writes})
+
+
 def apply_new(item_names, applied, state):
 	"""-> (writes, items applied). Only items after `applied` take effect, so a reconnect's full replay writes nothing.
 	Outside a run nothing is applied: items wait for the next run."""
@@ -49,9 +54,9 @@ def apply_new(item_names, applied, state):
 	for name in item_names[applied:]:
 		if name in PENDING_UNLOCK:
 			logger.info(f"{name}: pending unlock address (tickets 28, 32)")
-		for entry, value in apply(name, state):
-			writes.append((entry, value))
-			state = state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value})
+		new = apply(name, state)
+		writes += new
+		state = with_writes(state, new)
 	return writes, len(item_names)
 
 

@@ -165,7 +165,7 @@ class TWorld(World):
 				# goal and ending_required are in effect (koishi/both without Extra read utsuho,
 				# all_shot_types without shot_type reads both_characters).
 				"goal", "ending_required",
-				"death_link",
+				"death_link", "death_link_trigger", "death_link_amnesty",
 				# spell_card_keys is the mode in effect (keys_only without keys reads alongside).
 				"spell_card_keys", "captures_per_stage", "capture_slots",
 			),

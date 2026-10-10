@@ -272,6 +272,24 @@ class PowerDrainTrap(Range):
 	default = 15
 
 
+class DeathLinkTrigger(Choice):
+	"""When your death is sent to the others with DeathLink. Can be changed in the client with /deathlink_trigger.
+	life: every life lost.
+	game_over: only a game over."""
+	display_name = "DeathLink trigger"
+	option_life = 0
+	option_game_over = 1
+	default = 0
+
+
+class DeathLinkAmnesty(Range):
+	"""Deaths forgiven before one is sent: with 2, every third death is sent. Can be changed in the client with /deathlink_amnesty."""
+	display_name = "DeathLink amnesty"
+	range_start = 0
+	range_end = 10
+	default = 0
+
+
 @dataclass
 class TH11Options(PerGameCommonOptions):
 	mode: Mode
@@ -305,5 +323,6 @@ class TH11Options(PerGameCommonOptions):
 	aya_speed_trap: AyaSpeedTrap
 	freeze_trap: FreezeTrap
 	power_drain_trap: PowerDrainTrap
-	# Does nothing until ticket 14.
 	death_link: DeathLink
+	death_link_trigger: DeathLinkTrigger
+	death_link_amnesty: DeathLinkAmnesty
