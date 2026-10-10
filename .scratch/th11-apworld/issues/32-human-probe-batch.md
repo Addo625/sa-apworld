@@ -21,7 +21,24 @@ Context: `ADDR_EXTRA_UNLOCK` is `None`. The only lead is thcrap's `fix_extra_sta
 - **E2:** in the running game, `/memsearch` the save struct around 27's copy 1 (`…1BB8`) for the field E1 points at; paste matches.
 - **E3:** change that byte (with 28's `/poke`, once it exists, or a memory editor) for a shot without Extra, open the Extra menu, and note whether the shot is now offered.
 
+(R2 is reserved for 34's continue-lives check.)
+
+### R3, needed by 35 (from 13): the player's speed fields
+Context: the speed traps rewrite four speed floats (normal, focus, normal diagonal, focus diagonal); in MoF they sit at player + 0x3D4..0x3E0. SA's player pointer is `ADDR_PLAYER_PTR` (from thprac), the fields are unknown.
+- **P1:** Practice, Stage 1, **Reimu A**, in play. Run `/playerfloats` and paste the whole output.
+- **P2:** same with **Marisa B** (another speed): `/playerfloats`, paste. The speed fields are the ones that differ between P1 and P2 and come in normal/focus pairs, focus about half of normal, diagonal about normal × 0.707.
+- **P3:** for the best candidate of the normal speed, `/poke <its addr> 00000000` while holding no focus: does unfocused movement stop (focused still works)? Paste the line and the answer. If the candidates are unclear, skip P3; the agent picks from P1/P2.
+- Used for: `ADDR_SPEED_*` = `[ADDR_PLAYER_PTR, offset]` in 35.
+
+### R4, needed by 35 (from 13): each trap once
+Context: traps fire 2 s into a run. Needs a seed with `traps: 100` (all filler are traps) and the AP server's `/send` (as admin: `/send <your slot> <item>`).
+- In a Practice stage, `/send` each one, waiting for the previous to end: `-50% Power`, `-1 Life`, `Power Drain`, and, only once 35 is done, `No Focus`, `Reverse Movement`, `Aya Speed`, `Freeze`.
+- Paste the client log lines (`Trap: …`) and one line per trap on what you saw. Note anything that felt wrong (too long, too short, too harsh).
+- Used for: closing out 13's in-game check; durations feed the decisions below.
+
 ## Decisions to confirm
+- (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits.
+- (13) Trap weight defaults copied from EoSD (−50% Power 20, −1 Life 0, No Focus 20, Reverse 20, Aya 20, Freeze 5, Power Drain 15); `traps` defaults to 0 %.
 
 ## Steps
 1. Do the session setup, then every `R<n>` in order. Paste each one's output under `## Comments`, labeled `R<n>`.

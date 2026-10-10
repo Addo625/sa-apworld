@@ -1,6 +1,6 @@
 # 13: Traps
 
-Status: ready-for-agent
+Status: done
 Blocked by: 09
 
 ## Problem
@@ -33,3 +33,4 @@ EoSD swaps a percentage of filler for weighted traps. The SA-relevant subset is:
 ## Comments
 
 - 2026-10-10 planner: promoted by the human after 09 passed. Written before 06/07 findings; use the current code: `ADDR_MENU_PTR` (not a game mode), in a stage = `ADDR_ENEMY_MANAGER` ≠ 0, boss = `ADDR_IS_BOSS_PRESENT`, power in 0.05 units (max 80). If an address this ticket needs is unsourced (e.g. Extra unlock, menu/continue sites), implement everything else, then set `needs-human` naming the probe needed.
+- 2026-10-10 al-work: done. Generation (`traps` + 7 weights, EoSD defaults) and the client (`traps.py`, one trap per tick, 2 s into a run) are built; DoD passes (288 tests). The speed fields are unsourced (only `ADDR_PLAYER_PTR` from thprac), so speed traps log "pending" and are dropped: probe batch 32 **R3** (new `/playerfloats`) finds them, follow-up **35** fills them in. The `/send`-each-trap human check is 32 **R4** rather than a separate ticket. Durations/weights are under 32's Decisions to confirm.

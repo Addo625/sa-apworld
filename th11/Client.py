@@ -1,6 +1,7 @@
 import asyncio
 import os
 import subprocess
+import time
 
 from CommonClient import (
 	CommonContext,
@@ -13,11 +14,11 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, detect, receive
+from . import Variables, detect, receive, traps
 from .Items import item_table
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_immediate
-from .probe import format_probe, memsearch, write_int
+from .probe import float_candidates, format_probe, memsearch, read_entry, read_float, write_float, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
@@ -95,6 +96,21 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(f"0x{address:08X}: {before.hex(' ')} -> {data.hex(' ')}")
 		return True
 
+	def _cmd_playerfloats(self, count: str = "1000"):
+		"""Print speed-like floats in the first count (hex) bytes of the player object, to find its speed fields"""
+		from .gameController import gameController
+		try:
+			controller = gameController()
+			player = read_entry(controller, Variables.ADDR_PLAYER_PTR)
+			data = controller.read_bytes(player, int(count, 16))  # player None or 0 raises
+		except Exception as e:
+			logger.error(f"Cannot read the player object (in a stage?): {e}")
+			return False
+		logger.info(f"Player object at 0x{player:08X}")
+		for offset, value in float_candidates(data):
+			logger.info(f"  +0x{offset:X} = {value:g} (addr 0x{player + offset:08X})")
+		return True
+
 	def _cmd_launch(self):
 		"""Launch Touhou SA"""
 		game_exe = get_settings().touhou_sa_settings.game_exe
@@ -120,6 +136,8 @@ class TouhouContext(CommonContext):
 		self.locations_found = set()
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
+		self.traps = traps.TrapState()
+		self.traps_seen = 0  # received items scanned for traps, kept across reconnects like items_applied
 
 	async def server_auth(self, password_requested: bool = False):
 		if password_requested and not self.password:
@@ -139,7 +157,8 @@ class TouhouContext(CommonContext):
 		if cmd == "Connected":
 			self.slot_data = args.get("slot_data") or {}
 			if self.applied_for != (self.seed_name, self.slot):
-				self.applied_for, self.items_applied = (self.seed_name, self.slot), 0
+				self.applied_for, self.items_applied, self.traps_seen = (self.seed_name, self.slot), 0, 0
+				self.traps = traps.TrapState()
 		if cmd == "ReceivedItems":
 			asyncio.create_task(self.check_goal())
 
@@ -160,6 +179,15 @@ class TouhouContext(CommonContext):
 		writes, self.items_applied = receive.apply_new(names, self.items_applied, state)
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
+		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
+		self.traps_seen = len(names)
+		speeds = [read_float(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
+		written = state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value for entry, value in writes})
+		trap_writes, new_speeds = traps.tick(self.traps, time.monotonic(), written, None if None in speeds else speeds)
+		for entry, value in trap_writes:
+			write_int(controller, entry, value)
+		for name, value in zip(traps.SPEED_ENTRIES, new_speeds or []):
+			write_float(controller, getattr(Variables, name), value)
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names))
 		return state, runs

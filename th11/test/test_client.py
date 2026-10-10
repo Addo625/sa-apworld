@@ -216,6 +216,28 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertEqual(midboss_gone.writes, [])
 
+	async def test_poll_fires_trap_once(self):
+		from unittest import mock
+		from .. import traps
+		ctx = self.context("-1 Life")
+		with mock.patch.object(traps, "ENTER_DELAY", 0):
+			memory = game_memory(lives=2)
+			await ctx.poll(memory, None, 0)
+			self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (1).to_bytes(4, "little"))])
+			memory = game_memory(lives=1)
+			await ctx.poll(memory, None, 0)  # not replayed
+			self.assertEqual(memory.writes, [])
+
+	async def test_poll_trap_sees_item_written_same_tick(self):
+		from unittest import mock
+		from .. import traps
+		ctx = self.context("+1 Life", "-1 Life")
+		with mock.patch.object(traps, "ENTER_DELAY", 0):
+			memory = game_memory(lives=2)
+			await ctx.poll(memory, None, 0)
+		lives = [int.from_bytes(data, "little") for address, data in memory.writes if address == BASE + Variables.ADDR_LIVES]
+		self.assertEqual(lives, [3, 2])
+
 	async def test_poll_maps_checks_with_slot_data(self):
 		from ..Locations import location_table
 		ctx = self.context("Lower Difficulty")
@@ -227,7 +249,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 
 class TestClientIsolation(unittest.TestCase):
 	def test_client_modules_import_without_pymem(self):
-		logic = ["Variables", "probe", "patching", "state", "detect", "receive", "Client"]  # Client attaches lazily through gameController
+		logic = ["Variables", "probe", "patching", "state", "detect", "receive", "traps", "Client"]  # Client attaches lazily through gameController
 		package = __package__.rsplit(".", 1)[0]
 		saved = {name: sys.modules.get(name) for name in ["pymem", "kivy"] + [f"{package}.{m}" for m in logic]}
 		try:

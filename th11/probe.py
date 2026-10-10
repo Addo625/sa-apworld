@@ -2,6 +2,8 @@
 Memory probe: prints every address table entry so the human can check it in-game.
 Pure: the reader only needs base_address and read_bytes(address, size).
 """
+import struct
+
 from .Variables import PROBE_TABLE
 
 
@@ -29,11 +31,35 @@ def read_entry(reader, entry):
 		return None
 
 
+def read_float(reader, entry):
+	"""Float at a table entry, or None if unsourced or unreadable."""
+	if entry is None:
+		return None
+	try:
+		return struct.unpack("<f", reader.read_bytes(resolve(reader, entry), 4))[0]
+	except Exception:
+		return None
+
+
 def write_int(writer, entry, value):
+	write_entry(writer, entry, value.to_bytes(4, "little", signed=True))
+
+
+def write_float(writer, entry, value):
+	write_entry(writer, entry, struct.pack("<f", value))
+
+
+def write_entry(writer, entry, data: bytes):
 	"""The one way client logic writes game memory: a table entry, never a raw address."""
 	if entry is None or entry not in PROBE_TABLE.values():
 		raise ValueError(f"write to {entry!r}, which is not a sourced Variables entry")
-	writer.write_bytes(resolve(writer, entry), value.to_bytes(4, "little", signed=True))
+	writer.write_bytes(resolve(writer, entry), data)
+
+
+def float_candidates(data: bytes, low=0.1, high=20.0) -> list:
+	"""[(offset, value)] of 4-byte aligned floats in data with low <= |value| <= high (speed-like)."""
+	values = struct.unpack(f"<{len(data) // 4}f", data[:len(data) // 4 * 4])
+	return [(i * 4, value) for i, value in enumerate(values) if low <= abs(value) <= high]
 
 
 def memsearch(reader, regions, pattern: bytes, cap=50, block=0x10000) -> list:

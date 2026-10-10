@@ -78,6 +78,13 @@ ADDR_POWER = 0x000A56E8  # source: probe 06 S4-S12: units of 0.05, max 80 (4.00)
 ADDR_SCORE = 0x000A56E4  # source: probe 06 S4-S11: stored /10
 ADDR_CONTINUES = 0x000A573C  # source: thprac Globals.continues (offset 0x5C); 0 in every 06 probe, no continue used
 
+# Player movement speeds (floats in the player object; MoF has them at player + 0x3D4..0x3E0, D = diagonal).
+ADDR_PLAYER_PTR = 0x000A8EB4  # source: thprac `#define player (*(Player**)0x4a8eb4)`; not probed yet
+ADDR_SPEED_NORMAL = None  # source: none yet, [ADDR_PLAYER_PTR, offset] from probe 32 R3 TODO(35)
+ADDR_SPEED_FOCUS = None  # source: none yet TODO(35)
+ADDR_SPEED_NORMAL_D = None  # source: none yet TODO(35)
+ADDR_SPEED_FOCUS_D = None  # source: none yet TODO(35)
+
 # Spell captures. thprac_th11.cpp has no spell ID, bonus or history code (its spell practice
 # patches ECL), and FearLess and disassembly weren't reachable in 22: each entry has one source at most.
 ADDR_SPELL_ID = None  # source: none yet, current spell card ID (spells.js 0-174) or -1 TODO(23)

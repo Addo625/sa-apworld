@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from .. import Variables
-from ..probe import resolve, write_int
+from ..probe import read_float, resolve, write_float, write_int
 from ..state import decode_state, read_state
 from .test_client import BASE, FakeMemory
 
@@ -97,8 +97,8 @@ class TestBossPresent(unittest.TestCase):
 		self.assertFalse(state.boss_present)
 
 
-# The writers themselves: write_int checks its entry at run time, safe_patch guards with EXPECTED_BYTES.
-WRITERS = {"write_bytes", "write_int", "safe_patch", "patch_immediate", "_cmd_poke"}  # _cmd_poke: human-typed debug write for probe requests (28)
+# The writers themselves: write_entry checks its entry at run time, safe_patch guards with EXPECTED_BYTES.
+WRITERS = {"write_bytes", "write_entry", "safe_patch", "patch_immediate", "_cmd_poke"}  # _cmd_poke: human-typed debug write for probe requests (28)
 
 
 def call_name(node):
@@ -146,3 +146,10 @@ class TestWriteAddresses(unittest.TestCase):
 		memory = FakeMemory()
 		write_int(memory, Variables.ADDR_LIVES, -1)
 		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, b"\xff\xff\xff\xff")])
+
+	def test_write_float_round_trips_and_checks_entry(self):
+		memory = FakeMemory()
+		write_float(memory, Variables.ADDR_LIVES, -2.5)
+		self.assertEqual(read_float(memory, Variables.ADDR_LIVES), -2.5)
+		with self.assertRaises(ValueError):
+			write_float(memory, BASE + Variables.ADDR_LIVES, 1.0)
