@@ -242,6 +242,26 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertEqual(midboss_gone.writes, [])
 
+	async def test_poll_plays_item_sound_once(self):
+		from unittest import mock
+		ctx = self.context("+1 Life")
+		memory = game_memory(lives=2)
+		with self.assertLogs("Client", "INFO") as logs:
+			await ctx.poll(memory, None, 0)
+		self.assertIn("pending the sound cave", "\n".join(logs.output))
+		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # pending: no sound write
+		sound_id = 0x10
+		with mock.patch.multiple(Variables, ADDR_CUSTOM_SOUND_ID=sound_id), mock.patch.dict(Variables.SOUND_IDS, {"extend": 0x1F}), \
+				mock.patch.dict(Variables.PROBE_TABLE, {"ADDR_CUSTOM_SOUND_ID": sound_id}):
+			ctx = self.context("+1 Life")
+			memory = game_memory(lives=2)
+			memory.set(BASE + sound_id, bytes(4))
+			await ctx.poll(memory, None, 0)
+			self.assertIn((BASE + sound_id, (0x1F).to_bytes(4, "little")), memory.writes)
+			memory.writes.clear()
+			await ctx.poll(memory, None, 0)  # applied already: no second sound
+			self.assertEqual(memory.writes, [])
+
 	async def test_poll_fires_trap_once(self):
 		from unittest import mock
 		from .. import traps

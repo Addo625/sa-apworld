@@ -60,6 +60,12 @@ def apply_new(item_names, applied, state, limit_lives=MAX_LIVES):
 	return writes, len(item_names)
 
 
+def sound(item_names):
+	"""-> the one sound for items applied in a tick (the cave plays one ID at a time): extend > power > ok, or None."""
+	kinds = {"extend" if name == "+1 Life" else "power" if name in POWER else "ok" if name in PENDING_UNLOCK else None for name in item_names}
+	return next((kind for kind in ("extend", "power", "ok") if kind in kinds), None)
+
+
 def difficulty_for(lower, slot_data):
 	"""normal_dynamic: the lowest difficulty `lower` Lower Difficulty items open, never Easy (EoSD). Else None: the player picks."""
 	if slot_data.get("mode") != Mode.option_normal_dynamic:

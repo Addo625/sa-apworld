@@ -1,6 +1,6 @@
 # 29: Show received items in game (sound, HUD refresh)
 
-Status: ready-for-agent
+Status: done
 Blocked by: 08
 
 ## Problem
@@ -28,3 +28,4 @@ Blocked by: 08
 ## Comments
 
 - 2026-10-10 planner: lead from a static scan of `th11.exe`. `0x420951`–`0x420962` is the game's extend routine (`mov eax,[0x4A5718]; inc eax; cmp eax,9; mov [0x4A5718],eax; jle …; mov [0x4A5718],9`). Calling the game's own extend path for `+1 Life`, instead of writing the value, should redraw the HUD and play the extend sound. Find the function start and a safe way to invoke it (a code cave or a hook that runs on the game thread, as MoF's sound hack does) before porting the sound hack.
+- 2026-10-10 al-work: done, plumbing only. Static analysis (step 1) wasn't possible unattended: `objdump`, `xxd` and ad-hoc `python` need approval (not in `.claude/settings*.json`). Shipped: `receive.sound` picks one sound per tick (extend > power > ok; traps none), `TouhouContext.play_sound` writes its ID to `ADDR_CUSTOM_SOUND_ID`, and logs "pending the sound cave (ticket 40)" while that, `ADDR_SOUND_HACK_1/2` (in `EXPECTED_BYTES`, so the guard and thcrap overlap tests cover them) and `SOUND_IDS` are `None`. `test_sound_patch_sites_dont_overlap_thcrap` is the existing `test_patch_sites_dont_overlap_thcrap`, which iterates `EXPECTED_BYTES`. DoD: 344 passed. The disassembly, the cave install and the HUD part moved to 40 (`needs-human`: permission or interactive run).

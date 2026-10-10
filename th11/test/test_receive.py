@@ -1,7 +1,7 @@
 import unittest
 
 from .. import Variables
-from ..receive import apply, apply_new, goal_reached
+from ..receive import apply, apply_new, goal_reached, sound
 from ..state import decode_state
 from .test_state import PRACTICE_S1, S0
 
@@ -67,3 +67,18 @@ class TestGoal(unittest.TestCase):
 		slot_data = {"goal": 1, "ending_required": 1}
 		self.assertFalse(goal_reached(["[Reimu] Ending - Koishi", "[Marisa] Ending - Utsuho"], slot_data))
 		self.assertTrue(goal_reached(iter(["[Reimu] Ending - Koishi", "[Marisa] Ending - Koishi"]), slot_data))
+
+
+class TestSound(unittest.TestCase):
+	def test_sound_requested_per_item(self):
+		self.assertEqual(sound(["+1 Life"]), "extend")
+		self.assertEqual(sound(["+0.05 Power"]), "power")
+		self.assertEqual(sound(["Reimu A - Yukari"]), "ok")
+		self.assertEqual(sound(["Lower Difficulty", "+0.50 Power", "+1 Life"]), "extend")  # one per tick, most important
+		self.assertIsNone(sound([]))
+		self.assertIsNone(sound(["-1 Life"]))  # traps make their own noise
+
+	def test_sound_patch_sites_guarded(self):
+		"""The cave sites go through safe_patch: listed in EXPECTED_BYTES, so the guard and thcrap overlap tests cover them."""
+		for name in ("ADDR_SOUND_HACK_1", "ADDR_SOUND_HACK_2"):
+			self.assertIn(name, Variables.EXPECTED_BYTES)

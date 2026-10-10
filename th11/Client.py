@@ -311,7 +311,9 @@ class TouhouContext(CommonContext):
 			await self.check_locations(self.locations_found)
 			self.locations_found.clear()
 		names = self.received_names()
-		writes, self.items_applied = receive.apply_new(names, self.items_applied, state, self.limit_lives)
+		applied = self.items_applied
+		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives)
+		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
@@ -344,6 +346,16 @@ class TouhouContext(CommonContext):
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		return state, runs
+
+	def play_sound(self, controller, kind):
+		"""MoF playSound: write the kind's sound ID for the sound cave to play on the game thread."""
+		if kind is None:
+			return
+		sound_id = Variables.SOUND_IDS[kind]
+		if Variables.ADDR_CUSTOM_SOUND_ID is None or sound_id is None:
+			logger.info(f"Item sound ({kind}): pending the sound cave (ticket 40)")
+			return
+		write_int(controller, Variables.ADDR_CUSTOM_SOUND_ID, sound_id)
 
 	def patch_continue_lives(self, controller, lives):
 		"""Normal mode: a continue restores the lives from items (MoF setNormalContinueLives). Once per value and game process."""
