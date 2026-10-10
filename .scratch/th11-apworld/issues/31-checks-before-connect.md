@@ -1,6 +1,6 @@
 # 31: Checks found before the first connect keep shot-type and difficulty mapping
 
-Status: deferred
+Status: ready-for-agent
 Blocked by: 10
 
 ## Problem

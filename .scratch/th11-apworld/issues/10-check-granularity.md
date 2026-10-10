@@ -1,6 +1,6 @@
 # 10: Choose check and unlock granularity (by character, by shot type, by difficulty)
 
-Status: needs-human
+Status: done
 Blocked by: 09
 
 ## Problem
@@ -47,3 +47,4 @@ EoSD lets the player choose how stage unlocks are grouped (`stage_unlock`: globa
   - **Blocked:** "`items.apply` writes unlock rows per character or per shot" needs `ADDR_PRACTICE_UNLOCK` (None; probe ticket 27, ready-for-human). The new stage items (`[<Char>] Next Stage`, `[<Shot>] Next Stage`, `Stage N`, `[<X>] Stage N`) are logged as pending unlocks like `Next Stage`. Suggest: fold the per-group rows into 28 (it already writes the table) and close 10, or keep 10 open behind 27.
   - **Decisions to confirm:** `difficulty_check` *replaces* the plain midboss/boss checks with per-difficulty ones (EoSD's `get_regions`), clears stay per owner; the test plan said "adds". Counts per owner are 19 (not 17) since 25's two cat-Orin checks. `progressive_stage` off: logic wants Stage 2..k for stage k (MoF wants only Stage k), and rooms lose 3 per unlock group (`SLACK_PER_UNLOCK_GROUP`, measured); `shot_type` makes another shot and the start's first stage item local early items. All measured over fixed seeds, see the commit bodies.
   - Deferred: 31 (checks found before the first connect use empty slot_data).
+- 2026-10-10 human (via Claude): released. The unlock-row writes move to 28 (it writes the whole table). Decisions above accepted as implemented: `difficulty_check` replaces plain midboss/boss checks; 19 checks per owner; `progressive_stage` off = Stage 2..k; the shot_type early items. Reopen via `/al-plan` if any of these should change.
