@@ -3,6 +3,7 @@ game: Touhou Chireiden ~ Subterranean Animism
 description: Every option at its default.
 
 Touhou Chireiden ~ Subterranean Animism:
+  mode: practice
   stage_unlock: global
   progressive_stage: 'true'
   shot_type: 'false'

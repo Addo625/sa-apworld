@@ -70,7 +70,7 @@ class TestGenerate(bases.TH11TestBase):
 	def test_slot_data_keys(self):
 		slot_data = self.multiworld.worlds[self.player].fill_slot_data()
 		self.assertEqual(set(slot_data), {
-			"stage_unlock", "progressive_stage", "shot_type", "difficulty_check", "check_multiple_difficulty",
+			"mode", "stage_unlock", "progressive_stage", "shot_type", "difficulty_check", "check_multiple_difficulty",
 			"exclude_lunatic",
 			"number_life_mid", "power_mid", "difficulty_mid",
 			"number_life_end", "power_end", "difficulty_end",
@@ -191,6 +191,15 @@ EXTREMES = {
 	"max extra apart goal both all_shot_types": {
 		**MAX_GATES, "extra_stage": "apart", "goal": "both", "ending_required": "all_shot_types", "shot_type": True,
 		"stage_unlock": "by_shot_type", "number_life_extra": 8, "power_extra": 8,
+	},
+	# Normal mode drops the stage items: filler fills their locations.
+	"normal_dynamic min gates": {"mode": "normal_dynamic"},
+	"max normal_static extra apart by_shot_type": {
+		**MAX_GATES, "mode": "normal_static", "extra_stage": "apart", "goal": "both", "shot_type": True,
+		"stage_unlock": "by_shot_type", "number_life_extra": 8, "power_extra": 8,
+	},
+	"max normal_dynamic extra linear": {
+		**MAX_GATES, "mode": "normal_dynamic", "extra_stage": "linear", "goal": "koishi", "number_life_extra": 8, "power_extra": 8,
 	},
 }
 

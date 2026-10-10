@@ -3,8 +3,22 @@ from dataclasses import dataclass
 from Options import Choice, DeathLink, PerGameCommonOptions, Range, Toggle
 
 
+class Mode(Choice):
+	"""Which mode you play.
+	practice: stages unlock with Next Stage items, played from Practice.
+	normal_dynamic: full runs from stage 1; gates are lives, power, difficulty and character. The difficulty is
+	always the lowest unlocked one, never Easy. With difficulty_check this acts as normal_static.
+	normal_static: same, but the difficulty is the one you pick.
+	In normal modes continues are unlimited and a continue restores the lives you got from items."""
+	display_name = "Mode"
+	option_practice = 0
+	option_normal_dynamic = 1
+	option_normal_static = 2
+	default = 0
+
+
 class StageUnlock(Choice):
-	"""How stage unlocks are grouped in Practice mode.
+	"""How stage unlocks are grouped in Practice mode, and for Extra Stage items.
 	global: one set of stage unlocks for everyone.
 	by_character: each character has its own stage unlocks.
 	by_shot_type: each shot type has its own stage unlocks.
@@ -196,6 +210,7 @@ class SpellCardKeysRequired(Range):
 
 @dataclass
 class TH11Options(PerGameCommonOptions):
+	mode: Mode
 	stage_unlock: StageUnlock
 	progressive_stage: ProgressiveStage
 	shot_type: ShotTypeCheck

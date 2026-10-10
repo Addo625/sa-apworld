@@ -29,6 +29,8 @@ With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clea
 **Filler**: +0.05 Power
 
 ## Options
+**Mode:** practice (stage by stage in Practice Mode), normal_dynamic or normal_static. Normal mode is a full run from Stage 1: there are no Next Stage items (an apart Extra keeps its Extra Stage item), and the gates are lives, power, difficulty and shot type. With difficulty_check, normal_dynamic acts as normal_static.
+
 **Stage Unlock:** Stage unlocks are global, per character, or per shot type. Per shot type needs Shot Type Check or Difficulty Check; otherwise it acts as per character.
 
 **Progressive Stage Unlock:** On, `Next Stage` items unlock stages in order. Off, each stage has its own item; logic still expects the earlier stages' items, and gates are lowered more to keep seeds fillable.

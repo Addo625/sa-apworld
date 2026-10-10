@@ -51,6 +51,10 @@ class TWorld(World):
 		# Checks belong to characters, or shot types with shot_type; difficulty checks exist per playable difficulty.
 		self.owners = SHOT_TYPE_LIST if options.shot_type else CHARACTERS_LIST
 		self.difficulties = [d for d in DIFFICULTY_LIST if d != "Lunatic" or not options.exclude_lunatic] if options.difficulty_check else []
+		# Difficulty checks need the difficulty you pick (EoSD).
+		if options.mode == options.mode.option_normal_dynamic and options.difficulty_check:
+			options.mode.value = options.mode.option_normal_static
+		self.normal = options.mode != options.mode.option_practice
 		# Too few locations for 30 stage items without extra checks (EoSD).
 		if options.stage_unlock == options.stage_unlock.option_by_shot_type and not (options.shot_type or options.difficulty_check):
 			options.stage_unlock.value = options.stage_unlock.option_by_character
@@ -103,10 +107,13 @@ class TWorld(World):
 			pool += [self.create_item(name) for _ in range(quantity)]
 		for group in self.unlock_groups:
 			prefix = f"[{group}] " if group else ""
-			names = [f"{prefix}Next Stage"] * 5 if self.options.progressive_stage else [f"{prefix}Stage {level}" for level in range(2, 7)]
-			if self.options.extra_stage:  # linear and progressive: one more Next Stage; else an Extra Stage item
-				linear = self.options.extra_stage == self.options.extra_stage.option_linear
-				names.append(f"{prefix}Next Stage" if linear and self.options.progressive_stage else f"{prefix}Extra Stage")
+			linear = self.options.extra_stage == self.options.extra_stage.option_linear
+			if self.normal:  # a run plays every stage: only an apart Extra needs an item
+				names = [f"{prefix}Extra Stage"] if self.options.extra_stage and not linear else []
+			else:
+				names = [f"{prefix}Next Stage"] * 5 if self.options.progressive_stage else [f"{prefix}Stage {level}" for level in range(2, 7)]
+				if self.options.extra_stage:  # linear and progressive: one more Next Stage; else an Extra Stage item
+					names.append(f"{prefix}Next Stage" if linear and self.options.progressive_stage else f"{prefix}Extra Stage")
 			pool += [self.create_item(name) for name in names]
 
 		shots = [shot for character in CHARACTERS_LIST for shot in CHARACTER_TO_ITEM[character]]
@@ -120,7 +127,8 @@ class TWorld(World):
 			prefix = next(f"[{group}] " if group else "" for group in self.unlock_groups if group in ("", owner, SHOT_TO_CHARACTER[owner]))
 			early = self.multiworld.local_early_items[self.player]
 			early[self.random.choice([shot for shot in shots if shot != start])] = 1
-			early[f"{prefix}Next Stage" if self.options.progressive_stage else f"{prefix}Stage 2"] = 1
+			if not self.normal:
+				early[f"{prefix}Next Stage" if self.options.progressive_stage else f"{prefix}Stage 2"] = 1
 		pool += [self.create_item("Spell Card Key") for _ in range(self.key_count)]
 
 		pool += [self.create_item(self.get_filler_item_name()) for _ in range(total_locations - len(self.owners) * len(endings) - len(pool))]
@@ -132,8 +140,9 @@ class TWorld(World):
 	def fill_slot_data(self) -> dict:
 		return {
 			**self.options.as_dict(
-				# stage_unlock is the mode in effect (by_shot_type without extra checks reads by_character).
-				"stage_unlock", "progressive_stage", "shot_type", "difficulty_check", "check_multiple_difficulty",
+				# mode and stage_unlock are in effect (normal_dynamic with difficulty_check reads normal_static,
+				# by_shot_type without extra checks reads by_character).
+				"mode", "stage_unlock", "progressive_stage", "shot_type", "difficulty_check", "check_multiple_difficulty",
 				"exclude_lunatic",
 				"number_life_mid", "power_mid", "difficulty_mid",
 				"number_life_end", "power_end", "difficulty_end",

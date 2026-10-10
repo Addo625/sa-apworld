@@ -53,13 +53,15 @@ def stage_rooms(world, keys_required=0):
 	excluded = world.options.exclude_locations.value
 	groups = min(len(world.unlock_groups), len(world.owners))
 	slack = GATE_SLACK + keys_required // KEYS_PER_SLACK
-	if not world.options.progressive_stage:
+	if not world.options.progressive_stage and not world.normal:
 		slack += SLACK_PER_UNLOCK_GROUP * groups
 	if world.options.extra_stage:
 		slack += EXTRA_SLACK * groups
 	open_before, rooms = 0, []
 	for stage in range(1, len(world.stage_regions) + 1):
-		rooms.append(open_before - (stage - 1) * groups - (len(world.owners) - 1) - slack)
+		# Normal mode has no stage items, only an apart Extra's.
+		stage_items = int(stage == 7 and world.options.extra_stage == world.options.extra_stage.option_apart) if world.normal else stage - 1
+		rooms.append(open_before - stage_items * groups - (len(world.owners) - 1) - slack)
 		regions = world.stage_regions[stage - 1] + [
 			region for difficulty, _, region in world.difficulty_regions[stage - 1] if not difficulty_lower(world, difficulty)
 		]
@@ -79,10 +81,13 @@ def owner_groups(world, owner):
 	return [shot for shot in SHOT_TYPE_LIST if SHOT_TO_CHARACTER[shot] == owner]  # by_shot_type with character checks
 
 
-def stage_unlocked(state, player, group, level, progressive, apart=False):
-	"""Level 7 is Extra: one more Next Stage (linear, progressive), else the Extra Stage item."""
+def stage_unlocked(state, player, group, level, progressive, apart=False, normal=False):
+	"""Level 7 is Extra: one more Next Stage (linear, progressive), else the Extra Stage item.
+	Normal mode needs no stage item but an apart Extra's (EoSD constructStageRule)."""
 	prefix = f"[{group}] " if group else ""
-	if level == 7 and (apart or not progressive):
+	if normal and not (level == 7 and apart):
+		unlocked = True
+	elif level == 7 and (apart or not progressive):
 		unlocked = state.has(f"{prefix}Extra Stage", player)
 	elif progressive:
 		unlocked = state.has(f"{prefix}Next Stage", player, level - 1)
@@ -98,8 +103,9 @@ def set_rules(world):
 	get = lambda name: world.multiworld.get_region(name, player)
 
 	def difficulty(gate):
-		# Without Lunatic the game starts one step lower.
-		return max(0, gate.value - 1) if options.exclude_lunatic else gate.value
+		# Dynamic mode never plays Easy (EoSD); without Lunatic the game starts one step lower.
+		value = min(gate.value, gate.option_normal) if options.mode == options.mode.option_normal_dynamic else gate.value
+		return max(0, value - 1) if options.exclude_lunatic else value
 
 	mid = (options.number_life_mid.value, options.power_mid.value, difficulty(options.difficulty_mid))
 	end = (options.number_life_end.value, options.power_end.value, difficulty(options.difficulty_end))
@@ -113,6 +119,7 @@ def set_rules(world):
 
 	progressive = bool(options.progressive_stage)
 	apart = options.extra_stage == options.extra_stage.option_apart
+	normal = world.normal
 	for owner in world.owners:
 		shots = CHARACTER_TO_ITEM[owner]
 		groups = owner_groups(world, owner)
@@ -123,7 +130,7 @@ def set_rules(world):
 			# Extra into logic early, connect it from the owner and cap its gate below stage 6's, then re-measure.
 			source = get(f"[{owner}] Stage 6") if level == 7 else get(owner)
 			source.connect(get(f"[{owner}] Stage {'Extra' if level == 7 else level}"), rule=lambda state, groups=groups, level=level, lives=lives, power=power, lower=lower, keys=keys: (
-				any(stage_unlocked(state, player, group, level, progressive, apart) for group in groups)
+				any(stage_unlocked(state, player, group, level, progressive, apart, normal) for group in groups)
 				and state.has("+1 Life", player, lives)
 				and state.has("+0.50 Power", player, power)
 				and state.has("Lower Difficulty", player, lower)
