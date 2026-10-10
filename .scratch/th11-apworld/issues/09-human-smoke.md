@@ -22,3 +22,9 @@ Only a real session proves the v1 loop: seed → server → client → game → 
 
 ## Deferred
 - None. Failures become new tickets via `/al-plan`.
+
+## Comments
+
+- 2026-10-10 al-work (from 08), worth one extra look while you're in game:
+  - **`+1 Life` timing:** the life is written while a stage is running. Sent on a menu, it waits for the next stage start.
+  - **Retry:** a Practice retry (pause → Retry) mid-stage should reset the boss-run count. That holds only if the enemy manager pointer hits 0 on retry, and nobody has probed that. Retry after the midboss, then kill the midboss again. Expected: no `Yamame Defeated` / `Stage 1 Clear` from that midboss kill. If they do get sent, the fix is MoF's score-drop reset.

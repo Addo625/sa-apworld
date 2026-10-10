@@ -1,6 +1,6 @@
 # 08: The client sends stage checks and applies lives, power and stage unlocks
 
-Status: ready-for-agent
+Status: done
 Blocked by: 02, 07
 
 ## Problem
@@ -55,3 +55,13 @@ With verified addresses, the client must turn the game state into AP location ch
 - 2026-10-10 al-work (from 07):
   - **Decoders:** use `state.read_state(reader)` / `decode_state(values)` → `GameState`, and `probe.write_int(writer, entry, value)` for every write.
   - **Game over:** the enemy manager pointer at game over is unprobed (06 S10). Detect game over with `lives == -1`, not with `in_game` going false.
+- 2026-10-10 al-work: done.
+  - **DoD:** `pytest worlds/th11/test -q` → 93 passed.
+  - **Tests:** `test_detect_*` in `test/test_detect.py`, `test_apply_*` in `test/test_receive.py`, `test_goal_sent_on_ending_item` in `test/test_client.py`.
+  - **Name changes:**
+    - `items.py` is `receive.py`, since `items.py` collides with `Items.py` on macOS.
+    - `detect.step(prev, state, runs)` also takes and returns the boss-run count.
+  - **Stage clear:** no tally signal is known, so the clear is sent when the stage's last boss-field run ends. Per the 06 bossrec, the field drops 1.7 s before the clear bonus.
+  - **Items:** received items wait for a running stage before they are applied.
+  - **Not done here:** practice/continue starting lives are unsourced → 12. A client restart replays lives and power once (`ponytail:` in `receive.py`).
+  - **For 09:** Practice-retry run reset is unverified (note added there).

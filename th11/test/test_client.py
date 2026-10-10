@@ -124,9 +124,66 @@ def thcrap_ranges():
 	return ranges
 
 
+def game_memory(lives=2, boss=0):
+	"""FakeMemory holding a Practice Stage 1 run (probe 06 S3) with the given lives and boss field."""
+	from .test_state import PRACTICE_S1
+	memory, manager = FakeMemory(), 0x3000000
+	for name, value in {**PRACTICE_S1, "ADDR_ENEMY_MANAGER": manager, "ADDR_LIVES": lives}.items():
+		entry = getattr(Variables, name)
+		if isinstance(entry, int) and value is not None:
+			memory.set(BASE + entry, value.to_bytes(4, "little", signed=True))
+	memory.set(manager + Variables.ADDR_IS_BOSS_PRESENT[1], boss.to_bytes(4, "little"))
+	return memory
+
+
+def received(*names):
+	from NetUtils import NetworkItem
+	from ..Items import item_table
+	return [NetworkItem(item_table[name].code, 0, 1) for name in names]
+
+
+class TestClientLoop(unittest.IsolatedAsyncioTestCase):
+	def context(self, *items):
+		from ..Client import TouhouContext
+		ctx = TouhouContext()  # needs the running loop
+		ctx.slot = 1
+		ctx.missing_locations = set(range(Variables.STARTING_ID, Variables.STARTING_ID + 1000))
+		ctx.items_received = received(*items)
+		ctx.sent = []
+
+		async def send_msgs(msgs):
+			ctx.sent += msgs
+		ctx.send_msgs = send_msgs
+		return ctx
+
+	async def test_goal_sent_on_ending_item(self):
+		from NetUtils import ClientStatus
+		ctx = self.context("+1 Life")
+		await ctx.check_goal()
+		self.assertEqual(ctx.sent, [])
+		ctx.items_received = received("+1 Life", "[Reimu] Ending - Utsuho")
+		await ctx.check_goal()
+		await ctx.check_goal()
+		self.assertEqual(ctx.sent, [{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+
+	async def test_poll_sends_check_and_writes_items(self):
+		from ..Locations import location_table
+		ctx = self.context("+1 Life")
+		midboss_up = game_memory(lives=2, boss=0x3100000)
+		prev, runs = await ctx.poll(midboss_up, None, 0)
+		self.assertEqual(ctx.sent, [])
+		self.assertEqual(midboss_up.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])
+		midboss_gone = game_memory(lives=3)
+		state, runs = await ctx.poll(midboss_gone, prev, runs)
+		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Kisume - Midboss"],)}])
+		await ctx.poll(midboss_gone, state, runs)  # the next tick: nothing new
+		self.assertEqual(len(ctx.sent), 1)
+		self.assertEqual(midboss_gone.writes, [])
+
+
 class TestClientIsolation(unittest.TestCase):
 	def test_client_modules_import_without_pymem(self):
-		logic = ["Variables", "probe", "patching", "state", "Client"]  # Client attaches lazily through gameController
+		logic = ["Variables", "probe", "patching", "state", "detect", "receive", "Client"]  # Client attaches lazily through gameController
 		package = __package__.rsplit(".", 1)[0]
 		saved = {name: sys.modules.get(name) for name in ["pymem", "kivy"] + [f"{package}.{m}" for m in logic]}
 		try:
