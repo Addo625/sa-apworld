@@ -98,7 +98,7 @@ class TestBossPresent(unittest.TestCase):
 
 
 # The writers themselves: write_int checks its entry at run time, safe_patch guards with EXPECTED_BYTES.
-WRITERS = {"write_bytes", "write_int", "safe_patch"}
+WRITERS = {"write_bytes", "write_int", "safe_patch", "patch_immediate", "_cmd_poke"}  # _cmd_poke: human-typed debug write for probe requests (28)
 
 
 def call_name(node):
@@ -121,7 +121,7 @@ class TestWriteAddresses(unittest.TestCase):
 					continue
 				where = f"{path.name}:{getattr(call, 'lineno', '?')}"
 				self.assertNotEqual(call_name(call), "write_bytes", f"{where}: raw write_bytes, use write_int")
-				if call_name(call) == "safe_patch":
+				if call_name(call) in ("safe_patch", "patch_immediate"):
 					names = {getattr(n, "attr", getattr(n, "id", None)) for n in ast.walk(call.args[1])}
 					self.assertTrue(names & set(Variables.EXPECTED_BYTES), f"{where}: patch site is not a Variables entry")
 

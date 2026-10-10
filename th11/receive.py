@@ -6,6 +6,7 @@ import logging
 
 from . import Variables
 from .Items import item_table
+from .Options import Mode
 from .Rules import goal_met
 
 logger = logging.getLogger("Client")
@@ -52,6 +53,26 @@ def apply_new(item_names, applied, state):
 			writes.append((entry, value))
 			state = state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value})
 	return writes, len(item_names)
+
+
+def difficulty_for(lower, slot_data):
+	"""normal_dynamic: the lowest difficulty `lower` Lower Difficulty items open, never Easy (EoSD). Else None: the player picks."""
+	if slot_data.get("mode") != Mode.option_normal_dynamic:
+		return None
+	return max(1, Variables.lowest_unlocked(lower, slot_data.get("exclude_lunatic")))
+
+
+def difficulty_writes(state, lower, slot_data):
+	"""-> writes forcing normal_dynamic's difficulty during a run of stages 1-6 (EoSD also forces it mid-run)."""
+	target = difficulty_for(lower, slot_data)
+	if target is None or not in_run(state) or state.stage not in range(1, 7) or state.difficulty not in range(4) or state.difficulty == target:
+		return []
+	return [(Variables.ADDR_DIFFICULTY, target)]
+
+
+def continue_lives(item_names):
+	"""Lives a normal-mode continue restores: one per +1 Life received (MoF caps it at 8)."""
+	return min(list(item_names).count("+1 Life"), 8)
 
 
 def goal_reached(item_names, slot_data):

@@ -13,9 +13,10 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import detect, receive
+from . import Variables, detect, receive
 from .Items import item_table
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
+from .patching import PatchMismatch, patch_immediate
 from .probe import format_probe, memsearch, write_int
 from .state import read_state
 
@@ -58,6 +59,42 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X})")
 		return True
 
+	def _cmd_peek(self, hex_address: str = "", count: str = "16"):
+		"""Print count bytes at an absolute hex address (e.g. a /memsearch match)"""
+		from .gameController import gameController
+		try:
+			address, count = int(hex_address, 16), int(count)
+		except ValueError:
+			logger.error("Usage: /peek <hex address> [count]")
+			return False
+		try:
+			data = gameController().read_bytes(address, count)
+		except Exception as e:
+			logger.error(f"Cannot read {GAME_NAME} at 0x{address:08X}: {e}")
+			return False
+		logger.info(f"0x{address:08X}: {data.hex(' ')}")
+		return True
+
+	def _cmd_poke(self, hex_address: str = "", hex_bytes: str = ""):
+		"""Debug: write hex bytes at an absolute hex address, only as a probe request says"""
+		from .gameController import gameController
+		try:
+			address, data = int(hex_address, 16), bytes.fromhex(hex_bytes)
+		except ValueError:
+			data = b""
+		if not data:
+			logger.error("Usage: /poke <hex address> <hex bytes>")
+			return False
+		try:
+			controller = gameController()
+			before = controller.read_bytes(address, len(data))
+			controller.write_bytes(address, data)
+		except Exception as e:
+			logger.error(f"Cannot write {GAME_NAME} at 0x{address:08X}: {e}")
+			return False
+		logger.info(f"0x{address:08X}: {before.hex(' ')} -> {data.hex(' ')}")
+		return True
+
 	def _cmd_launch(self):
 		"""Launch Touhou SA"""
 		game_exe = get_settings().touhou_sa_settings.game_exe
@@ -82,6 +119,7 @@ class TouhouContext(CommonContext):
 		self.applied_for = None  # (seed, slot) items_applied counts for
 		self.locations_found = set()
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
+		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 
 	async def server_auth(self, password_requested: bool = False):
 		if password_requested and not self.password:
@@ -118,10 +156,27 @@ class TouhouContext(CommonContext):
 		if self.locations_found:
 			await self.check_locations(self.locations_found)
 			self.locations_found.clear()
-		writes, self.items_applied = receive.apply_new(self.received_names(), self.items_applied, state)
-		for entry, value in writes:
+		names = self.received_names()
+		writes, self.items_applied = receive.apply_new(names, self.items_applied, state)
+		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
+		if self.slot_data.get("mode"):
+			self.patch_continue_lives(controller, receive.continue_lives(names))
 		return state, runs
+
+	def patch_continue_lives(self, controller, lives):
+		"""Normal mode: a continue restores the lives from items (MoF setNormalContinueLives). Once per value and game process."""
+		if self.continue_lives == (controller, lives):
+			return
+		self.continue_lives = (controller, lives)
+		site = Variables.ADDR_NORMAL_CONTINUE_LIVES
+		if site is None:
+			logger.info(f"Continue lives ({lives}): pending the continue-lives code site (probe batch 32, R2)")
+			return
+		try:
+			patch_immediate(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], lives)
+		except PatchMismatch as e:
+			logger.error(f"Continue lives not patched, unexpected game code: {e}")
 
 
 async def game_loop(ctx: TouhouContext):

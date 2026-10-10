@@ -23,6 +23,11 @@ def lower_difficulty_needed(index, exclude_lunatic):
 	return max(0, 3 - index - (1 if exclude_lunatic else 0))
 
 
+def lowest_unlocked(lower, exclude_lunatic):
+	"""Easiest DIFFICULTY_LIST index that `lower` Lower Difficulty items open."""
+	return next(i for i in range(4) if lower_difficulty_needed(i, exclude_lunatic) <= lower)
+
+
 EXTRA_CHECKS = ["Sanae - Midboss", "Koishi Defeated"]
 # Stage 4's cat Orin leaves on a timer, twice; her checks are STAGE4_APPEARANCES, appended
 # after the captures in the ID table so these IDs don't shift.
@@ -85,7 +90,7 @@ ADDR_EXTRA_UNLOCK = None  # source: none yet, MoF-analogue per-shot bytes TODO(0
 
 # Code patch sites; each carries its original bytes in EXPECTED_BYTES.
 ADDR_PRACTICE_STARTING_LIVES = None  # source: none yet, MoF-analogue of 0x1796A TODO(06)
-ADDR_NORMAL_CONTINUE_LIVES = None  # source: none yet, MoF-analogue of 0x17955 TODO(06)
+ADDR_NORMAL_CONTINUE_LIVES = None  # source: none yet, MoF-analogue of 0x17955: the one-byte lives immediate a continue sets; its EXPECTED_BYTES are the instruction bytes before it TODO(32 R2)
 EXPECTED_BYTES = {
 	"ADDR_PRACTICE_STARTING_LIVES": None,
 	"ADDR_NORMAL_CONTINUE_LIVES": None,

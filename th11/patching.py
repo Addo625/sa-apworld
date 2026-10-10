@@ -13,3 +13,9 @@ def safe_patch(reader_writer, address, expected: bytes, new: bytes) -> None:
 	if current != expected:
 		raise PatchMismatch(f"0x{address:08X}: expected {expected.hex(' ')}, found {current.hex(' ')}")
 	reader_writer.write_bytes(address, new)
+
+
+def patch_immediate(reader_writer, site, prefix: bytes, value: int) -> None:
+	"""Write a one-byte immediate at site (absolute), guarded by the instruction bytes `prefix` right before it,
+	so the patch repeats with new values (MoF setNormalContinueLives)."""
+	safe_patch(reader_writer, site - len(prefix), prefix, prefix + bytes([value]))

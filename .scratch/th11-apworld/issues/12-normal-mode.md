@@ -1,6 +1,6 @@
 # 12: Normal mode (dynamic/static difficulty), continues design A
 
-Status: needs-human
+Status: done
 Blocked by: 09
 
 ## Problem
@@ -40,3 +40,6 @@ EoSD's `mode` option also offers Normal mode: a full run with only the starting 
 - 2026-10-10 al-work attempt failed: working tree still dirty with the same uncommitted step-2 work (run 20261010-164554-3); left untouched, nothing implemented. Second counted failure: the next run marks 12 `needs-human`. Human: `git stash` or commit it as WIP (or `git checkout -- th11/` to drop it), then rerun.
 
 - 2026-10-10 al-work (run 20261010-164554-4): 2 failed attempts reached AL_MAX_FAILS → `needs-human`. Both failures had one cause: the uncommitted step-2 work in th11/{Client,Variables,detect,patching,receive}.py (+93/−7, no tests) blocks every run's clean-tree check. Not code failures. Human: `git stash` / commit as WIP / `git checkout -- th11/`, then set `Status: ready-for-agent` (optionally drop the two failure notes) and run `agent-loop`.
+- 2026-10-10 human (via Claude): finished step 2 from the interrupted run's uncommitted work. Added the plan's tests (`test_dynamic_difficulty_lowest_unlocked`, `test_continue_lives_patch_uses_guard`, `test_normal_run_stage_transitions`). The write guard allows `/poke` (a human-typed debug write) and checks `patch_immediate` callers like `safe_patch`. Suite: 252 passed.
+  - The continue-lives code site is still unknown: no `mov [0x4A5718], imm` sits near the continue code (static scan of `th11.exe`), so it goes to 34 (static analysis with a disassembler, not a game session). Until then the client logs "pending" and patches nothing.
+  - The planned human smoke run (continue once, lives = AP count) moves to 34's in-game check.

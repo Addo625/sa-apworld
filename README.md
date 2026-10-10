@@ -29,7 +29,7 @@ With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clea
 **Filler**: +0.05 Power
 
 ## Options
-**Mode:** practice (stage by stage in Practice Mode), normal_dynamic or normal_static. Normal mode is a full run from Stage 1: there are no Next Stage items (an apart Extra keeps its Extra Stage item), and the gates are lives, power, difficulty and shot type. With difficulty_check, normal_dynamic acts as normal_static.
+**Mode:** practice (stage by stage in Practice Mode), normal_dynamic or normal_static. Normal mode is a full run from Stage 1: there are no Next Stage items (an apart Extra keeps its Extra Stage item), and the gates are lives, power, difficulty and shot type. With difficulty_check, normal_dynamic acts as normal_static. normal_dynamic keeps each run at the lowest difficulty your Lower Difficulty items open (never Easy). In Normal mode a continue is meant to restore one life per `+1 Life` received (up to 8); that needs the continue-lives code site (ticket 34) and does nothing until then.
 
 **Stage Unlock:** Stage unlocks are global, per character, or per shot type. Per shot type needs Shot Type Check or Difficulty Check; otherwise it acts as per character.
 

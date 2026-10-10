@@ -2,7 +2,7 @@
 Location detection: compares two decoded GameStates. Pure, no memory access.
 """
 from .Locations import location_table
-from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lower_difficulty_needed
+from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lowest_unlocked
 
 
 def run_checks(stage):
@@ -29,8 +29,7 @@ def location_names(state, names, slot_data, lower):
 	if state.difficulty in range(4):
 		lowest = state.difficulty
 		if slot_data.get("check_multiple_difficulty"):
-			unlocked = next(i for i in range(4) if lower_difficulty_needed(i, slot_data.get("exclude_lunatic")) <= lower)
-			lowest = min(lowest, unlocked)
+			lowest = min(lowest, lowest_unlocked(lower, slot_data.get("exclude_lunatic")))
 		difficulties = DIFFICULTY_LIST[lowest:state.difficulty + 1]
 	located = []
 	for name in names:  # clears stay per owner
