@@ -9,14 +9,16 @@ You play stage by stage in Practice Mode and unlock the stages progressively. Ea
 **Goal:** clear Stage 6 (Utsuho) with either character.
 
 ## Locations
-For each character (Reimu, Marisa), in stages 1 to 6:
+For each character (Reimu, Marisa), or each shot type with **Shot Type Check**, in stages 1 to 6:
 * Midboss Defeated (Stage 4 instead: Cat Orin's First and Second Appearance, each survived until she leaves)
 * Boss Defeated
 * Stage Cleared
 
+With **Difficulty Check**, midboss and boss checks exist once per difficulty (`[Hard][Reimu] Yamame Defeated`).
+
 ## Items
 * Shot Types (Reimu A/B/C, Marisa A/B/C)
-* Next Stage (Practice Mode)
+* Next Stage (Practice Mode): global, per character or per shot type; `Stage 2` .. `Stage 6` without Progressive Stage Unlock
 * +0.50 Power
 * +1 Life
 * Lower Difficulty
@@ -24,6 +26,16 @@ For each character (Reimu, Marisa), in stages 1 to 6:
 **Filler**: +0.05 Power
 
 ## Options
+**Stage Unlock:** Stage unlocks are global, per character, or per shot type. Per shot type needs Shot Type Check or Difficulty Check; otherwise it acts as per character.
+
+**Progressive Stage Unlock:** On, `Next Stage` items unlock stages in order. Off, each stage has its own item; logic still expects the earlier stages' items, and gates are lowered more to keep seeds fillable.
+
+**Shot Type Check:** Each shot type has its own checks instead of each character.
+
+**Difficulty Check:** Midboss and boss checks are separate per difficulty; a difficulty's checks need its Lower Difficulty items.
+
+**Multiple Difficulty Check:** With Difficulty Check, beating a boss also sends its checks on the lower difficulties you have unlocked.
+
 **Exclude Lunatic:** You can exclude the Lunatic difficulty and therefore start on Hard.
 
 **Resources:** You can set the lives, power packs and difficulty expected for stages 3/4 (Yuugi, Satori) and stages 5/6 (Orin, Utsuho). The requirement ramps up stage by stage. If a gate can't fit in the locations open before its stage, it is lowered and generation logs a warning naming the stage.

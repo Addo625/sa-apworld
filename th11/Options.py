@@ -3,6 +3,40 @@ from dataclasses import dataclass
 from Options import Choice, DeathLink, PerGameCommonOptions, Range, Toggle
 
 
+class StageUnlock(Choice):
+	"""How stage unlocks are grouped in Practice mode.
+	global: one set of stage unlocks for everyone.
+	by_character: each character has its own stage unlocks.
+	by_shot_type: each shot type has its own stage unlocks.
+	Without shot_type or difficulty_check, by_shot_type acts as by_character, since there aren't enough locations otherwise."""
+	display_name = "Stage unlock mode"
+	option_global = 0
+	option_by_character = 1
+	option_by_shot_type = 2
+	default = 0
+
+
+class ProgressiveStage(Toggle):
+	"""Stages unlock progressively (Next Stage items); off, each stage has its own unlock item (Stage 2 .. Stage 6)."""
+	display_name = "Progressive Stage Unlock"
+	default = True
+
+
+class ShotTypeCheck(Toggle):
+	"""If each shot type has its own checks and they are not just separated by character"""
+	display_name = "Shot Type Check"
+
+
+class DifficultyCheck(Toggle):
+	"""If midboss and boss checks are separated by difficulty."""
+	display_name = "Difficulty Check"
+
+
+class CheckMultipleDifficulty(Toggle):
+	"""For difficulty checks, beating a boss also sends its checks of the lower difficulties you have unlocked."""
+	display_name = "Multiple Difficulty Check"
+
+
 class ExcludeLunatic(Toggle):
 	"""Exclude Lunatic difficulty. Start on Hard instead."""
 	display_name = "Exclude Lunatic difficulty"
@@ -112,6 +146,11 @@ class SpellCardKeysRequired(Range):
 
 @dataclass
 class TH11Options(PerGameCommonOptions):
+	stage_unlock: StageUnlock
+	progressive_stage: ProgressiveStage
+	shot_type: ShotTypeCheck
+	difficulty_check: DifficultyCheck
+	check_multiple_difficulty: CheckMultipleDifficulty
 	exclude_lunatic: ExcludeLunatic
 	number_life_mid: NumberLifeMid
 	power_mid: PowerMid

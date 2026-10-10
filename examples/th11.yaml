@@ -3,6 +3,11 @@ game: Touhou Chireiden ~ Subterranean Animism
 description: Every option at its default.
 
 Touhou Chireiden ~ Subterranean Animism:
+  stage_unlock: global
+  progressive_stage: 'true'
+  shot_type: 'false'
+  difficulty_check: 'false'
+  check_multiple_difficulty: 'false'
   exclude_lunatic: 'false'
   number_life_mid: 0
   power_mid: 0

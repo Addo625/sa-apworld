@@ -13,7 +13,16 @@ CHARACTER_TO_ITEM = {
 	"Reimu": ["Reimu A - Yukari", "Reimu B - Suika", "Reimu C - Aya"],
 	"Marisa": ["Marisa A - Alice", "Marisa B - Patchouli", "Marisa C - Nitori"],
 }
+CHARACTER_TO_ITEM.update({shot: [item] for shot, item in zip(SHOT_TYPE_LIST, CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"])})
+SHOT_TO_CHARACTER = {shot: shot.split()[0] for shot in SHOT_TYPE_LIST}
 DIFFICULTY_LIST = ["Easy", "Normal", "Hard", "Lunatic"]
+
+
+def lower_difficulty_needed(index, exclude_lunatic):
+	"""Lower Difficulty items that unlock DIFFICULTY_LIST[index]; without Lunatic the game starts on Hard."""
+	return max(0, 3 - index - (1 if exclude_lunatic else 0))
+
+
 EXTRA_CHECKS = ["Sanae - Midboss", "Koishi Defeated"]
 # Stage 4's cat Orin leaves on a timer, twice; her checks are STAGE4_APPEARANCES, appended
 # after the captures in the ID table so these IDs don't shift.

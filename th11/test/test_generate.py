@@ -70,6 +70,7 @@ class TestGenerate(bases.TH11TestBase):
 	def test_slot_data_keys(self):
 		slot_data = self.multiworld.worlds[self.player].fill_slot_data()
 		self.assertEqual(set(slot_data), {
+			"stage_unlock", "progressive_stage", "shot_type", "difficulty_check", "check_multiple_difficulty",
 			"exclude_lunatic",
 			"number_life_mid", "power_mid", "difficulty_mid",
 			"number_life_end", "power_end", "difficulty_end",
@@ -163,6 +164,18 @@ EXTREMES = {
 	},
 	"keys no captures": {"spell_card_keys": "alongside", "captures_per_stage": 0},
 	"keys shared keys_only": {"spell_card_keys": "keys_only", "capture_slots": "shared"},
+	# Fewest locations per stage item: by_shot_type falls back to by_character (10 stage items).
+	"max by_shot_type fallback": {**MAX_GATES, "stage_unlock": "by_shot_type"},
+	"max by_character not progressive": {**MAX_GATES, "stage_unlock": "by_character", "progressive_stage": False},
+	"max shot_type by_shot_type not progressive": {
+		**MAX_GATES, "stage_unlock": "by_shot_type", "shot_type": True, "progressive_stage": False,
+	},
+	"max shot_type difficulty_check by_shot_type": {
+		**MAX_GATES, "stage_unlock": "by_shot_type", "shot_type": True, "difficulty_check": True,
+	},
+	"max difficulty_check exclude_lunatic by_shot_type": {
+		**MAX_GATES, "stage_unlock": "by_shot_type", "difficulty_check": True, "exclude_lunatic": True,
+	},
 }
 
 

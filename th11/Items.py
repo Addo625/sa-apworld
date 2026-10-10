@@ -53,6 +53,12 @@ item_table: Dict[str, TItemData] = {
 	"[Marisa A] Extra Stage":	TItemData("[Shot Type] Extra Stage", STARTING_ID + 215, ItemClassification.progression),
 	"[Marisa B] Extra Stage":	TItemData("[Shot Type] Extra Stage", STARTING_ID + 216, ItemClassification.progression),
 	"[Marisa C] Extra Stage":	TItemData("[Shot Type] Extra Stage", STARTING_ID + 217, ItemClassification.progression),
+	# Non-progressive stages (progressive_stage off), MoF's IDs 218-262.
+	**{
+		f"{prefix}Stage {level}": TItemData("[Not Progressive] Stages", STARTING_ID + 218 + group * 5 + level - 2, ItemClassification.progression)
+		for group, prefix in enumerate([""] + [f"[{character}] " for character in ALL_CHARACTERS_LIST])
+		for level in range(2, 7)
+	},
 
 	# Endings
 	"[Reimu] Ending - Utsuho":	TItemData("Endings", STARTING_ID + 300, ItemClassification.progression),
