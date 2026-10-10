@@ -1,6 +1,6 @@
 # 22: Add spell capture address candidates to the probe
 
-Status: deferred
+Status: ready-for-agent
 Blocked by: 07
 
 ## Problem
@@ -24,3 +24,7 @@ The client must notice when a spell card is captured and know which card it was 
 
 ## Deferred
 - In-game verification → 23.
+
+## Comments
+
+- 2026-10-10 planner: promoted. A lead from 06's dumps: the heap struct behind static `0x4C343C` (`0x14AF998` in that session) has paired u32 counters at a 0x20 stride from `+0x6E8` that rose during play. Likely the spell history (attempts/captures). Check it against thprac's spell data before using it.

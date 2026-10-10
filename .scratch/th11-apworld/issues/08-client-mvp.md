@@ -15,15 +15,19 @@ With verified addresses, the client must turn the game state into AP location ch
   - `test_detect_boss`: the same for the boss phase → `[Reimu] Yamame Defeated`.
   - `test_detect_clear`: entering the stage-clear tally → `[Reimu] Stage 1 Clear`.
   - `test_detect_negative_menu_exit`: boss flag 1→0 because the game left `in_game` (quit, retry, game over) → `[]`.
-  - `test_detect_stage4_no_midboss`: stage 4 emits only `Satori Defeated` and the clear.
+  - `test_detect_stage4_no_midboss`: stage 4 emits only `Satori Defeated` and the clear. Ticket 25 adds the two cat-Orin locations later.
+  - **Boss signal:** `ADDR_IS_BOSS_PRESENT = [0x4A8D7C, 0x1C]` (found and confirmed in 06, spike `spike/boss-scan`). A check fires on its non-zero→0 transition while the menu pointer stays 0. A drop together with a menu exit is a quit (S9), not a kill.
+  - **Stage 3:** Yuugi stays from midboss into boss, so the field has one run. `test_detect_stage3_single_run`: its end sends both `Yuugi - Midboss` and `Yuugi Defeated`, until the spell-card ID (22) can split them.
+  - **Stage 4:** count runs within the stage. The last run is Satori; the earlier ones are cat Orin, ignored here and handled by 25.
   - `test_detect_marisa`: the character is mapped from the state.
 - **`items.apply(item_name, state)`** returns writes `[(entry, value)]`.
   - `+1 Life` → lives +1, capped, plus practice/continue starting lives = AP count.
   - `+0.50 Power` / `+0.05 Power` → power +N, capped at 4.00.
-  - `Next Stage` → the practice-unlock bytes for stages ≤ count+1, for every unlocked shot type at every unlocked difficulty.
+  - `Next Stage` → the practice-unlock bytes for stages ≤ count+1, for every unlocked shot type at every unlocked difficulty. In a normal save, Practice stages unlock only by reaching them in normal play (human report, 06), so these bytes are the only way the client can grant them. Their location comes from 06's S8a/S8b.
   - `Lower Difficulty` → the unlocked difficulties.
   - Shot type → that shot's unlock rows.
-  - Tests: `test_apply_life`, `test_apply_life_cap`, `test_apply_power_cap`, `test_apply_next_stage_writes_unlock_rows`, `test_apply_shot_type`.
+  - Tests: `test_apply_life`, `test_apply_life_cap`, `test_apply_power_cap`.
+  - **Moved to 28 (2026-10-10):** `Next Stage`, `Lower Difficulty` and shot-type writes need the practice-unlock bytes, which aren't found yet (06 → 26–27). Here, `items.apply` returns no writes for them, logs them as "pending unlock table", and keeps the received counts, so 28 can replay them.
 - **Goal:** `test_goal_sent_on_ending_item`. A received `Ending - Utsuho` (locked on the Stage 6 clear) → the client sends `StatusUpdate` CLIENT_GOAL, as EoSD `checkVictory` does.
 - **Reconnect:** the items are replayed idempotently. `test_apply_replay_is_idempotent`: applying the full received list twice gives the same writes.
 

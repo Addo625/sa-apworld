@@ -10,6 +10,7 @@ The user plays with thcrap (`th11 (thpatch-en).exe`). The static test in 04 rule
 Ticket 09's three DoD observations hold when the game is started via `th11 (thpatch-en).exe`.
 
 ## Test plan
+- **From 06 (S13):** first, one `/probe` at the S3 point (Practice Stage 1, before Kisume) started via `th11 (thpatch-en).exe` (or `th11 custom (thpatch-en).exe` → start). Every static entry should match the plain-exe S3 probe in 06.
 - In: the 09 setup, started through thcrap.
 - Out: the same server and in-game observations as 09, plus no `PatchMismatch` in the client log.
 

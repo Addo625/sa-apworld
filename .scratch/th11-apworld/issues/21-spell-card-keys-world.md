@@ -1,6 +1,6 @@
 # 21: Spell captures become checks, and Spell Card Keys gate stages (world side)
 
-Status: deferred
+Status: ready-for-agent
 Blocked by: 02
 
 ## Problem

@@ -33,7 +33,7 @@ Port the structure of the MoF world (`ref-projects/mof-apworld`, the same engine
 | 1 | Kisume - Midboss | Yamame Defeated |
 | 2 | Parsee - Midboss | Parsee Defeated |
 | 3 | Yuugi - Midboss | Yuugi Defeated |
-| 4 | none: the midboss has no spell card and leaves on a timer | Satori Defeated |
+| 4 | Cat Orin appears twice and leaves on a timer each time: `Cat Orin - First Appearance`, `Cat Orin - Second Appearance` (human decision 2026-10-10, ticket 25) | Satori Defeated |
 | 5 | Cat Orin - Midboss | Orin Defeated |
 | 6 | Orin - Midboss | Utsuho Defeated |
 | Extra | Sanae - Midboss | Koishi Defeated |
@@ -157,4 +157,4 @@ Filler count is always computed as locations minus placed items. It is never han
 
 ## Tickets
 
-Ticket files are in `issues/`. Tickets 01–09 make up v1. Tickets 10–24 are `deferred` and fully specified (21–24: Spell Card Keys).
+Ticket files are in `issues/`. Tickets 01–09 make up v1. Tickets 10–24 are `deferred` and fully specified (21–24: Spell Card Keys). Added 2026-10-10: 25 (two stage 4 cat-Orin checks), 26–28 (practice-unlock data: decode the save, `/memsearch` in-game, write the unlocks). 21 and 22 promoted to `ready-for-agent`.
