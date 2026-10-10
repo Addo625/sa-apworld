@@ -208,6 +208,70 @@ class SpellCardKeysRequired(Range):
 	default = 75
 
 
+class Traps(Range):
+	"""Percentage of fillers that are traps"""
+	display_name = "Percentage of fillers that are traps"
+	range_start = 0
+	range_end = 100
+	default = 0
+
+
+class PowerTrap(Range):
+	"""Weight of the -50% Power trap: halves your power."""
+	display_name = "-50% Power trap"
+	range_start = 0
+	range_end = 100
+	default = 20
+
+
+class LifeTrap(Range):
+	"""Weight of the -1 Life trap: removes a life, but never causes a game over."""
+	display_name = "-1 Life trap"
+	range_start = 0
+	range_end = 100
+	default = 0
+
+
+class NoFocusTrap(Range):
+	"""Weight of the No Focus trap: focusing doesn't slow you down for a while."""
+	display_name = "No Focus trap"
+	range_start = 0
+	range_end = 100
+	default = 20
+
+
+class ReverseMovementTrap(Range):
+	"""Weight of the Reverse Movement trap: your movement is reversed for a while."""
+	display_name = "Reverse Movement trap"
+	range_start = 0
+	range_end = 100
+	default = 20
+
+
+class AyaSpeedTrap(Range):
+	"""Weight of the Aya Speed trap: faster unfocused, slower focused for a while."""
+	display_name = "Aya Speed trap"
+	range_start = 0
+	range_end = 100
+	default = 20
+
+
+class FreezeTrap(Range):
+	"""Weight of the Freeze trap: you can't move for a few seconds."""
+	display_name = "Freeze trap"
+	range_start = 0
+	range_end = 100
+	default = 5
+
+
+class PowerDrainTrap(Range):
+	"""Weight of the Power Drain trap: you lose 0.05 power per second for a while."""
+	display_name = "Power Drain trap"
+	range_start = 0
+	range_end = 100
+	default = 15
+
+
 @dataclass
 class TH11Options(PerGameCommonOptions):
 	mode: Mode
@@ -233,5 +297,13 @@ class TH11Options(PerGameCommonOptions):
 	capture_slots: CaptureSlots
 	spell_card_keys_in_pool: SpellCardKeysInPool
 	spell_card_keys_required: SpellCardKeysRequired
+	traps: Traps
+	power_trap: PowerTrap
+	life_trap: LifeTrap
+	no_focus_trap: NoFocusTrap
+	reverse_movement_trap: ReverseMovementTrap
+	aya_speed_trap: AyaSpeedTrap
+	freeze_trap: FreezeTrap
+	power_drain_trap: PowerDrainTrap
 	# Does nothing until ticket 14.
 	death_link: DeathLink

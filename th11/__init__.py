@@ -17,6 +17,16 @@ from .Variables import *
 CORE_ITEMS = ["+1 Life", "+0.50 Power", "Lower Difficulty"]
 # With spell_card_keys: keys_only these gate nothing.
 KEYS_ONLY_USEFUL = CORE_ITEMS
+# Trap item -> its weight option; `traps` % of filler is drawn from these.
+TRAP_OPTIONS = {
+	"-50% Power": "power_trap",
+	"-1 Life": "life_trap",
+	"No Focus": "no_focus_trap",
+	"Reverse Movement": "reverse_movement_trap",
+	"Aya Speed": "aya_speed_trap",
+	"Freeze": "freeze_trap",
+	"Power Drain": "power_drain_trap",
+}
 
 
 def launch_client(*args: str):
@@ -131,7 +141,12 @@ class TWorld(World):
 				early[f"{prefix}Next Stage" if self.options.progressive_stage else f"{prefix}Stage 2"] = 1
 		pool += [self.create_item("Spell Card Key") for _ in range(self.key_count)]
 
-		pool += [self.create_item(self.get_filler_item_name()) for _ in range(total_locations - len(self.owners) * len(endings) - len(pool))]
+		filler = total_locations - len(self.owners) * len(endings) - len(pool)
+		weights = [getattr(self.options, option).value for option in TRAP_OPTIONS.values()]
+		traps = filler * self.options.traps.value // 100 if any(weights) else 0
+		if traps:
+			pool += [self.create_item(name) for name in self.random.choices(list(TRAP_OPTIONS), weights, k=traps)]
+		pool += [self.create_item(self.get_filler_item_name()) for _ in range(filler - traps)]
 		self.multiworld.itempool += pool
 
 	def get_filler_item_name(self) -> str:
