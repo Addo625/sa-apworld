@@ -239,9 +239,10 @@ def received(*names):
 
 
 class TestClientLoop(unittest.IsolatedAsyncioTestCase):
-	def context(self, *items):
+	def context(self, *items, sound=False):
 		from ..Client import TouhouContext
 		ctx = TouhouContext()  # needs the running loop
+		ctx.item_sound = sound
 		ctx.slot = 1
 		ctx.missing_locations = set(range(Variables.STARTING_ID, Variables.STARTING_ID + 1000))
 		ctx.items_received = received(*items)
@@ -281,27 +282,32 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		lives = (BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))
 		extend = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (0x2C).to_bytes(4, "little"))
 		cave = [(BASE + Variables.ADDR_SOUND_HACK_2, Variables.SOUND_CAVE), (BASE + Variables.ADDR_SOUND_HACK_1, Variables.SOUND_HOOK)]
-		ctx, memory = self.context("+1 Life"), game_memory(lives=2)
+		ctx, memory = self.context("+1 Life", sound=True), game_memory(lives=2)
 		await ctx.poll(memory, None, 0)
 		self.assertEqual(memory.writes, [lives] + cave + [extend])  # lives first: the cave redraws them with the sound
 		memory.writes.clear()
 		await ctx.poll(memory, None, 0)  # applied already: no second sound
 		self.assertEqual(memory.writes, [])
 		memory.set(BASE + Variables.ADDR_LIVES, (2).to_bytes(4, "little"))
-		await self.context("+1 Life").poll(memory, None, 0)  # a restarted client, same game: the cave stays
+		await self.context("+1 Life", sound=True).poll(memory, None, 0)  # a restarted client, same game: the cave stays
 		self.assertEqual(memory.writes, [lives, extend])
 		with mock.patch.multiple(Variables, ADDR_CUSTOM_SOUND_ID=None), mock.patch.dict(Variables.PROBE_TABLE, {"ADDR_CUSTOM_SOUND_ID": None}):
 			memory = game_memory(lives=2)
 			with self.assertLogs("Client", "INFO") as logs:
-				await self.context("+1 Life").poll(memory, None, 0)
+				await self.context("+1 Life", sound=True).poll(memory, None, 0)
 			self.assertIn("pending the sound cave", "\n".join(logs.output))
 			self.assertEqual(memory.writes, [lives])
+
+	async def test_item_sound_off_by_default_writes_no_cave(self):
+		memory = game_memory(lives=2)
+		await self.context("+1 Life").poll(memory, None, 0)
+		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # no cave, hook or sound id
 
 	async def test_sound_cave_refuses_unexpected_code(self):
 		memory = game_memory(lives=2)
 		memory.set(BASE + Variables.ADDR_SOUND_HACK_2, b"\xcc" * len(Variables.SOUND_CAVE))  # slack used by something else
 		with self.assertLogs("Client", "ERROR") as logs:
-			await self.context("+1 Life").poll(memory, None, 0)
+			await self.context("+1 Life", sound=True).poll(memory, None, 0)
 		self.assertIn("not played, unexpected game code", "\n".join(logs.output))
 		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # no cave, no sound id
 

@@ -205,6 +205,15 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(f"Lives limit: {self.ctx.limit_lives}")
 		return True
 
+	def _cmd_itemsound(self, state: str = ""):
+		"""Item sounds on/off (off by default: the sound cave is being fixed, ticket 40)"""
+		if state not in ("on", "off"):
+			logger.info(f"Item sounds are {'on' if self.ctx.item_sound else 'off'}. Usage: /itemsound on|off")
+			return False
+		self.ctx.item_sound = state == "on"
+		logger.info(f"Item sounds {state}" + (" (experimental: may crash the game, ticket 40)" if state == "on" else ""))
+		return True
+
 	def _cmd_launch(self):
 		"""Launch Touhou SA"""
 		game_exe = get_settings().touhou_sa_settings.game_exe
@@ -231,6 +240,7 @@ class TouhouContext(CommonContext):
 		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
+		self.item_sound = False  # /itemsound on: the sound cave (40) crashed its first run, so it's opt-in
 		self.sound_cave = None  # controller the sound cave is installed in
 		self.traps = traps.TrapState()
 		self.traps_seen = 0  # received items scanned for traps, kept across reconnects like items_applied
@@ -373,6 +383,9 @@ class TouhouContext(CommonContext):
 	def play_sound(self, controller, kind):
 		"""MoF playSound: write the kind's sound ID for the sound cave to play on the game thread."""
 		if kind is None:
+			return
+		if not self.item_sound:
+			# ponytail: the cave crashed the game on its first real run (batch 32, 2026-10-11); opt-in until 40 fixes it.
 			return
 		sound_id = Variables.SOUND_IDS[kind]
 		if Variables.ADDR_CUSTOM_SOUND_ID is None or sound_id is None:

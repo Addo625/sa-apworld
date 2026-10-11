@@ -1,6 +1,6 @@
 # 40: Find SA's sound cave and extend routine (static analysis)
 
-Status: done
+Status: ready-for-agent
 Blocked by: 29
 
 ## Problem
@@ -37,3 +37,8 @@ Blocked by: 29
   - Known gaps (review): a mismatch at the hook site alone leaves the cave written in the slack (inert, nothing calls it), and the error repeats on each later sound; the cave reads then zeroes the ID, so a client write landing between the two is lost (one sound).
   - thcrap overlap test passes for both sites. thprac's source wasn't checked; its named hooks (`0x4311xx`/`0x432Axx`) are far from both.
 - 2026-10-10 al-work (40): done. The commit `40: play a sound and redraw the lives stars for received items` sources `ADDR_CUSTOM_SOUND_ID`, `ADDR_SOUND_HACK_1/2`, `SOUND_IDS`, `SOUND_CAVE`/`SOUND_HOOK`; the client installs the cave through `safe_patch` on the first sound per game process. DoD: `cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → 350 passed. In-game check: probe batch 32 R9 (a wrong result reopens 40; no follow-up ticket, like 34's R2).
+- 2026-10-11 Claude: **reopened: the cave crashed the game on its first real run** (batch 32 re-run, Wine 11). Until `cae74ff` every client write failed (wrong base), so this was the first time the cave and hook were written. Connected during a title demo → queued `+1 Life` applied → cave (`0x48AF00`) and hook (`0x429058`) written → `th11.exe` gone 0.5 s later. Suspects:
+  - (a) the cave calls the play-sound function without the `ecx` `this` it expects at that call site;
+  - (b) the 5-byte hook is written over a call the game thread is running every frame (torn write).
+
+  Check (a) against the hook site's disassembly (what is in `ecx`, and which convention the play-sound function uses). For (b), suspend the game threads around the write, or hook a site that only runs when idle. **Meanwhile the sound is opt-in:** `/itemsound on` (default off), so the batch can continue; R9 is the controlled re-test.
