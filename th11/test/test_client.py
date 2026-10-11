@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .. import Variables
 from ..patching import PatchMismatch, safe_patch
-from ..probe import format_probe, memsearch, ptrscan
+from ..probe import format_probe, memsearch, parse_address, parse_pattern, ptrscan
 
 BASE = 0x400000
 CAPTURE_ENTRIES = ["ADDR_SPELL_ID", "ADDR_SPELL_BONUS", "ADDR_SPELL_HISTORY"]
@@ -409,3 +409,32 @@ class TestClientIsolation(unittest.TestCase):
 					sys.modules[name] = module
 					if name.startswith(package):  # re-imports rebound the package attribute too
 						setattr(sys.modules[package], name.rsplit(".", 1)[1], module)
+
+
+class TestParsePattern(unittest.TestCase):
+	def test_parse_pattern_hex_spaces_and_repeats(self):
+		self.assertEqual(parse_pattern("00*4 0101 00*6"), bytes(4) + b"\x01\x01" + bytes(6))
+		self.assertEqual(parse_pattern("e9dc020000"), bytes.fromhex("e9dc020000"))
+		self.assertEqual(parse_pattern("e9 dc 02 00 00"), bytes.fromhex("e9dc020000"))
+		self.assertEqual(parse_pattern("20*8 00*2 11*16"), b" " * 8 + bytes(2) + b"\x11" * 16)
+		for bad in ("0x00", "zz", "00*x", "000"):
+			with self.assertRaises(ValueError):
+				parse_pattern(bad)
+
+	def test_scoredat_compact_round_trips(self):
+		spec = importlib.util.spec_from_file_location("scoredat_tool", Path(__file__).resolve().parents[2] / "tools" / "scoredat.py")
+		if not spec or not Path(spec.origin).exists():
+			self.skipTest("tools/ not next to the world (installed apworld)")
+		tool = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(tool)
+		for raw in (bytes(54) + b"\x01\x01", b" " * 8 + bytes(2) + b"\x11" * 16 + b"\x01" * 6, b"\xe9\xdc\x02\x00\x00"):
+			self.assertEqual(parse_pattern(tool.compact(raw)), raw)
+
+	def test_parse_address_offsets(self):
+		self.assertEqual(parse_address("029605CC"), 0x029605CC)
+		self.assertEqual(parse_address("0x029605FC-30"), 0x029605CC)
+		self.assertEqual(parse_address("029605CC+45"), 0x02960611)
+		self.assertEqual(parse_address("029605CC-5A4+68D4"), 0x029605CC - 0x5A4 + 0x68D4)
+		for bad in ("", "zz", "029605CC - 30", "+-5"):
+			with self.assertRaises(ValueError):
+				parse_address(bad)

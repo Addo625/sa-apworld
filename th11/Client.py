@@ -4,6 +4,7 @@ import random
 import subprocess
 import time
 
+from MultiServer import mark_raw
 from CommonClient import (
 	CommonContext,
 	ClientCommandProcessor,
@@ -20,7 +21,7 @@ from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
-from .probe import float_candidates, format_probe, memsearch, ptrscan, read_entry, read_float, write_float, write_int
+from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_float, write_float, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
@@ -29,6 +30,17 @@ MEMSEARCH_CAP = 50
 DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
 KILL_SECONDS = 0.1  # how long the kill site stays patched (EoSD killPlayer)
 KILL_RETRY_SECONDS = 2  # a kill that took no life (bomb, respawn invincibility) is retried after this
+
+
+def named_patterns() -> dict:
+	"""name -> hex from memsearch_patterns.json next to the AP install (written by tools/scoredat.py --patterns); {} if absent."""
+	import json
+	from Utils import user_path
+	try:
+		with open(user_path("memsearch_patterns.json")) as f:
+			return json.load(f)
+	except (OSError, ValueError):
+		return {}
 
 
 class TouhouClientProcessor(ClientCommandProcessor):
@@ -43,15 +55,19 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(format_probe(controller, PROBE_TABLE))
 		return True
 
-	def _cmd_memsearch(self, hex_pattern: str = ""):
-		"""Search th11.exe's readable memory for a hex byte pattern (e.g. from tools/scoredat.py)"""
+	@mark_raw
+	def _cmd_memsearch(self, pattern_text: str = ""):
+		"""Search th11.exe's memory for hex bytes (spaces ok; `00*12` repeats a byte), or a pattern name from memsearch_patterns.json (tools/scoredat.py --patterns)"""
 		from .gameController import gameController
+		name = pattern_text.strip()
 		try:
-			pattern = bytes.fromhex(hex_pattern)
+			named = named_patterns()
+			pattern = bytes.fromhex(named[name]) if name in named else parse_pattern(pattern_text)
 		except ValueError:
 			pattern = b""
 		if not pattern:
-			logger.error("Usage: /memsearch <hex bytes>")
+			names = ", ".join(sorted(named_patterns())) or "none yet"
+			logger.error(f"Usage: /memsearch <hex bytes, e.g. 00*4 0101 00*6> or a pattern name ({names})")
 			return False
 		try:
 			controller = gameController()
@@ -66,10 +82,10 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		return True
 
 	def _cmd_peek(self, hex_address: str = "", count: str = "16"):
-		"""Print count bytes at an absolute hex address (e.g. a /memsearch match)"""
+		"""Print count bytes at a hex address; offsets allowed, e.g. 029605CC-5A4 (count is decimal)"""
 		from .gameController import gameController
 		try:
-			address, count = int(hex_address, 16), int(count)
+			address, count = parse_address(hex_address), int(count)
 		except ValueError:
 			logger.error("Usage: /peek <hex address> [count]")
 			return False
@@ -82,10 +98,10 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		return True
 
 	def _cmd_poke(self, hex_address: str = "", hex_bytes: str = ""):
-		"""Debug: write hex bytes at an absolute hex address, only as a probe request says"""
+		"""Debug: write hex bytes at a hex address (offsets allowed: 029605CC+45), only as a probe request says"""
 		from .gameController import gameController
 		try:
-			address, data = int(hex_address, 16), bytes.fromhex(hex_bytes)
+			address, data = parse_address(hex_address), bytes.fromhex(hex_bytes)
 		except ValueError:
 			data = b""
 		if not data:
@@ -105,7 +121,7 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		"""List static pointers in th11.exe's .data into [address - range, address] (find a heap struct's owner)"""
 		from .gameController import gameController
 		try:
-			target, window = int(hex_address, 16), int(hex_range, 16)
+			target, window = parse_address(hex_address), int(hex_range, 16)
 		except ValueError:
 			logger.error("Usage: /ptrscan <hex address> [hex range]")
 			return False

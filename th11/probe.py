@@ -62,6 +62,25 @@ def float_candidates(data: bytes, low=0.1, high=20.0) -> list:
 	return [(i * 4, value) for i, value in enumerate(values) if low <= abs(value) <= high]
 
 
+def parse_address(text: str) -> int:
+	"""Hex address with optional hex offsets, no spaces: `029605CC`, `0x029605FC-30`, `029605CC+45-5A4`. Raises ValueError."""
+	import re
+	parts = re.findall(r"[+-]?[^+-]+", text)
+	if not parts or "".join(parts) != text or any(c.isspace() for c in text):
+		raise ValueError(text)
+	return sum(-int(part[1:], 16) if part[0] == "-" else int(part.lstrip("+"), 16) for part in parts)
+
+
+def parse_pattern(text: str) -> bytes:
+	"""Hex bytes for /memsearch. Spaces are allowed; `XX*N` repeats the bytes XX N times: `00*4 0101 00*6` = 4 zeros, 01 01, 6 zeros.
+	Raises ValueError on anything else."""
+	out = b""
+	for token in text.split():
+		hex_part, star, count = token.partition("*")
+		out += bytes.fromhex(hex_part) * (int(count) if star else 1)
+	return out
+
+
 def memsearch(reader, regions, pattern: bytes, cap=50, block=0x10000) -> list:
 	"""Addresses of pattern in regions [(start, size)], at most cap. Adjacent regions are joined and
 	blocks overlap by len(pattern) - 1, so a match may span either boundary. Unreadable blocks are skipped."""
