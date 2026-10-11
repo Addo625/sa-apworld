@@ -153,3 +153,12 @@ class TestWriteAddresses(unittest.TestCase):
 		self.assertEqual(read_float(memory, Variables.ADDR_LIVES), -2.5)
 		with self.assertRaises(ValueError):
 			write_float(memory, BASE + Variables.ADDR_LIVES, 1.0)
+
+
+class TestDemoFlag(unittest.TestCase):
+	def test_title_demo_is_not_play(self):
+		"""Batch 32 R8-D1: GAME_FLAGS 0x20 in both title demos; 0x10 in Practice (06), 0 in normal play."""
+		self.assertFalse(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 32}).in_game)
+		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 16}).in_game)
+		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 0}).in_game)
+		self.assertFalse(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 32}).boss_present)

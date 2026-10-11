@@ -20,3 +20,5 @@ Blocked by: 32
 
 ## Deferred
 - In-game check (human): idle on the title until a demo passes a boss; the server gets no check, and the client logs `Demo Play: replays send no checks` on attach.
+
+- 2026-10-11 Claude: lead applied ahead of this ticket, because a title demo applied queued items and the item-sound cave crashed the game. `decode_state` treats `ADDR_GAME_FLAGS & 0x20` as a demo (R8-D1: 32 in both title demos; 16 in Practice and 0 in normal play from 06). This ticket still replaces it with a dedicated flag if D2/D3 show `ADDR_REPLAY_MGR_PTR` or another entry is cleaner, and confirms 0x20 never appears in real play.
