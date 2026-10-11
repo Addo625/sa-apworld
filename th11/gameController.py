@@ -1,5 +1,6 @@
 import pymem
 import pymem.memory
+import pymem.process
 
 from .Variables import GAME_NAME
 
@@ -11,7 +12,13 @@ class gameController:
 
 	def __init__(self):
 		self.pm = pymem.Pymem(GAME_NAME)
-		self.base_address = self.pm.base_address
+		# Not pm.base_address: right after launch under Wine it named a Wine module (0x6FFFFFF30000, batch 32 A5),
+		# so every write failed. th11.exe v1.00a is 32-bit without ASLR: its image is the module named th11.exe.
+		module = pymem.process.module_from_name(self.pm.process_handle, GAME_NAME)
+		base = module.lpBaseOfDll if module else None
+		if base is None or base >= 0x80000000 or self.pm.read_bytes(base, 2) != b"MZ":
+			raise RuntimeError(f"{GAME_NAME} image not mapped yet (base {base!r})")  # game_loop retries next tick
+		self.base_address = base
 
 	def read_bytes(self, address, size) -> bytes:
 		return self.pm.read_bytes(address, size)

@@ -420,7 +420,7 @@ async def game_loop(ctx: TouhouContext):
 				controller = gameController()
 			except Exception:
 				continue
-			logger.info(f"Attached to {GAME_NAME}")
+			logger.info(f"Attached to {GAME_NAME} (base 0x{controller.base_address:08X})")
 			if Variables.ADDR_IN_DEMO is None:
 				logger.info("Demo Play: a title demo still sends checks, pending the demo flag (probe batch 32 R8, ticket 41)")
 			else:
