@@ -147,9 +147,9 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		except Exception as e:
 			logger.error(f"Cannot read the player object (in a stage?): {e}")
 			return False
-		logger.info(f"Player object at 0x{player:08X}")
-		for offset, value in float_candidates(data):
-			logger.info(f"  +0x{offset:X} = {value:g} (addr 0x{player + offset:08X})")
+		lines = [f"Player object at 0x{player:08X}"]
+		lines += [f"  +0x{offset:X} = {value:g} (addr 0x{player + offset:08X})" for offset, value in float_candidates(data)]
+		logger.info("\n".join(lines))  # one message, like /probe: copies in one go
 		return True
 
 	def _cmd_deathlink(self, active: str = ""):
