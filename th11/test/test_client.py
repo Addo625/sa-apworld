@@ -429,6 +429,31 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		await ctx.poll(memory, None, 0)  # already set: no write
 		self.assertEqual(memory.writes, [])
 
+	async def test_lock_unreceived_shots_on_connect(self):
+		"""09: a fully unlocked save let Reimu B send checks without owning it. Practice offers only what was received."""
+		from ..receive import PRACTICE_TABLE_SIZE
+		from ..scoredat import CLEAR_SIZE
+		save = 0x3200000
+		save_ptr, table = Variables.ADDR_PRACTICE_UNLOCK
+		unlocked_save = bytes([0, 0, 0, 0, 1, 1, 0, 0] * (PRACTICE_TABLE_SIZE // 8))  # every stage cleared and unlocked
+		memory = menu_memory(menu=0, cursor=0)
+		memory.set(BASE + save_ptr, save.to_bytes(4, "little"))
+		for shot in range(6):
+			memory.set(save + table + shot * CLEAR_SIZE, unlocked_save)
+		ctx = self.context()
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])  # ReceivedItems not in yet: the save is left alone
+		ctx.items_received = received("Reimu A - Yukari", "Next Stage")
+		await ctx.poll(memory, None, 0)
+		self.assertEqual([address for address, _ in memory.writes], [save + table + shot * CLEAR_SIZE for shot in range(6)])
+		reimu_a = memory.writes[0][1]
+		self.assertEqual([i for i in range(5, PRACTICE_TABLE_SIZE, 8) if reimu_a[i]], [0x95, 0x9D])  # Lunatic stages 1, 2
+		self.assertEqual(reimu_a[4::8], bytes([1]) * 24)  # cleared bytes kept
+		self.assertFalse(any(data[5::8].strip(b"\0") for _, data in memory.writes[1:]))  # the unreceived shots locked
+		memory.writes.clear()
+		await ctx.poll(memory, None, 0)  # already written: a replay writes nothing
+		self.assertEqual(memory.writes, [])
+
 	async def test_poll_unconnected_leaves_menu(self):
 		ctx = self.context()
 		ctx.slot = None

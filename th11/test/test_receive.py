@@ -1,7 +1,7 @@
 import unittest
 
 from .. import Variables
-from ..receive import apply, apply_new, extra_shots, extra_unlock, goal_reached, sound
+from ..receive import PRACTICE_TABLE_SIZE, apply, apply_new, extra_shots, extra_unlock, goal_reached, practice_open, practice_unlock, sound
 from ..state import decode_state
 from .test_state import PRACTICE_S1, S0
 
@@ -41,12 +41,12 @@ class TestApply(unittest.TestCase):
 		self.assertEqual(apply_new(["+1 Life"], 0, decode_state(S0)), ([], 0))
 		self.assertEqual(apply_new(["+1 Life"], 0, play(lives=2)), ([(LIVES, 3)], 1))
 
-	def test_apply_pending_unlock_items_write_nothing(self):
-		for name in ("Next Stage", "Lower Difficulty", "Reimu A - Yukari", "[Marisa] Next Stage", "[Reimu C] Stage 4", "Stage 2"):
-			with self.assertLogs("Client", "INFO"):
-				self.assertEqual(apply_new([name], 0, play()), ([], 1))
-		with self.assertNoLogs("Client", "INFO"):  # written by extra_shots, not pending
-			self.assertEqual(apply_new(["Extra Stage", "[Marisa B] Extra Stage"], 0, play()), ([], 2))
+	def test_apply_unlock_items_write_no_resources(self):
+		"""Unlock items go through practice_open and extra_shots, which need no run; apply_new leaves them, silently."""
+		names = ["Next Stage", "Lower Difficulty", "Reimu A - Yukari", "[Marisa] Next Stage", "[Reimu C] Stage 4", "Stage 2",
+			"Extra Stage", "[Marisa B] Extra Stage"]
+		with self.assertNoLogs("Client", "INFO"):
+			self.assertEqual(apply_new(names, 0, play()), ([], len(names)))
 
 	def test_apply_batch_stacks(self):
 		self.assertEqual(apply_new(["+1 Life", "+1 Life", "+0.50 Power"], 0, play(lives=2))[0],
@@ -96,6 +96,56 @@ class TestExtra(unittest.TestCase):
 		"""The bytes are a function of the full received list: a reconnect's replay writes the same bytes."""
 		once = extra_unlock(bytes(6), extra_shots(REIMU + ["Extra Stage"], APART))
 		self.assertEqual(extra_unlock(once, extra_shots(REIMU + ["Extra Stage"] * 2, APART)), once)
+
+
+LUNATIC, HARD, NORMAL, EASY = 3, 2, 1, 0
+
+
+def rows(shots, levels, stages):
+	return {(shot, level, stage) for shot in shots for level in levels for stage in stages}
+
+
+class TestPractice(unittest.TestCase):
+	def test_apply_next_stage_writes_unlock_rows(self):
+		self.assertEqual(practice_open(["Reimu A - Yukari"], {}), rows([0], [LUNATIC], [1]))
+		self.assertEqual(practice_open(["Reimu A - Yukari"] + ["Next Stage"] * 2, {}), rows([0], [LUNATIC], [1, 2, 3]))
+		self.assertEqual(practice_open(["Reimu A - Yukari"] + ["Next Stage"] * 9, {}), rows([0], [LUNATIC], range(1, 7)))
+
+	def test_apply_lower_difficulty(self):
+		self.assertEqual(practice_open([MARISA_B, "Lower Difficulty"], {}), rows([4], [HARD, LUNATIC], [1]))
+		self.assertEqual(practice_open([MARISA_B] + ["Lower Difficulty"] * 3, {}), rows([4], range(4), [1]))
+		self.assertEqual(practice_open([MARISA_B, "Lower Difficulty"], {"exclude_lunatic": True}), rows([4], [NORMAL, HARD, LUNATIC], [1]))
+
+	def test_apply_shot_type(self):
+		self.assertEqual(practice_open(["Next Stage"], {}), set())
+		self.assertEqual(practice_open([MARISA_B, "Reimu C - Aya", "Next Stage"], {}), rows([2, 4], [LUNATIC], [1, 2]))
+
+	def test_apply_group_stage_items(self):
+		by_character, by_shot = {"stage_unlock": 1}, {"stage_unlock": 2}
+		self.assertEqual(practice_open(REIMU + [MARISA_B, "[Marisa] Next Stage"], by_character),
+			rows([0, 1, 2], [LUNATIC], [1]) | rows([4], [LUNATIC], [1, 2]))
+		self.assertEqual(practice_open(REIMU + ["[Reimu B] Next Stage"], by_shot), rows([0, 1, 2], [LUNATIC], [1]) | {(1, LUNATIC, 2)})
+		stages = {"progressive_stage": False}
+		self.assertEqual(practice_open([MARISA_B, "Stage 2", "Stage 4"], stages), rows([4], [LUNATIC], [1, 2]))  # 4 needs 3 too
+		self.assertEqual(practice_open([MARISA_B, "[Marisa B] Stage 2"], {**stages, **by_shot}), rows([4], [LUNATIC], [1, 2]))
+
+	def test_normal_mode_opens_every_stage(self):
+		self.assertEqual(practice_open([MARISA_B], {"mode": 1}), rows([4], [LUNATIC], range(1, 7)))
+
+	def test_practice_unlock_sets_only_unlocked_bytes(self):
+		current = bytes(range(PRACTICE_TABLE_SIZE))  # scores and cleared bytes must survive
+		new = practice_unlock(current, 4, {(4, NORMAL, 3), (0, EASY, 1)})
+		self.assertEqual(len(new), PRACTICE_TABLE_SIZE)
+		self.assertEqual(new[0x45], 1)  # Normal Stage 3, the byte probe 32 R7 poked
+		self.assertEqual([i for i in range(5, PRACTICE_TABLE_SIZE, 8) if new[i]], [0x45])  # everything else locked
+		self.assertEqual([i for i in range(PRACTICE_TABLE_SIZE) if new[i] != current[i] and i % 8 != 5], [])
+
+	def test_practice_replay_is_idempotent(self):
+		"""The table is a function of the full received list: a reconnect's replay rewrites nothing."""
+		received = ["Reimu A - Yukari", "Next Stage"]
+		once = practice_unlock(bytes(PRACTICE_TABLE_SIZE), 0, practice_open(received, {}))
+		self.assertEqual(practice_unlock(once, 0, practice_open(list(received), {})), once)
+		self.assertEqual([i for i in range(5, PRACTICE_TABLE_SIZE, 8) if once[i]], [0x95, 0x9D])  # Lunatic 1, 2
 
 
 class TestGoal(unittest.TestCase):

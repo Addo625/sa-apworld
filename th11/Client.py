@@ -16,7 +16,7 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, guard, receive, ringlink, traps
+from . import Variables, deathlink, detect, guard, receive, ringlink, scoredat, traps
 from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
@@ -349,6 +349,8 @@ class TouhouContext(CommonContext):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them
 		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data))
+		if shots is not None:
+			self.unlock_practice(controller, receive.practice_open(names, self.slot_data))
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
 		self.traps_seen = len(names)
 		speeds = [read_entry(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
@@ -391,6 +393,20 @@ class TouhouContext(CommonContext):
 		new = receive.extra_unlock(current, shots)
 		if new != current:
 			write_entry(controller, Variables.ADDR_EXTRA_UNLOCK, new)
+
+	def unlock_practice(self, controller, rows):
+		"""Write each shot's Practice `unlocked` bytes so only `rows` are offered; the menu reads them live, so no run is
+		needed. Every tick, so stages the game itself unlocks are locked again. Skipped until the save loads."""
+		offsets = [shot * scoredat.CLEAR_SIZE for shot in range(len(Variables.SHOT_TYPE_LIST))]
+		try:
+			table = resolve(controller, Variables.ADDR_PRACTICE_UNLOCK)
+			tables = [controller.read_bytes(table + offset, receive.PRACTICE_TABLE_SIZE) for offset in offsets]
+		except Exception:  # null save pointer before the title loads it: retried next tick, so no log spam
+			return
+		for shot, (offset, current) in enumerate(zip(offsets, tables)):
+			new = receive.practice_unlock(current, shot, rows)
+			if new != current:
+				write_entry(controller, Variables.ADDR_PRACTICE_UNLOCK, new, offset)
 
 	def play_sound(self, controller, kind):
 		"""MoF playSound: write the kind's sound ID for the sound cave to play on the game thread."""

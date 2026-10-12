@@ -1,6 +1,6 @@
 # 39: Received Next Stage, Lower Difficulty and shot types unlock Practice
 
-Status: ready-for-agent
+Status: done
 Blocked by: 32
 
 ## Problem
@@ -39,3 +39,7 @@ Blocked by: 32
   - Per-shot stride `0x68D4` (save format, `th11/scoredat.py`; order Yukari, Suika, Aya, Alice, Patchouli, Nitori).
   - Proof: poking copy 1's Normal Stage 3 `unlocked` to 1 offered Stage 3 in the Practice menu live, and 0 locked it again. The other heap copy (the file buffer) has no effect.
   - The `0x4C38AC` pointer from U2 points to an unaligned address near copy 2; ignore it.
+
+## Comments
+
+- 2026-10-12 al-work: done. `receive.practice_open`, `receive.practice_unlock` and `Client.unlock_practice` rewrite each shot's `unlocked` bytes every tick from the full received list. Scores and `cleared` bytes are kept, and nothing is written before ReceivedItems arrives or while the save pointer is null. `write_entry` now takes an offset for the other shots' tables. Normal mode opens all six stages of a received shot, matching `stage_unlocked(normal=True)`. DoD: 379 passed. No deferred tickets; in-game proof rides on the next smoke run.

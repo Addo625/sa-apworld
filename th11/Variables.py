@@ -103,8 +103,10 @@ ADDR_SPELL_ID = None  # source: none yet, current spell card ID (spells.js 0-174
 ADDR_SPELL_BONUS = None  # source: none yet, spell bonus flag/value on capture TODO(23)
 ADDR_SPELL_HISTORY = [0x000C343C, 0x6E8]  # source: 06 dumps only: paired u32 counters (attempts/captures?) at a 0x20 stride that rose in play TODO(23)
 
-# Save data (score.dat); MoF reads these through ptr 0x7783C, SA's pointer is unknown.
-ADDR_PRACTICE_UNLOCK = None  # source: none yet, MoF-analogue table (character x shot x difficulty x stage) TODO(06)
+# Save data (score.dat), live in the save struct the static 0x4A8EBC points to (not the file buffer copy).
+# Reimu A's practice table: scoredat.PRACTICE_SIZE entries, levels outer, stages inner; byte 5 is `unlocked`, which the
+# Practice menu reads live. The next shot's table is scoredat.CLEAR_SIZE further, in scoredat.CHARAS order.
+ADDR_PRACTICE_UNLOCK = [0x000A8EBC, 0x5AC]  # source: probe 32 R7 (poking Normal Stage 3's `unlocked` at + 0x45 opened/locked it)
 # Save struct + 0x2DDEA: one ending byte per shot (char * 3 + shot), bad endings 0-5 then good endings 6-11. A good ending
 # on Normal+ sets bit 0x10, which is Extra unlocked for that shot (thcrap fix_extra_stage_relocking at 0x40EDE8 keeps it).
 ADDR_EXTRA_UNLOCK = [0x000A8EBC, 0x2DDF0]  # source: probe 32 R1 failed (ST bytes), so static disassembly (33): every Extra menu tests bit 0x10 here (0x43CC17, 0x43D0EF, any-shot 0x439350)

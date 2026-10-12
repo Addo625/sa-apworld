@@ -35,11 +35,11 @@ def write_int(writer, entry, value):
 	write_entry(writer, entry, value.to_bytes(4, "little", signed=True))
 
 
-def write_entry(writer, entry, data: bytes):
-	"""The one way client logic writes game memory: a table entry, never a raw address."""
+def write_entry(writer, entry, data: bytes, offset=0):
+	"""The one way client logic writes game memory: a table entry (+ offset into the record it points to), never a raw address."""
 	if entry is None or entry not in PROBE_TABLE.values():
 		raise ValueError(f"write to {entry!r}, which is not a sourced Variables entry")
-	writer.write_bytes(resolve(writer, entry), data)
+	writer.write_bytes(resolve(writer, entry) + offset, data)
 
 
 def float_candidates(data: bytes, low=0.1, high=20.0) -> list:
