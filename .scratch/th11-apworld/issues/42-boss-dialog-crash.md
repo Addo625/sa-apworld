@@ -52,3 +52,7 @@ From then on, every time the game runs `0x429058` it detours into the cave. The 
 
 ## Deferred
 - Trap and link life-change feedback through the cave → 43 (waits on this).
+
+## Comments
+
+- 2026-10-12 al-work attempt failed: the working tree was not clean at start, so the iteration stopped before touching anything. The dirty files (`th11/Client.py`, `th11/gameController.py`, `th11/probe.py`, `th11/test/test_client.py`, last written 04:20) are this ticket's unfinished work from the 04:20 iteration that hit the session limit (log `.agent-loop/log/20261012-034312-7.txt`): `/writelog` + `probe.log_write`, and the two static tests `test_sound_hook_replaces_exactly_one_call` / `test_no_jump_into_hooked_bytes`. Still missing: the `test_writelog_*` tests, the disassembly/caller-path comment, and R1 in batch 44. Left in place, not stashed. Next: the human keeps it (`git stash` it, the loop's next run can `git stash pop`) or drops it (`git checkout -- th11`), then reruns the loop.
