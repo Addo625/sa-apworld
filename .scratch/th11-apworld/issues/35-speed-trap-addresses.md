@@ -1,6 +1,6 @@
 # 35: Source the speed fields so speed traps work
 
-Status: ready-for-agent
+Status: done
 Blocked by: 32
 
 ## Problem
@@ -29,3 +29,4 @@ Blocked by: 32
   2. **and/or** add `/playerfloats diff` (one snapshot while moving unfocused, one while focused; print only the floats that changed between them).
 
   Then add a batch 44 request (two snapshots, plus one `/poke` confirm), and keep the speed traps pending until then.
+- 2026-10-12 al-work, **done by static disassembly (method 1).** SA's speeds aren't floats: the player init (0x42F8A0) multiplies the `.sht` floats (+0x10..+0x1C, sht ptr at player + 0x92C) by the double 128.0 at 0x497ED8 and stores int32 at player + `0x890/0x894/0x898/0x89C` (normal, focus, normal diagonal, focus diagonal). The movement code (0x4303AD) reads the focus pair while player + 0x8D20 is set and negates for left/up, so Reverse Movement (negative) and Freeze (0) work as written. All four fields exist, so `SPEED_ENTRIES` keeps its shape. The traps now read and write ints (Aya Speed's halving rounds down); `read_float`/`write_float` were removed. `test_speed_entries_from_probe` uses fake values, since no probe has the real ones. The in-game proof and the leaving-a-run check are **batch 44 R4**. No follow-up ticket: if R4-V3 fails, the fix is the restore-on-entry noted in `traps.tick`'s ponytail comment. DoD: `366 passed`.

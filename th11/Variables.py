@@ -84,12 +84,14 @@ ADDR_POWER = 0x000A56E8  # source: probe 06 S4-S12: units of 0.05, max 80 (4.00)
 ADDR_SCORE = 0x000A56E4  # source: probe 06 S4-S11: stored /10
 ADDR_CONTINUES = 0x000A573C  # source: thprac Globals.continues (offset 0x5C); 0 in every 06 probe, no continue used
 
-# Player movement speeds (floats in the player object; MoF has them at player + 0x3D4..0x3E0, D = diagonal).
-ADDR_PLAYER_PTR = 0x000A8EB4  # source: thprac `#define player (*(Player**)0x4a8eb4)`; not probed yet
-ADDR_SPEED_NORMAL = None  # source: none yet, [ADDR_PLAYER_PTR, offset] from probe 32 R3 TODO(35)
-ADDR_SPEED_FOCUS = None  # source: none yet TODO(35)
-ADDR_SPEED_NORMAL_D = None  # source: none yet TODO(35)
-ADDR_SPEED_FOCUS_D = None  # source: none yet TODO(35)
+# Player movement speeds, D = diagonal. Unlike MoF's floats (player + 0x3D4..0x3E0), SA keeps int32 = speed x 128:
+# the player init (0x42F8A0) scales the shot's .sht floats (+0x10..+0x1C, sht ptr at player + 0x92C) by 128.0
+# into player + 0x890..0x89C, and the movement code (0x4303AD) reads the focus pair while player + 0x8D20 is set.
+ADDR_PLAYER_PTR = 0x000A8EB4  # source: thprac `#define player (*(Player**)0x4a8eb4)`; static (35): the 0x8D24-byte player's constructor stores it here (0x42F852)
+ADDR_SPEED_NORMAL = [ADDR_PLAYER_PTR, 0x890]  # source: static disassembly (35), as above; P3-style poke in probe batch 44 R4
+ADDR_SPEED_FOCUS = [ADDR_PLAYER_PTR, 0x894]  # source: static disassembly (35)
+ADDR_SPEED_NORMAL_D = [ADDR_PLAYER_PTR, 0x898]  # source: static disassembly (35)
+ADDR_SPEED_FOCUS_D = [ADDR_PLAYER_PTR, 0x89C]  # source: static disassembly (35)
 
 # Spell captures. thprac_th11.cpp has no spell ID, bonus or history code (its spell practice
 # patches ECL), and FearLess and disassembly weren't reachable in 22: each entry has one source at most.

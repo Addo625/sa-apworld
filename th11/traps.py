@@ -10,7 +10,7 @@ from .receive import in_run
 logger = logging.getLogger("Client")
 
 TRAPS = {name for name, data in item_table.items() if data.category == "Traps"}
-# Speed traps change the four speed floats, one at a time, and restore them after these seconds.
+# Speed traps change the four speeds (int32, speed x 128), one at a time, and restore them after these seconds.
 TIMED = {"No Focus": 20, "Reverse Movement": 20, "Aya Speed": 20, "Freeze": 3}
 DRAIN_SECONDS = 20  # Power Drain: -1 power unit (0.05) per second for this long
 ENTER_DELAY = 2  # seconds in a run before traps fire, so stage setup doesn't overwrite them (EoSD)
@@ -23,8 +23,8 @@ def trapped_speeds(name, saved):
 	return {
 		"No Focus": (normal, normal, normal_d, normal_d),
 		"Reverse Movement": (-normal, -focus, -normal_d, -focus_d),
-		"Aya Speed": (normal * 2, focus / 2, normal_d * 2, focus_d / 2),
-		"Freeze": (0.0, 0.0, 0.0, 0.0),
+		"Aya Speed": (normal * 2, focus // 2, normal_d * 2, focus_d // 2),
+		"Freeze": (0, 0, 0, 0),
 	}[name]
 
 
@@ -42,11 +42,12 @@ def speeds_sourced():
 
 
 def tick(traps, now, state, speeds):
-	"""One poll: fire the first queued trap that can fire, run timers. speeds: the 4 speed floats, None if unreadable.
-	-> (int writes [(entry, value)], speed writes (4 floats) or None)."""
+	"""One poll: fire the first queued trap that can fire, run timers. speeds: the 4 speed ints, None if unreadable.
+	-> (int writes [(entry, value)], speed writes (4 ints) or None)."""
 	if not in_run(state):
 		# ponytail: like EoSD, nothing is written outside a run (the player object may be gone) and an active
-		# speed trap is forgotten; this assumes each stage rebuilds the player's speeds (35 checks it in game).
+		# speed trap is forgotten; this assumes each stage rebuilds the player's speeds (probe batch 44 R4 checks
+		# it in game). If not, keep the saved speeds and restore them on the first in-run tick instead.
 		traps.entered, traps.speed, traps.drain_until = None, None, 0
 		return [], None
 	if traps.entered is None:
@@ -69,7 +70,7 @@ def tick(traps, now, state, speeds):
 		elif name == "Power Drain":
 			traps.drain_until = max(traps.drain_until, now) + DRAIN_SECONDS
 		elif not speeds_sourced():
-			logger.info(f"{name}: pending the speed addresses (probe batch 32 R3, ticket 35)")
+			logger.info(f"{name}: pending the speed addresses")
 		else:
 			saved = new_speeds or speeds  # a trap that just expired restores first
 			traps.speed = (name, now + TIMED[name], saved)

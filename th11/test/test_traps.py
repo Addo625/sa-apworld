@@ -4,13 +4,14 @@ from unittest import mock
 
 from .. import TRAP_OPTIONS, Variables
 from .. import test as bases
-from ..probe import float_candidates
+from ..probe import float_candidates, read_entry, write_int
 from ..state import GameState
 from ..traps import DRAIN_SECONDS, ENTER_DELAY, SPEED_ENTRIES, TIMED, TrapState, tick
+from .test_client import BASE, FakeMemory
 
 FILLER = "+0.05 Power"
 NO_WEIGHTS = {option: 0 for option in TRAP_OPTIONS.values()}
-SPEEDS = (4.5, 2.0, 3.2, 1.4)
+SPEEDS = (576, 256, 407, 181)  # speed x 128: 4.5, 2.0 and their diagonals
 T0 = 100.0  # first tick in the run
 LIVE = T0 + ENTER_DELAY  # traps fire from here
 
@@ -55,12 +56,6 @@ class TestInstantTraps(unittest.TestCase):
 
 
 class TestSpeedTraps(unittest.TestCase):
-	def setUp(self):
-		offsets = dict(zip(SPEED_ENTRIES, (0x3D4, 0x3D8, 0x3DC, 0x3E0)))  # MoF's layout, standing in for 35's
-		patcher = mock.patch.multiple(Variables, **{name: [Variables.ADDR_PLAYER_PTR, offset] for name, offset in offsets.items()})
-		patcher.start()
-		self.addCleanup(patcher.stop)
-
 	def check(self, name, trapped):
 		traps, first = fired(name)
 		self.assertEqual(first, ([], trapped))
@@ -69,43 +64,62 @@ class TestSpeedTraps(unittest.TestCase):
 		self.assertIsNone(traps.speed)
 
 	def test_no_focus(self):
-		self.check("No Focus", (4.5, 4.5, 3.2, 3.2))
+		self.check("No Focus", (576, 576, 407, 407))
 
 	def test_reverse_movement(self):
-		self.check("Reverse Movement", (-4.5, -2.0, -3.2, -1.4))
+		self.check("Reverse Movement", (-576, -256, -407, -181))
 
 	def test_aya_speed(self):
-		self.check("Aya Speed", (9.0, 1.0, 6.4, 0.7))
+		self.check("Aya Speed", (1152, 128, 814, 90))
 
 	def test_freeze(self):
-		self.check("Freeze", (0.0, 0.0, 0.0, 0.0))
+		self.check("Freeze", (0, 0, 0, 0))
 
 	def test_one_speed_trap_at_a_time(self):
 		traps, first = fired("Freeze", "No Focus")
-		self.assertEqual(first, ([], (0.0, 0.0, 0.0, 0.0)))
+		self.assertEqual(first, ([], (0, 0, 0, 0)))
 		self.assertEqual(traps.queue, ["No Focus"])
 		# Freeze expires: No Focus starts from the restored speeds, not the frozen ones.
-		self.assertEqual(tick(traps, LIVE + TIMED["Freeze"], run(), (0.0, 0.0, 0.0, 0.0)), ([], (4.5, 4.5, 3.2, 3.2)))
+		self.assertEqual(tick(traps, LIVE + TIMED["Freeze"], run(), (0, 0, 0, 0)), ([], (576, 576, 407, 407)))
 		self.assertEqual(traps.speed[2], SPEEDS)
 
 	def test_forgotten_without_writes_on_leaving_the_run(self):
 		traps, _ = fired("Reverse Movement")
-		self.assertEqual(tick(traps, LIVE + 1, run(in_game=False), (-4.5, -2.0, -3.2, -1.4)), ([], None))
+		self.assertEqual(tick(traps, LIVE + 1, run(in_game=False), (-576, -256, -407, -181)), ([], None))
 		self.assertIsNone(traps.speed)
 
 	def test_unreadable_speeds_keep_the_trap_queued(self):
 		traps, first = fired("Freeze", "-1 Life", speeds=None)
 		self.assertEqual(first, ([(Variables.ADDR_LIVES, 2)], None))  # the instant trap goes first
 		self.assertEqual(traps.queue, ["Freeze"])
-		self.assertEqual(tick(traps, LIVE + 1, run(), SPEEDS), ([], (0.0, 0.0, 0.0, 0.0)))
+		self.assertEqual(tick(traps, LIVE + 1, run(), SPEEDS), ([], (0, 0, 0, 0)))
 
 	def test_expiry_waits_for_readable_speeds(self):
 		traps, _ = fired("Freeze")
 		self.assertEqual(tick(traps, LIVE + TIMED["Freeze"], run(), None), ([], None))
-		self.assertEqual(tick(traps, LIVE + TIMED["Freeze"] + 1, run(), (0.0, 0.0, 0.0, 0.0)), ([], SPEEDS))
+		self.assertEqual(tick(traps, LIVE + TIMED["Freeze"] + 1, run(), (0, 0, 0, 0)), ([], SPEEDS))
+
+	def test_speed_entries_from_probe(self):
+		"""The entries (from static disassembly, 35) read and write int32 speeds in the player object."""
+		player = 0x3000000
+		addresses = [player + offset for offset in (0x890, 0x894, 0x898, 0x89C)]
+		memory = FakeMemory()
+		memory.set(BASE + Variables.ADDR_PLAYER_PTR, player.to_bytes(4, "little"))
+		for address, value in zip(addresses, SPEEDS):
+			memory.set(address, value.to_bytes(4, "little"))
+		speeds = tuple(read_entry(memory, getattr(Variables, name)) for name in SPEED_ENTRIES)
+		self.assertEqual(speeds, SPEEDS)
+		traps, (_, frozen) = fired("Freeze", speeds=speeds)
+		_, restored = tick(traps, LIVE + TIMED["Freeze"], run(), frozen)
+		for values in (frozen, restored):
+			for name, value in zip(SPEED_ENTRIES, values):
+				write_int(memory, getattr(Variables, name), value)
+		self.assertEqual(memory.writes, [(a, bytes(4)) for a in addresses] + [
+			(a, v.to_bytes(4, "little")) for a, v in zip(addresses, SPEEDS)])
 
 
 class TestUnsourcedSpeeds(unittest.TestCase):
+	@mock.patch.object(Variables, "ADDR_SPEED_FOCUS", None)
 	def test_unsourced_speeds_drop_the_trap(self):
 		traps, first = fired("Freeze", speeds=None)
 		self.assertEqual(first, ([], None))

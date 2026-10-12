@@ -21,7 +21,7 @@ from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
-from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_float, resolve, write_entry, write_float, write_int
+from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, resolve, write_entry, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
@@ -352,13 +352,13 @@ class TouhouContext(CommonContext):
 		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data))
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
 		self.traps_seen = len(names)
-		speeds = [read_float(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
+		speeds = [read_entry(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
 		written = receive.with_writes(state, writes)
 		trap_writes, new_speeds = traps.tick(self.traps, time.monotonic(), written, None if None in speeds else speeds)
 		for entry, value in trap_writes:
 			write_int(controller, entry, value)
 		for name, value in zip(traps.SPEED_ENTRIES, new_speeds or []):
-			write_float(controller, getattr(Variables, name), value)
+			write_int(controller, getattr(Variables, name), value)
 		if "DeathLink" in self.tags:
 			if deathlink.on_state(self.link_prev, state, self.link):
 				await self.send_death()

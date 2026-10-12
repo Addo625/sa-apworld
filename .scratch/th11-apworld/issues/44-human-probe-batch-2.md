@@ -23,6 +23,13 @@ Context: 33 found the unlock by static disassembly. Every Extra menu tests bit `
 - Afterwards restore the backed-up `scoreth11.dat`.
 - Used for: the in-game proof of 33. If `Extra Start` doesn't appear in X2 while the bit is set, reopen 33 with the pasted bytes (the title may cache its menu: also try leaving to the title and back).
 
+### R4, needed by 35 (done, proof only): the speed traps, once each
+Context: 35 found the speeds by static disassembly, not in batch 32's `/playerfloats` (they aren't floats). SA keeps four int32 = speed × 128 in the player object: `ADDR_SPEED_NORMAL/FOCUS/NORMAL_D/FOCUS_D` = player + `0x890/0x894/0x898/0x89C`. Reuse a seed with `traps: 100` and admin `/send` (R3's works). Game folder `.games/sa`, Practice, any stage, in play.
+- **V1:** `/probe`, paste the four `ADDR_SPEED_*` lines (expect positive values around 200–700, focus below normal, diagonal ≈ normal × 0.7).
+- **V2:** `/send` each, waiting for the previous one to end: `No Focus` (20 s, focus moves at full speed), `Reverse Movement` (20 s, controls reversed), `Aya Speed` (20 s, unfocused twice as fast, focused half), `Freeze` (3 s, no movement). Paste the `Trap: …` lines and one line per trap on what you saw. After each ends, does movement feel normal again?
+- **V3 (leaving a run):** `/send` `Reverse Movement`, and within its 20 s clear the stage (Practice ends at the stage end) or lose every life. Start a new Practice stage: does it move normally? Paste `/probe`'s four `ADDR_SPEED_*` lines there (expect V1's values).
+- Used for: the in-game proof of 35. Wrong movement in V2 reopens 35 with the pasted lines. If V3's new stage still moves reversed, the stage doesn't rebuild the speeds, and `traps.tick` must restore them on the first in-run tick instead (a follow-up ticket).
+
 ## Decisions to confirm
 - (33) The client only sets the Extra bit, it never clears one: a save with Extra already open (like `.games/sa`) keeps every shot's Extra, and Extra runs there send checks without the item. Filtering those runs is deferred ticket 45. In normal mode a `linear` Extra is left to the game (a no-continue clear on Normal+ opens it); only `apart`'s Extra Stage items write the bit. Note that logic (11) counts that `linear` Extra as open once Stage 6 is, but the game needs a no-continue clear. If that's too strict, the client could set the bit once a Stage 6 Clear check is sent.
 

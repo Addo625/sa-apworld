@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from .. import Variables
-from ..probe import read_float, resolve, write_float, write_int
+from ..probe import resolve, write_int
 from ..state import decode_state, read_state
 from .test_client import BASE, FakeMemory
 
@@ -132,6 +132,7 @@ class TestWriteAddresses(unittest.TestCase):
 		memory.set(BASE + Variables.ADDR_ENEMY_MANAGER, (0x3000000).to_bytes(4, "little"))
 		memory.set(BASE + Variables.ADDR_SPELL_HISTORY[0], (0x3200000).to_bytes(4, "little"))
 		memory.set(BASE + Variables.ADDR_EXTRA_UNLOCK[0], (0x3300000).to_bytes(4, "little"))
+		memory.set(BASE + Variables.ADDR_PLAYER_PTR, (0x3000000).to_bytes(4, "little"))  # the loop writes it back unchanged
 		entries = [entry for entry in Variables.PROBE_TABLE.values() if entry is not None]
 		expected = [resolve(memory, entry) for entry in entries]
 		for entry in entries:
@@ -147,13 +148,6 @@ class TestWriteAddresses(unittest.TestCase):
 		memory = FakeMemory()
 		write_int(memory, Variables.ADDR_LIVES, -1)
 		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, b"\xff\xff\xff\xff")])
-
-	def test_write_float_round_trips_and_checks_entry(self):
-		memory = FakeMemory()
-		write_float(memory, Variables.ADDR_LIVES, -2.5)
-		self.assertEqual(read_float(memory, Variables.ADDR_LIVES), -2.5)
-		with self.assertRaises(ValueError):
-			write_float(memory, BASE + Variables.ADDR_LIVES, 1.0)
 
 
 class TestDemoFlag(unittest.TestCase):

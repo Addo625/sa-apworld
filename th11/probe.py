@@ -31,22 +31,8 @@ def read_entry(reader, entry):
 		return None
 
 
-def read_float(reader, entry):
-	"""Float at a table entry, or None if unsourced or unreadable."""
-	if entry is None:
-		return None
-	try:
-		return struct.unpack("<f", reader.read_bytes(resolve(reader, entry), 4))[0]
-	except Exception:
-		return None
-
-
 def write_int(writer, entry, value):
 	write_entry(writer, entry, value.to_bytes(4, "little", signed=True))
-
-
-def write_float(writer, entry, value):
-	write_entry(writer, entry, struct.pack("<f", value))
 
 
 def write_entry(writer, entry, data: bytes):
