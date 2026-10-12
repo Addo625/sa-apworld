@@ -4,13 +4,20 @@ Status: ready-for-human
 Blocked by: 42
 
 ## Problem
-In-game facts for tickets 33, 35, 36, 40, 42 and 43, collected so the human answers them in one session (AGENTS.md: "In-game facts go to the probe batch"). Agents append `R<n>` requests while this batch is open. It's blocked by 42 because R1 needs 42's `/writelog`. Claude prepares a simplified checklist (`.agent-loop/44-simplified.md`) before the session.
+In-game facts for tickets 33, 35, 36, 40, 42 and 43, collected so the human answers them in one session (AGENTS.md: "In-game facts go to the probe batch"). Agents append `R<n>` requests while this batch is open. It was blocked by 42 because R1 needs 42's `/writelog` (now in). Claude prepares a simplified checklist (`.agent-loop/44-simplified.md`) before the session.
 
 ## DoD
 Every request below has its pasted output under `## Comments`, or "not reached".
 
 ## Test plan
 Session setup: as in batch 32. One `th11.exe`, the client from the latest `main`, game folder `.games/sa` (everything unlocked) unless a request says otherwise.
+
+### R1, needed by 42 → 40: does the boss dialog crash without the sound hook?
+Context: 42's disassembly found nothing wrong with the hook (see 42's comment): it replaces exactly one `call 0x44A340`, nothing jumps into its middle, and while no item sound is pending the cave is only `pushad; test; jz; popad; jmp 0x44A340`. So a crash at the dialog with **no** sound pending points away from the hook. Game folder `.games/sa`, any connected seed with admin `/send`, Practice Stage 1.
+- **(a) never hooked:** start a **fresh** `th11.exe` (the hook stays until the game exits), connect, `/writelog on`. Do **not** turn on `/itemsound`. Play Practice Stage 1 to Yamame's pre-boss dialog and click through it into the fight. Crash? Paste the last 20 client lines (with the crash, they end in `Lost th11.exe`).
+- **(b) hooked:** quit and start a fresh `th11.exe`, connect, `/writelog on`, `/itemsound on`. Early in Practice Stage 1, `/send <your slot> +1 Life`: hear the extend sound? Then `/peek 429058 5` (this is R2). Play to Yamame's dialog **without** further `/send`s, click through it. Crash? Paste the last 20 client lines and say how long before the crash the last item arrived.
+- **(c) sound during the dialog** (only if (b) didn't crash; same game, `/itemsound` still on): restart Practice Stage 1 from the pause menu, play to Yamame's dialog, and while its text is up `/send <your slot> +1 Life`. Sound, star redraw, crash? Paste the last 20 client lines.
+- Used for: (a), (b), (c) OK → 40 turns `/itemsound` on by default. (b) crashes, (a) doesn't → the installed-but-idle hook is to blame after all; 40 moves the hook to another site. Only (c) crashes → the cave's redraw call at the dialog (42's lead 2); 40 skips the redraw outside stage play. (a) crashes → not the hook: the last `write 0x…` lines name the client write to suspect; a new ticket from them.
 
 ### R2, needed by 40 (from batch 32 R9-S3, mistyped there): the hook bytes
 - With `/itemsound on` and one item sound played: `/peek 429058 5` → paste (expect `e8 a3 1e 06 00`).

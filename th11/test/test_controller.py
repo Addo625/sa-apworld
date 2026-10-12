@@ -3,6 +3,8 @@ import types
 import unittest
 from unittest import mock
 
+from .. import probe
+
 
 def fake_pymem(base, image=b"MZ\x90\x00"):
 	"""A pymem stand-in whose th11.exe module sits at `base` (None: not mapped yet)."""
@@ -17,6 +19,9 @@ def fake_pymem(base, image=b"MZ\x90\x00"):
 
 		def read_bytes(self, address, size):
 			return image[:size] if address == base else b"\x00" * size
+
+		def write_bytes(self, address, data, size):
+			pass
 
 	pymem = types.ModuleType("pymem")
 	pymem.Pymem = Pymem
@@ -44,3 +49,24 @@ class TestController(unittest.TestCase):
 		for base, image in ((None, b"MZ"), (0x6FFFFFF30000, b"MZ"), (0x400000, b"\x00\x00")):
 			with self.assertRaises(RuntimeError, msg=hex(base or 0)):
 				controller_with(base, image)
+
+	def write_life(self, controller):
+		"""Stands in for a client feature writing through the controller."""
+		controller.write_bytes(0x4CAF00, b"\x01\x00\x00\x00")
+
+	def test_writelog_logs_each_write(self):
+		controller = controller_with(0x400000)
+		probe.write_log = True
+		try:
+			with self.assertLogs("Client", "INFO") as logs:
+				self.write_life(controller)
+				self.write_life(controller)
+		finally:
+			probe.write_log = False
+		self.assertEqual(len(logs.output), 2)
+		self.assertIn("write 0x004CAF00 4 bytes (write_life < test_writelog_logs_each_write", logs.output[0])
+
+	def test_writelog_off_logs_nothing(self):
+		self.assertFalse(probe.write_log)  # off by default
+		with self.assertNoLogs("Client"):
+			self.write_life(controller_with(0x400000))

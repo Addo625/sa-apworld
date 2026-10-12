@@ -157,6 +157,40 @@ class TestPatchSites(unittest.TestCase):
 		self.assertEqual((cave_code[3:7], cave_code[0x0D:0x11]), (sound_id, sound_id))
 
 	@unittest.skipUnless(GAME.exists(), ".games/ is gitignored")
+	def test_sound_hook_replaces_exactly_one_call(self):
+		"""42: the hook's 5 bytes are one whole instruction, call 0x44A340, so the cave's tail jmp replays it exactly:
+		the 10-byte mov before it ends at the hook and the next call starts right after it."""
+		exe = GAME.read_bytes()
+		code = lambda rva, size: exe[rva - 0x1000 + 0x400:][:size]
+		hook, cave = Variables.ADDR_SOUND_HACK_1, Variables.SOUND_CAVE
+		self.assertEqual(code(hook - 10, 2), bytes.fromhex("c7 05"))  # mov dword [0x4C37D8], 3
+		self.assertEqual(code(hook, 5), b"\xe8" + (0x4A340 - hook - 5).to_bytes(4, "little"))
+		self.assertEqual(code(hook + 5, 1), b"\xe8")  # call 0x42B8E0
+		tail = Variables.ADDR_SOUND_HACK_2 + len(cave) - 5
+		self.assertEqual(cave[-5:], b"\xe9" + (0x4A340 - tail - 5).to_bytes(4, "little", signed=True))
+
+	@unittest.skipUnless(GAME.exists(), ".games/ is gitignored")
+	def test_no_jump_into_hooked_bytes(self):
+		"""42: no rel8/rel32 jump or call in .text, and no absolute pointer anywhere in the file, lands inside the hooked
+		call. A byte scan, not a disassembly, so it over-reports; it found nothing."""
+		exe = GAME.read_bytes()
+		inside = range(BASE + Variables.ADDR_SOUND_HACK_1 + 1, BASE + Variables.ADDR_SOUND_HACK_1 + 5)
+		start, end = 0x400, 0x400 + 0x8A000
+		va = lambda offset: BASE + offset - 0x400 + 0x1000
+		hits = []
+		for i in range(start, end - 6):
+			op, targets = exe[i], []
+			if op in (0xE8, 0xE9):
+				targets.append(va(i) + 5 + int.from_bytes(exe[i + 1:i + 5], "little", signed=True))
+			if op == 0xEB or 0x70 <= op <= 0x7F or 0xE0 <= op <= 0xE3:
+				targets.append(va(i) + 2 + int.from_bytes(exe[i + 1:i + 2], "little", signed=True))
+			if op == 0x0F and 0x80 <= exe[i + 1] <= 0x8F:
+				targets.append(va(i) + 6 + int.from_bytes(exe[i + 2:i + 6], "little", signed=True))
+			hits += [hex(va(i)) for target in targets if target in inside]
+		hits += [f"pointer at file offset {exe.find(p.to_bytes(4, 'little')):#x}" for p in inside if p.to_bytes(4, "little") in exe]
+		self.assertEqual(hits, [])
+
+	@unittest.skipUnless(GAME.exists(), ".games/ is gitignored")
 	def test_extra_unlock_is_what_the_menus_read(self):
 		"""33: the any-shot Extra check and the shot select's Extra row test bit 0x10 at [0x4A8EBC] + 0x2DDF0 (+ char * 3)."""
 		exe = GAME.read_bytes()

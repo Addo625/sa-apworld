@@ -2,9 +2,20 @@
 Memory probe: prints every address table entry so the human can check it in-game.
 Pure: the reader only needs base_address and read_bytes(address, size).
 """
+import logging
 import struct
+import traceback
 
 from .Variables import PROBE_TABLE
+
+write_log = False  # /writelog on: gameController.write_bytes logs every write (42)
+
+
+def log_write(address, size):
+	"""/writelog: one line per game write, naming the client functions that led to it, innermost first."""
+	if write_log:
+		callers = " < ".join(frame.name for frame in reversed(traceback.extract_stack(limit=6)[:-2]))  # minus this and write_bytes
+		logging.getLogger("Client").info(f"write 0x{address:08X} {size} bytes ({callers})")
 
 
 def read_int(reader, address, signed=False) -> int:

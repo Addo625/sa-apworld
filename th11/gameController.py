@@ -3,6 +3,7 @@ import pymem.memory
 import pymem.process
 
 from .Variables import GAME_NAME
+from .probe import log_write
 
 MEM_COMMIT, PAGE_NOACCESS, PAGE_GUARD = 0x1000, 0x01, 0x100
 
@@ -24,6 +25,7 @@ class gameController:
 		return self.pm.read_bytes(address, size)
 
 	def write_bytes(self, address, data: bytes):
+		log_write(address, len(data))
 		self.pm.write_bytes(address, data, len(data))
 
 	def readable_regions(self) -> list:

@@ -16,7 +16,7 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, guard, receive, ringlink, scoredat, traps
+from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, traps
 from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
@@ -220,6 +220,15 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			return False
 		self.ctx.item_sound = state == "on"
 		logger.info(f"Item sounds {state}" + (" (experimental: may crash the game, ticket 40)" if state == "on" else ""))
+		return True
+
+	def _cmd_writelog(self, state: str = ""):
+		"""Debug: log every client write to the game on/off (off by default), only as a probe request says"""
+		if state not in ("on", "off"):
+			logger.info(f"Write log is {'on' if probe.write_log else 'off'}. Usage: /writelog on|off")
+			return False
+		probe.write_log = state == "on"
+		logger.info(f"Write log {state}")
 		return True
 
 	def _cmd_launch(self):
