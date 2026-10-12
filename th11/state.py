@@ -8,11 +8,13 @@ from .probe import read_entry
 
 STATE_ENTRIES = [
 	"ADDR_ENEMY_MANAGER", "ADDR_IS_BOSS_PRESENT", "ADDR_MENU", "ADDR_MENU_CURSOR", "ADDR_STAGE",
-	"ADDR_DIFFICULTY", "ADDR_CHARACTER", "ADDR_SHOT_TYPE", "ADDR_LIVES", "ADDR_POWER", "ADDR_IN_DEMO", "ADDR_GAME_FLAGS",
+	"ADDR_DIFFICULTY", "ADDR_CHARACTER", "ADDR_SHOT_TYPE", "ADDR_LIVES", "ADDR_POWER", "ADDR_GAME_FLAGS",
 ]
 
 
-DEMO_FLAG = 0x20  # ADDR_GAME_FLAGS during a title demo (batch 32 R8-D1)
+# ADDR_GAME_FLAGS bit set while a replay plays (batch 32 R8: in both title demos, never in normal or Practice play).
+# Saved replays (R8-D3) weren't probed; assumed to set it too.
+DEMO_FLAG = 0x20
 
 
 class GameState(NamedTuple):
@@ -32,9 +34,7 @@ class GameState(NamedTuple):
 def decode_state(values) -> GameState:
 	"""values: {entry name: int, or None when unreadable}; missing entries count as unreadable."""
 	# A replay (title Demo Play) isn't play: no checks, deaths, rings, traps or items in it (ticket 30).
-	# ponytail: GAME_FLAGS bit 0x20 is set in both title demos probed (batch 32 R8-D1; 0x10 Practice, 0 normal play);
-	# ADDR_IN_DEMO replaces it once D2/D3 confirm a dedicated flag (41).
-	in_demo = bool(values.get("ADDR_IN_DEMO")) or bool((values.get("ADDR_GAME_FLAGS") or 0) & DEMO_FLAG)
+	in_demo = bool((values.get("ADDR_GAME_FLAGS") or 0) & DEMO_FLAG)
 	in_game = bool(values.get("ADDR_ENEMY_MANAGER")) and not in_demo
 	character, shot = values.get("ADDR_CHARACTER"), values.get("ADDR_SHOT_TYPE")
 	valid = character in (0, 1) and shot in (0, 1, 2)

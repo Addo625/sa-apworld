@@ -1,6 +1,6 @@
 # 41: Source the demo flag so replays send no checks
 
-Status: ready-for-agent
+Status: done
 Blocked by: 32
 
 ## Problem
@@ -23,3 +23,4 @@ Blocked by: 32
 
 - 2026-10-11 Claude: lead applied ahead of this ticket, because a title demo applied queued items and the item-sound cave crashed the game. `decode_state` treats `ADDR_GAME_FLAGS & 0x20` as a demo (R8-D1: 32 in both title demos; 16 in Practice and 0 in normal play from 06). This ticket still replaces it with a dedicated flag if D2/D3 show `ADDR_REPLAY_MGR_PTR` or another entry is cleaner, and confirms 0x20 never appears in real play.
 - 2026-10-12 planner, **from batch 32 R8:** `GAME_FLAGS` is 32 in two title demos, 0 in a normal run (A8), 16 in Practice (B3), and 20 at a Practice Game Over (B7). `ADDR_REPLAY_MGR_PTR` is non-zero in all of them, so it can't be used. Make `GAME_FLAGS & 0x20` the named demo signal (replace the interim code in `decode_state`; `ADDR_IN_DEMO` stays `None` or becomes a bit entry, whichever reads cleaner), and update the probe docs and tests. D3 (a saved replay) wasn't run, so note that saved replays are assumed to set the same bit.
+- al-work 2026-10-12: `state.DEMO_FLAG` (`ADDR_GAME_FLAGS & 0x20`) is now the only demo signal. `ADDR_IN_DEMO` is removed because no dedicated flag exists, `ADDR_REPLAY_MGR_PTR` is documented as not a demo flag, and the client always logs `Demo Play: replays send no checks` on attach. `test_title_demo_is_not_play` adds the Practice Game Over value (20 → in game), and `test_detect_ignores_demo` drives the flag through `GAME_FLAGS`. Saved replays (R8-D3) are assumed to set the same bit, as noted at `DEMO_FLAG`. DoD: 379 passed. The in-game check stays under Deferred.

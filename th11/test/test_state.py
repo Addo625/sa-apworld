@@ -152,8 +152,9 @@ class TestWriteAddresses(unittest.TestCase):
 
 class TestDemoFlag(unittest.TestCase):
 	def test_title_demo_is_not_play(self):
-		"""Batch 32 R8-D1: GAME_FLAGS 0x20 in both title demos; 0x10 in Practice (06), 0 in normal play."""
+		"""Batch 32 R8: GAME_FLAGS 32 in both title demos; 0 in a normal run, 16 in Practice, 20 at a Practice Game Over."""
 		self.assertFalse(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 32}).in_game)
 		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 16}).in_game)
 		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 0}).in_game)
+		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 20}).in_game)
 		self.assertFalse(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 32}).boss_present)
