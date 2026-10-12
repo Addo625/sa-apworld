@@ -20,6 +20,7 @@ Write code only when necessary. Before solving anything:
 ## Execution and git
 
 - Before coding a ticket: re-read its DoD and test plan.
+- **Leftover work from an interrupted run (this project):** a run cut off by a session limit leaves the tree dirty. If every uncommitted change belongs to the ticket you're about to start (its notes or its files say so), that's not a dirty-tree failure. Continue from it: review it, finish it, and commit it as that ticket's work. Stop only if the changes belong to another ticket or you can't tell; then count it as a failed attempt as usual.
 - **A commit is one relevant change**: something the software does differently — a feature, a fix, a behavior change, a removal, a refactor with a stated reason — together with everything it needs (settings, tests, fixtures, ignore files, docs).
   - Test: *would it be a line in a changelog?* and *does reverting it alone leave a working product?* Both must be yes.
   - Plan steps are working order, not commit boundaries; one change may span several steps. Never mix two unrelated changes in one commit.
