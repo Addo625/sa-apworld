@@ -43,3 +43,4 @@ Blocked by: 32
 ## Comments
 
 - 2026-10-12 al-work: done. `receive.practice_open`, `receive.practice_unlock` and `Client.unlock_practice` rewrite each shot's `unlocked` bytes every tick from the full received list. Scores and `cleared` bytes are kept, and nothing is written before ReceivedItems arrives or while the save pointer is null. `write_entry` now takes an offset for the other shots' tables. Normal mode opens all six stages of a received shot, matching `stage_unlocked(normal=True)`. DoD: 379 passed. No deferred tickets; in-game proof rides on the next smoke run.
+- 2026-10-12 planner: **its lock writes corrupt the save and freeze the game at boss dialogs** (batch 44 T1/T3/T4) → bug ticket 47.

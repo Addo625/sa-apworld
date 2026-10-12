@@ -1,7 +1,7 @@
 # 44: [human] Probe batch 2
 
 Status: ready-for-human
-Blocked by: 42
+Blocked by: 42, 47
 
 ## Problem
 In-game facts for tickets 33, 35, 36, 40, 42 and 43, collected so the human answers them in one session (AGENTS.md: "In-game facts go to the probe batch"). Agents append `R<n>` requests while this batch is open. It was blocked by 42 because R1 needs 42's `/writelog` (now in). Claude prepares a simplified checklist (`.agent-loop/44-simplified.md`) before the session.
@@ -66,3 +66,24 @@ Context: 43 plays SA's death sound (`se_pldead00`, ID `0x04`) through 40's sound
 - None.
 
 ## Comments
+
+- 2026-10-12 Claude: **first R1 attempts ran on a stale client.** The Wine AP had the 02:17 apworld (`36c217c`), without 33/35/36/38/39/41/42/43 (no `/writelog`, no `/receivedeath`). Now installed from `63c1c1f`. Seed for this batch: `AP_55897438571962324809` (slot `Batch44`; practice, `stage_unlock: by_shot_type`, `shot_type: true`, `extra_stage: apart`, traps 100 %, DeathLink on; start shot Marisa C). Observations from those runs (stale client, `/itemsound` state not recorded):
+  - the crash comes right after clicking past the **first** line of Yamame's pre-boss dialog;
+  - it isn't consistent: one run of 3 didn't crash;
+  - `/send +1 Life` **while the pause menu was open** crashed the game.
+
+  Re-run R1 with the new client (`/writelog on`), and note whether `/itemsound` was on.
+
+- 2026-10-12 Claude, **R1 re-run, and the freeze isolated** (new client `63c1c1f`, seed `AP_55897438571962324809`). It's a **freeze**, not a crash.
+  - **(a)** `/writelog on`, `/itemsound` never on, `.games/sa`: froze right after the first line of Yamame's pre-boss dialog, with **no client write in the 10 s before**.
+  - **(b)** froze right on the `+1 Life`. Its writes were exactly the expected four: lives `0x4A5718`, cave `0x48AF00` (46), hook `0x429058` (5), sound ID `0x4CAF00`.
+  - **T1** (`.games/sa`, no client at all): froze after the first dialog line. Not the client's writes, not the hook.
+  - **T3** (`.games/fresh`, no client): **the dialog passed and the boss fight started**. The game crashed when pausing, which looks like the old Wine pause/Esc crash from 06, a separate issue.
+  - **The difference is `sa`'s save.** Diffing it (decoded) against the 10-11 backup `~/archipelago/saves/scoreth11.cheated.dat` (before 33/39) shows only:
+    - the practice table changed: 39 set `unlocked` = 0 everywhere except Marisa C Lunatic Stage 1, the start shot of seed `Batch44`, leaving states the game never makes ("locked but cleared", e.g. Reimu A Easy 3 = `0/1`);
+    - normal play counters and spell history;
+    - nothing outside the table, and ST/Extra unchanged.
+
+    The game saved this on exit, so it persists without the client.
+  - **Next, T4:** `.games/sa` with the 10-11 save restored, no client. No freeze → 39's lock writes cause it, and a bug ticket against 39 follows. Today's save is kept as `.games/sa/scoreth11_BACKUP.dat` (evidence). `th11.dat` was checked: identical to `fresh`'s, never written.
+- 2026-10-12 Claude: **T4: `.games/sa` with the 10-11 save, no client: dialog, the whole stage and pause all fine.** So the freeze comes from 39's practice-table writes in the save → bug ticket 47. This batch is now blocked by 47: connecting today's client re-applies 39's locks and would damage the restored save again. R1 (b)/(c) must be redone on a clean save once 47 lands, since (b) froze with the damaged save loaded. The pause crash in T3 (`fresh`, whose save 39 never touched) is separate and intermittent: T4 paused fine.
