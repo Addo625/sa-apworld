@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Print a decoded scoreth11.dat: chunks, practice progress per character, and /memsearch patterns.
 Usage: tools/scoredat.py .games/sa/scoreth11.dat [--patterns ~/archipelago/install-wine/memsearch_patterns.json]
+       tools/scoredat.py --repair .games/sa/scoreth11.dat  (unlock every cleared Practice entry, ticket 47)
 --patterns writes {"practice": hex, "status": hex}, so the client's `/memsearch practice` / `/memsearch status` need no typing."""
 import json
 import sys
@@ -64,7 +65,27 @@ def main(path, patterns_out=None):
 		print(f"wrote {', '.join(named)} to {patterns_out}: type /memsearch {' or /memsearch '.join(named)}")
 
 
+def repair(path):
+	"""Set `unlocked` wherever `cleared` is (47); the old file is kept as <save>.bak. Run with the game closed."""
+	path = Path(path)
+	raw = path.read_bytes()
+	decoded, fixed = scoredat.repair(scoredat.decode(raw))
+	if not fixed:
+		print(f"{path}: nothing to repair")
+		return
+	encoded = scoredat.encode(decoded)
+	if scoredat.decode(encoded)[scoredat.HEADER_SIZE:] != decoded[scoredat.HEADER_SIZE:]:
+		sys.exit(f"{path}: re-encoding failed its round trip, file left as is")
+	path.with_name(path.name + ".bak").write_bytes(raw)
+	path.write_bytes(encoded)
+	print(f"{path}: unlocked {fixed} cleared Practice entries (old file: {path.name}.bak)")
+
+
 if __name__ == "__main__":
 	args = sys.argv[1:]
+	if "--repair" in args:
+		args.remove("--repair")
+		repair(args[0])
+		sys.exit()
 	out = args[args.index("--patterns") + 1] if "--patterns" in args else None
 	main(args[0], out)

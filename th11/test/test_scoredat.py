@@ -2,6 +2,7 @@ import contextlib
 import importlib.util
 import io
 import struct
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from .. import scoredat
 
 ROOT = Path(__file__).resolve().parents[2]
 SAVE = ROOT / ".games/sa/scoreth11.dat"
+DAMAGED = ROOT / ".games/sa/scoreth11_BACKUP.dat"  # the save after 39's locks (47)
 
 
 def chunk(signature: bytes, data: bytes) -> bytes:
@@ -42,6 +44,42 @@ class TestScoredat(unittest.TestCase):
 		bad[-1] ^= 0xFF
 		with self.assertRaises(ValueError):
 			scoredat.chunks(bytes(scoredat.HEADER_SIZE) + bad)
+
+	def test_scoredat_encode_roundtrip(self):
+		decoded = b"TH11" + bytes(range(4, scoredat.HEADER_SIZE)) + bytes(range(256)) * 5 + b"\0" * 37
+		raw = scoredat.encode(decoded)
+		self.assertEqual(struct.unpack_from("<i", raw, 4)[0], len(raw))
+		self.assertEqual(scoredat.decode(raw)[scoredat.HEADER_SIZE:], decoded[scoredat.HEADER_SIZE:])
+		self.assertEqual(scoredat.encode(scoredat.decode(raw)), raw)
+
+	def test_repair_sets_unlocked_where_cleared(self):
+		clear = bytearray(scoredat.CLEAR_SIZE - scoredat.CHUNK_HEADER_SIZE)
+		practice = scoredat.PRACTICE_OFFSET - scoredat.CHUNK_HEADER_SIZE
+		struct.pack_into("<IBB", clear, practice, 500, 1, 0)  # Easy 1: cleared but locked, as 39 left it
+		struct.pack_into("<IBB", clear, practice + 8, 600, 0, 1)  # Easy 2: unlocked, not cleared
+		decoded = bytes(scoredat.HEADER_SIZE) + chunk(b"CR", bytes(clear)) + chunk(b"ST", b"\x01\x02")
+		repaired, fixed = scoredat.repair(decoded)
+		self.assertEqual(fixed, 1)
+		progress = scoredat.practice_progress(scoredat.chunks(repaired)[0][3])  # checksums still valid
+		self.assertEqual((progress["Easy"][1], progress["Easy"][2], progress["Easy"][3]), ((1, 1, 5000), (1, 0, 6000), (0, 0, 0)))
+		self.assertEqual(scoredat.repair(repaired), (repaired, 0))
+
+	@unittest.skipUnless(DAMAGED.exists(), "no damaged save (.games is gitignored)")
+	def test_repair_tool_fixes_damaged_real_file(self):
+		spec = importlib.util.spec_from_file_location("scoredat_tool", ROOT / "tools/scoredat.py")
+		tool = importlib.util.module_from_spec(spec)
+		spec.loader.exec_module(tool)
+		with tempfile.TemporaryDirectory() as tmp:
+			save = Path(tmp) / "scoreth11.dat"
+			save.write_bytes(DAMAGED.read_bytes())
+			with contextlib.redirect_stdout(io.StringIO()):
+				tool.repair(save)
+			self.assertEqual(Path(tmp, "scoreth11.dat.bak").read_bytes(), DAMAGED.read_bytes())
+			before, after = scoredat.decode(DAMAGED.read_bytes()), scoredat.decode(save.read_bytes())
+		entries = [(u, c) for signature, _, _, body in scoredat.chunks(after) if signature == "CR"
+			for stages in scoredat.practice_progress(body).values() for u, c, _ in stages.values()]
+		self.assertNotIn((0, 1), entries)
+		self.assertEqual(scoredat.repair(before)[0][scoredat.HEADER_SIZE:], after[scoredat.HEADER_SIZE:])
 
 	@unittest.skipUnless(SAVE.exists(), "no local save (.games is gitignored)")
 	def test_scoredat_decode_real_file(self):

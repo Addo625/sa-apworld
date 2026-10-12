@@ -17,7 +17,6 @@ UNLOCK_ITEMS = {"Lower Difficulty"} | {
 	name for name, data in item_table.items() if data.category == "Characters" or "Stage" in data.category
 }
 PRACTICE_TABLE_SIZE = len(scoredat.LEVELS) * len(scoredat.STAGES) * scoredat.PRACTICE_SIZE
-PRACTICE_CLEARED, PRACTICE_UNLOCKED = 4, 5  # bytes of a practice entry: score/10 u32, cleared u8, unlocked u8 (probe 32 R7)
 SHOT_GROUP = {  # a shot's unlock group, as Rules.owner_groups names it
 	StageUnlock.option_global: lambda shot: "",
 	StageUnlock.option_by_character: Variables.SHOT_TO_CHARACTER.get,
@@ -81,15 +80,16 @@ def practice_unlock(current: bytes, shot, rows, ours=frozenset()):
 	for level in range(len(scoredat.LEVELS)):
 		for stage in scoredat.STAGES:
 			key, at = (shot, level, stage), (level * len(scoredat.STAGES) + stage - 1) * scoredat.PRACTICE_SIZE
+			cleared, unlocked = at + scoredat.PRACTICE_CLEARED, at + scoredat.PRACTICE_UNLOCKED
 			if key in rows:
-				if not table[at + PRACTICE_UNLOCKED]:
-					table[at + PRACTICE_UNLOCKED] = 1
+				if not table[unlocked]:
+					table[unlocked] = 1
 					ours.add(key)
-			elif table[at + PRACTICE_CLEARED]:
-				table[at + PRACTICE_UNLOCKED] = 1  # also repairs an entry 39 locked
+			elif table[cleared]:
+				table[unlocked] = 1  # also repairs an entry 39 locked
 				ours.discard(key)
 			elif key in ours:
-				table[at + PRACTICE_UNLOCKED] = 0
+				table[unlocked] = 0
 				ours.discard(key)
 	return bytes(table), ours
 

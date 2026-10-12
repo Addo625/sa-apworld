@@ -1,6 +1,6 @@
 # 47: Practice locking from 39 corrupts the save and freezes the game at boss dialogs
 
-Status: ready-for-agent
+Status: done
 Blocked by: 39
 
 ## Problem
@@ -44,3 +44,17 @@ Players are hurt directly: connecting the client damages their own save, and the
 
 ## Deferred
 - None.
+
+## Comments
+
+- 2026-10-12 al-work: **done.** Step 1: `receive.practice_unlock` only adds received rows, may re-lock only entries this client unlocked in the same game process (`Client.practice_ours`, reset when the game restarts), and sets `unlocked` wherever `cleared` is set, which heals a damaged save live. 39's client test asserting the locks was wrong under the new rule and was replaced (`test_practice_unlocks_received_and_keeps_the_save`). Step 3: `scoredat.encode` (literals-only LZSS + encryption) and `scoredat.repair`, plus `tools/scoredat.py --repair <save>` (keeps `<save>.bak`). DoD: `390 passed`. The repaired copy of `scoreth11_BACKUP.dat` has no `0/1` entry left (`test_repair_tool_fixes_damaged_real_file`).
+- **Static search (step 2): it found no code that reads the practice table at the boss dialog.** Every `[0x4A8EBC]` access with the CR stride `0x68D4` that touches the practice table (`+0x5A4 + (level*6 + stage)*8`, so `+0x5A8` = cleared, `+0x5A9` = unlocked) is one of these:
+  - `0x43D80A`, `0x43DB52`, `0x43DBD1`: Practice menu, reads `unlocked`. Locked means buzzer `0x25` and skipping the entry.
+  - `0x41EB61` / `0x41EB92`: stage end, not a replay, not Extra. Writes `unlocked = 1`, then `cleared = 1`. That's where the game keeps "cleared implies unlocked".
+  - `0x41CB46`: run start, reads the HUD hi-score (the score word only).
+  - `0x42DAD8`, `0x42E7BC`: end of a Practice run, max of the score word only.
+  - `0x4393B0`: unlock-all routine, sets every `unlocked` byte and the Extra bits.
+  - `0x4379A1` and `0x437xxx`: load and save, copying whole chunks.
+
+  The other stride sites use rankings (`+0x8`), spell history (`+0x66C + card*0x90`), play counts (`+0x590`) and play time (`+0x594`). No loop or wait reads `unlocked` or `cleared`, so the hang isn't a direct read of those bytes. It may come from something derived at load. **The fix enforces the invariant instead:** the client never writes `cleared = 1` with `unlocked = 0`, never locks an entry the save already had, and `--repair` restores the invariant offline. Batch 44 R7 checks it in game: T5 with the fixed client, T6 with a repaired damaged save. If T6 still freezes, the next suspects are the fully locked shots and difficulties.
+- Decision (default implemented) listed under batch 44's `## Decisions to confirm`: Practice stays as open as the save already was; the check filter (16) guards checks.
