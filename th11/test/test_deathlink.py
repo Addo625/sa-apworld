@@ -8,7 +8,10 @@ from ..state import GameState
 from .test_client import BASE, game_memory, received
 
 GAME_OVER = DeathLinkTrigger.option_game_over
-KILL_JUMP = b"\xe9\xdc\x02\x00\x00"  # MoF's, standing in for 36's
+PLAYER = 0x3200000
+PLAYER_STATE = PLAYER + Variables.ADDR_PLAYER_STATE[1]
+PLAY = (Variables.PLAYER_STATE_PLAY).to_bytes(4, "little")
+HIT = (Variables.PLAYER_STATE_HIT).to_bytes(4, "little")
 
 
 def run(lives, in_game=True):
@@ -121,24 +124,19 @@ class TestClientDeathLink(ClientCase):
 		self.assertIn("DeathLink", ctx.tags)
 		self.assertEqual((ctx.link.trigger, ctx.link.amnesty), (GAME_OVER, 3))
 
-	async def test_incoming_pending_without_kill_site(self):
-		ctx = self.context()
-		self.received_death(ctx)
-		self.assertFalse(ctx.link.incoming)  # a pending kill must not swallow the player's own next death
-		memory = await self.poll(ctx, 2)
-		self.assertEqual(memory.writes, [])
-
-
-@mock.patch.object(Variables, "ADDR_KILL_CONDITION", 0x25A91)
-@mock.patch.dict(Variables.EXPECTED_BYTES, {"ADDR_KILL_CONDITION": KILL_JUMP})
 class TestClientKill(ClientCase):
-	async def test_kill_patches_and_restores(self):
-		ctx = self.context()
+	def memory(self, player_state=PLAY):
 		memory = game_memory(lives=2)
-		memory.set(BASE + 0x25A91, KILL_JUMP)
+		memory.set(BASE + Variables.ADDR_PLAYER_PTR, PLAYER.to_bytes(4, "little"))
+		memory.set(PLAYER_STATE, player_state)
+		return memory
+
+	async def test_kill_puts_the_player_in_the_hit_state(self):
+		ctx = self.context()
+		memory = self.memory()
 		self.received_death(ctx)
 		await self.poll(ctx, 2, memory)
-		self.assertEqual(memory.writes, [(BASE + 0x25A91, b"\x90" * 5), (BASE + 0x25A91, KILL_JUMP)])
+		self.assertEqual(memory.writes, [(PLAYER_STATE, HIT)])
 		await self.poll(ctx, 1)  # the player died
 		self.assertEqual(ctx.deaths_sent, 0)  # not echoed
 		self.assertFalse(ctx.link.incoming)
@@ -147,13 +145,36 @@ class TestClientKill(ClientCase):
 		from .. import Client
 		ctx = self.context()
 		self.received_death(ctx)
-		memory = game_memory(lives=2)
-		memory.set(BASE + 0x25A91, KILL_JUMP)
+		memory = self.memory()
 		with mock.patch.object(Client, "time") as clock:
-			for now in (100.0, 100.5, 100 + Client.KILL_RETRY_SECONDS):  # the bomb absorbed it: lives never drop
+			for now in (100.0, 100.5, 100 + Client.KILL_RETRY_SECONDS):  # a deathbomb saved them: lives never drop
 				clock.monotonic.return_value = now
+				memory.set(PLAYER_STATE, PLAY)
 				await self.poll(ctx, 2, memory)
-		self.assertEqual(len(memory.writes), 4)  # patched and restored at 100 and at the retry, not at 100.5
+		self.assertEqual(memory.writes, [(PLAYER_STATE, HIT)] * 2)  # at 100 and at the retry, not at 100.5
+
+	async def test_receivedeath_command_kills(self):
+		from ..Client import TouhouClientProcessor
+		ctx = self.context()
+		memory = self.memory()
+		self.assertTrue(TouhouClientProcessor(ctx)._cmd_receivedeath())
+		await self.poll(ctx, 2, memory)
+		self.assertEqual(memory.writes, [(PLAYER_STATE, HIT)])
+
+	async def test_receivedeath_needs_deathlink_on(self):
+		from ..Client import TouhouClientProcessor
+		ctx = self.context()
+		ctx.tags.discard("DeathLink")
+		self.assertFalse(TouhouClientProcessor(ctx)._cmd_receivedeath())
+		self.assertFalse(ctx.link.incoming)
+
+	async def test_kill_skips_a_player_not_in_play(self):
+		ctx = self.context()
+		memory = self.memory(player_state=(2).to_bytes(4, "little"))  # dying: hitting again would take a second life
+		self.received_death(ctx)
+		await self.poll(ctx, 2, memory)
+		self.assertEqual(memory.writes, [])
+		self.assertTrue(ctx.link.incoming)  # retried, e.g. once respawned
 
 	async def test_deathlink_off_drops_waiting_death(self):
 		from ..Client import TouhouClientProcessor
@@ -165,21 +186,19 @@ class TestClientKill(ClientCase):
 	async def test_kill_waits_for_a_run(self):
 		ctx = self.context()
 		self.received_death(ctx)
-		menu = game_memory(lives=2)
+		menu = self.memory()
 		menu.set(BASE + Variables.ADDR_ENEMY_MANAGER, bytes(4))
-		menu.set(BASE + 0x25A91, KILL_JUMP)
 		await ctx.poll(menu, None, 0)
 		self.assertEqual(menu.writes, [])
 		self.assertTrue(ctx.link.incoming)
 
-	async def test_kill_refuses_unexpected_code(self):
+	async def test_kill_without_a_player(self):
 		ctx = self.context()
-		memory = game_memory(lives=2)
-		memory.set(BASE + 0x25A91, b"\x90" * 5)
+		memory = game_memory(lives=2)  # no player pointer: unreadable state
 		self.received_death(ctx)
 		await self.poll(ctx, 2, memory)
 		self.assertEqual(memory.writes, [])
-		self.assertFalse(ctx.link.incoming)
+		self.assertTrue(ctx.link.incoming)
 
 
 class TestCommands(unittest.IsolatedAsyncioTestCase):

@@ -28,8 +28,7 @@ ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 POLL_SECONDS = 0.5
 MEMSEARCH_CAP = 50
 DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
-KILL_SECONDS = 0.1  # how long the kill site stays patched (EoSD killPlayer)
-KILL_RETRY_SECONDS = 2  # a kill that took no life (bomb, respawn invincibility) is retried after this
+KILL_RETRY_SECONDS = 2  # a kill that took no life (deathbomb, player respawning or dying) is retried after this
 
 
 def named_patterns() -> dict:
@@ -162,6 +161,15 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			asyncio.create_task(self.ctx.update_death_link(active == "on"))
 			self.ctx.link.incoming = False  # a death received before turning it off doesn't wait
 		logger.info(f"DeathLink: {active or ('on' if 'DeathLink' in self.ctx.tags else 'off')}")
+		return True
+
+	def _cmd_receivedeath(self):
+		"""Kill the player as a received DeathLink would, without another player's death"""
+		if "DeathLink" not in self.ctx.tags:
+			logger.error("DeathLink is off: /deathlink on first")
+			return False
+		self.ctx.link.incoming = True
+		logger.info("DeathLink: test death received")
 		return True
 
 	def _cmd_ringlink(self, active: str = ""):
@@ -298,25 +306,12 @@ class TouhouContext(CommonContext):
 
 	def on_deathlink(self, data: dict):
 		super().on_deathlink(data)
-		if Variables.ADDR_KILL_CONDITION is None:
-			logger.info("DeathLink: can't kill the player yet, pending the kill code site (probe batch 32 R5, ticket 36)")
-		else:
-			self.link.incoming = True  # kills at the next poll in a run; waits outside one
+		self.link.incoming = True  # kills at the next poll in a run; waits outside one
 
-	async def kill(self, controller):
-		"""Patch the kill site for KILL_SECONDS so the player dies (EoSD/MoF setKill), then restore it."""
-		expected = Variables.EXPECTED_BYTES["ADDR_KILL_CONDITION"]
-		nops = b"\x90" * len(expected)
-		try:
-			safe_patch(controller, controller.base_address + Variables.ADDR_KILL_CONDITION, expected, nops)
-		except PatchMismatch as e:
-			logger.error(f"DeathLink: not killed, unexpected game code: {e}")
-			self.link.incoming = False
-			return
-		try:
-			await asyncio.sleep(KILL_SECONDS)
-		finally:
-			safe_patch(controller, controller.base_address + Variables.ADDR_KILL_CONDITION, nops, expected)
+	def kill(self, controller):
+		"""Put a playing player in the hit state, as a bullet does (skipping its invincibility checks); the game takes the life."""
+		if read_entry(controller, Variables.ADDR_PLAYER_STATE) == Variables.PLAYER_STATE_PLAY:
+			write_int(controller, Variables.ADDR_PLAYER_STATE, Variables.PLAYER_STATE_HIT)
 
 	async def poll(self, controller, prev, runs):
 		"""One loop tick: send checks for prev -> now, write new items. -> (state, runs)."""
@@ -364,7 +359,7 @@ class TouhouContext(CommonContext):
 				await self.send_death()
 			if self.link.incoming and receive.in_run(state) and time.monotonic() - self.killed_at >= KILL_RETRY_SECONDS:
 				self.killed_at = time.monotonic()
-				await self.kill(controller)
+				self.kill(controller)
 		written = receive.with_writes(written, trap_writes)
 		ring_writes = []
 		if "RingLink" in self.tags:

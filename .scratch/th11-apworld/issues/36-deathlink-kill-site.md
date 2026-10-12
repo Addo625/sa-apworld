@@ -1,6 +1,6 @@
 # 36: DeathLink kill site
 
-Status: ready-for-agent
+Status: done
 Blocked by: 32
 
 ## Problem
@@ -28,3 +28,10 @@ Blocked by: 32
 
 ## Comments
 - 2026-10-12 planner, **from batch 32 R5:** MoF's kill jump (`e9 dc 02 00 00`) doesn't exist in SA's code (the only match was in a Wine DLL). Sending works (K4a/K4b/K5 ✅). For receiving, kill by calling the game's own death path on the game thread through a code cave, like 40's sound cave (the cave mechanism plays sounds in game, but see 42 before reusing the same hook). Lead: the death routine around `dec dword [0x4A5718]` at `0x433D32` (static scan). Find its entry and preconditions statically, then add a batch 44 request: receive a DeathLink in a Practice stage → the player dies.
+- 2026-10-12 al-work (36): static disassembly (`.agent-loop/th11.dis`, v1.00a):
+  - `0x433D30` is a bare `dec [lives]; ret` with no callers (dead code). The real death is `0x4327D0` (player in `eax`): lives-1, bomb stock reset, HUD stars, sets player state 2. Its only caller is `0x431238`.
+  - The player calc `0x431070` switches on player + `0x928` through the table `0x431BA4`: 0 → `0x431095` (respawn, to 1 after 60 frames), 1 → `0x4311AC` (play), 2 → `0x4312B9` (dying, game over or to 0), 3 → `0x43153A`, 4 → `0x431225` (hit).
+  - State 4: if player + `0x948` (frame timer) >= 8, call `0x4327D0`; else with the bomb key (`[0x4C93C0]` bit 2) and enough power, deathbomb back to 1. The hit routine `0x432A90` (called by the four collision checks `0x431EDF`, `0x432054`, `0x43227B`, `0x43273F`) sets state 4, zeroes the timer and plays sound 4.
+  - So no code patch or cave is needed: the client writes 4 into `ADDR_PLAYER_STATE` while it reads 1. 1 → 2 only goes through 4, so the read-then-write can't land on a dying player. The ticket's NOP-site test plan (`ADDR_KILL_CONDITION`, `EXPECTED_BYTES`, thcrap overlap) no longer applies; the entry is removed.
+  - K4: 32 R5 K4b saw no death sent on Restart, so no guard; `on_state`'s ponytail comment now records that.
+- 2026-10-12 al-work (36): done. `ADDR_PLAYER_STATE` sourced statically; `kill` writes the hit state, `/receivedeath` tests it without another player. DoD: `cd .ap && ../.venv/bin/python -m pytest worlds/th11/test -q` → 368 passed. Review: the write skips the collision guards (invincibility, bomb, HUD flag `+0x4438`), listed under batch 44's Decisions with R5 D5 (boss dialog). In-game check: probe batch 44 R5 (a failed D2 reopens 36; no follow-up ticket, like 33's R3). Deferred: none.

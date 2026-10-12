@@ -30,8 +30,19 @@ Context: 35 found the speeds by static disassembly, not in batch 32's `/playerfl
 - **V3 (leaving a run):** `/send` `Reverse Movement`, and within its 20 s clear the stage (Practice ends at the stage end) or lose every life. Start a new Practice stage: does it move normally? Paste `/probe`'s four `ADDR_SPEED_*` lines there (expect V1's values).
 - Used for: the in-game proof of 35. Wrong movement in V2 reopens 35 with the pasted lines. If V3's new stage still moves reversed, the stage doesn't rebuild the speeds, and `traps.tick` must restore them on the first in-run tick instead (a follow-up ticket).
 
+### R5, needed by 36 (done, proof only): a received DeathLink kills the player
+Context: MoF's kill jump isn't in SA (32 R5), so 36 found SA's player state by static disassembly: `ADDR_PLAYER_STATE` = player + `0x928`, 0 respawn, 1 play, 2 dying, 4 hit. A bullet sets 4; the game then takes the life after 8 frames unless the bomb key deathbombs. The client kills by writing 4 while it reads 1. `/receivedeath` stands in for another player's death. Game folder `.games/sa`, any connected seed, Practice, any stage, in play.
+- **D1:** `/deathlink on`. In play, `/probe` and paste the `ADDR_PLAYER_STATE` line (expect 1).
+- **D2:** `/receivedeath`. Within a second, does the player die (death explosion, one life fewer)? Is the death sound played? Paste the client lines: expect `DeathLink: test death received` and **no** `Sending death` (a received death isn't echoed). After the respawn, `/probe` again (expect 1).
+- **D3 (deathbomb):** hold the bomb key, then `/receivedeath`. Does a bomb go off and save the player (no life lost), or does the player die anyway (expected, see Decisions)? If saved: release it; about 2 s later the client retries; does the player die then?
+- **D4 (respawning):** `/receivedeath` twice within a second of each other, or right after a death: does the player lose exactly one life per `/receivedeath`, never two at once? Paste the lines.
+- **D5 (boss dialog, last: it may crash):** Practice Stage 1, reach Yamame's pre-boss dialog with `/itemsound` off, `/receivedeath` while the text is up. Does the player die, does the dialog continue normally, does the game keep running? Paste the lines.
+- Used for: the in-game proof of 36. No death in D2 reopens 36 with the `/probe` lines: the next lead is calling the hit routine `0x432A90` (player in `eax`) through a code cave, which waits on 42.
+
 ## Decisions to confirm
 - (33) The client only sets the Extra bit, it never clears one: a save with Extra already open (like `.games/sa`) keeps every shot's Extra, and Extra runs there send checks without the item. Filtering those runs is deferred ticket 45. In normal mode a `linear` Extra is left to the game (a no-continue clear on Normal+ opens it); only `apart`'s Extra Stage items write the bit. Note that logic (11) counts that `linear` Extra as open once Stage 6 is, but the game needs a no-continue clear. If that's too strict, the client could set the bit once a Stage 6 Clear check is sent.
+- (36) A received DeathLink skips the hit itself: no hit sound or flash, and the deathbomb window only if the player's frame timer (player + `0x948`) is still under 8, which it likely isn't. The death routine plays its own explosion. If R5 D2 looks too abrupt, a cave calling the hit routine `0x432A90` gives the full hit (after 42).
+- (36) It also skips the collision path's guards (`0x431EA6`–`0x431EDB`): respawn invincibility (player + `0x8BB4`), a running bomb, player + `0x8BC4` bit 2, and an unknown HUD flag `[0x4A8D84] + 0x4438`. So a received death kills even while invincible or bombing, like a DeathLink should. If R5 D5 shows a kill during the boss dialog misbehaves, the client must also read that flag (a follow-up).
 
 ## Steps
 1. Do the setup, then every `R<n>` in order. Paste each under `## Comments`, labeled `R<n>`.

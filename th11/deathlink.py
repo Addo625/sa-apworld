@@ -22,8 +22,7 @@ def on_state(prev, state, link):
 	# A game over counts even if the stage is already torn down by the poll that reads -1 (probe 32 R5 K5).
 	if not (prev and prev.in_game and (state.in_game or state.lives == -1)) or None in (prev.lives, state.lives):
 		return False  # a menu exit or a new run: lives are leftovers, not deaths
-	# ponytail: a pause-menu Restart that resets lives lower reads as a death if the poll misses the stage teardown;
-	# 32 R5 K4 checks it, 36 adds a guard (stage/power reset) if so.
+	# A pause-menu Restart that resets lives lower isn't a death: probe 32 R5 K4b saw none sent (Practice and full run).
 	if prev.lives < 0 or state.lives >= prev.lives:
 		return False
 	if link.incoming:

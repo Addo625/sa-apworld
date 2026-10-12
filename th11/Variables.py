@@ -92,6 +92,11 @@ ADDR_SPEED_NORMAL = [ADDR_PLAYER_PTR, 0x890]  # source: static disassembly (35),
 ADDR_SPEED_FOCUS = [ADDR_PLAYER_PTR, 0x894]  # source: static disassembly (35)
 ADDR_SPEED_NORMAL_D = [ADDR_PLAYER_PTR, 0x898]  # source: static disassembly (35)
 ADDR_SPEED_FOCUS_D = [ADDR_PLAYER_PTR, 0x89C]  # source: static disassembly (35)
+# The player calc 0x431070 switches on this (table 0x431BA4): 0 respawn, 1 play, 2 dying, 4 hit. A bullet's hit routine
+# 0x432A90 sets 4; in 4 the bomb key deathbombs (back to 1), else once player + 0x948 >= 8 frames 0x4327D0 takes the life.
+ADDR_PLAYER_STATE = [ADDR_PLAYER_PTR, 0x928]  # source: static disassembly (36), as above TODO(44 R5)
+PLAYER_STATE_PLAY = 1  # source: 36, as above
+PLAYER_STATE_HIT = 4  # source: 36, as above
 
 # Spell captures. thprac_th11.cpp has no spell ID, bonus or history code (its spell practice
 # patches ECL), and FearLess and disassembly weren't reachable in 22: each entry has one source at most.
@@ -111,7 +116,6 @@ ADDR_PRACTICE_STARTING_LIVES = None  # source: none yet, MoF-analogue of 0x1796A
 ADDR_NORMAL_CONTINUE_LIVES = 0x0001FA38  # source: static disassembly (34): a continue re-runs the game init, whose non-Practice branch stores esi (mov esi, 2 at 0x41F947, shared with an ANM interrupt) into lives; rewritten by NORMAL_CONTINUE_LIVES_CODE TODO(32 R2)
 NORMAL_CONTINUE_LIVES_CODE = lambda lives: bytes([0xB8, lives, 0, 0, 0, 0xEB, 0x17, 0x90])  # source: 34; mov eax, lives; jmp 0x41FA56 (the Practice branch's mov [lives], eax); nop
 
-ADDR_KILL_CONDITION = None  # source: none yet, MoF-analogue of 0x25A91 (jmp E9 DC 02 00 00 past the hit, NOP'd to kill); EXPECTED_BYTES are the jump TODO(32 R5, 36)
 # Item sounds (MoF initSoundHack): a code cave plays the sound ID the client writes to a spare dword, then zeroes it.
 # Static disassembly (40); relocations are stripped, so the absolute addresses in the cave are fixed. TODO(32 R9)
 ADDR_CUSTOM_SOUND_ID = 0x000CAF00  # source: 40: .data slack past its virtual end 0x4CAE40, mapped (page) and zero, never referenced
@@ -130,7 +134,6 @@ SOUND_CAVE = (  # source: 40
 EXPECTED_BYTES = {
 	"ADDR_PRACTICE_STARTING_LIVES": None,
 	"ADDR_NORMAL_CONTINUE_LIVES": bytes.fromhex("89 35 18 57 4a 00 eb 1b"),  # mov [lives], esi; jmp 0x41FA5B
-	"ADDR_KILL_CONDITION": None,
 	"ADDR_SOUND_HACK_1": bytes.fromhex("e8 e3 12 02 00"),  # call 0x44A340
 	"ADDR_SOUND_HACK_2": bytes(len(SOUND_CAVE)),
 }
