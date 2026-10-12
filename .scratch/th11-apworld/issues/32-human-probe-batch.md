@@ -1,6 +1,6 @@
 # 32: [human] Probe batch 1
 
-Status: ready-for-human
+Status: done
 Blocked by: 09
 
 ## Problem
@@ -81,22 +81,22 @@ Context: 40 found SA's play-sound function by static disassembly. On the first r
 - Used for: confirms `ADDR_SOUND_HACK_1/2`, `ADDR_CUSTOM_SOUND_ID` and `SOUND_IDS` in 40. A crash, silence or a wrong sound reopens 40 with the pasted lines; a missing star with the sound working means the HUD tail call needs another look (40's notes).
 
 ## Decisions to confirm
-- (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits.
-- (13) Trap weight defaults copied from EoSD (−50% Power 20, −1 Life 0, No Focus 20, Reverse 20, Aya 20, Freeze 5, Power Drain 15); `traps` defaults to 0 %.
-- (14) DeathLink amnesty N forgives N deaths and sends the next (N = 2: every third death). EoSD sends when the count reaches N, so its 0 and 1 both send every death.
-- (14) A DeathLink received outside a run waits and kills the player in the next run (EoSD drops it on entering a stage). The next life lost after a received one is never sent, even if the player died on their own first. A kill that takes no life (bomb, respawn invincibility) is retried every 2 s.
-- (14) A received DeathLink while the kill site is unknown (until 36) is only logged; it doesn't wait.
-- (15) RingLink sends every power change the game makes in a run, one ring per 0.05 power (MoF's unit). A bomb costs 1.00 power in SA (none in MoF), so each bomb sends −20 rings, and a death sends its power loss too. Rings received outside a run are dropped (MoF).
+- (13) Trap durations: No Focus, Reverse Movement and Aya Speed 20 s, Freeze 3 s, Power Drain −0.05/s for 20 s. EoSD keeps them until the stage ends; MoF's Aya Speed is ×4/÷4, here ×2/÷2. Only one speed trap at a time; the next waits. **Answer: Good**
+- (13) Trap weight defaults copied from EoSD (−50% Power 20, −1 Life 0, No Focus 20, Reverse 20, Aya 20, Freeze 5, Power Drain 15); `traps` defaults to 0 %. **Answer: Good**
+- (14) DeathLink amnesty N forgives N deaths and sends the next (N = 2: every third death). EoSD sends when the count reaches N, so its 0 and 1 both send every death. **Answer: Good**
+- (14) A DeathLink received outside a run waits and kills the player in the next run (EoSD drops it on entering a stage). The next life lost after a received one is never sent, even if the player died on their own first. A kill that takes no life (bomb, respawn invincibility) is retried every 2 s. **Answer: Good**
+- (14) A received DeathLink while the kill site is unknown (until 36) is only logged; it doesn't wait. **Answer: Good**
+- (15) RingLink sends every power change the game makes in a run, one ring per 0.05 power (MoF's unit). A bomb costs 1.00 power in SA (none in MoF), so each bomb sends −20 rings, and a death sends its power loss too. Rings received outside a run are dropped (MoF). **Answer: Good**
 
-- (16) `limit_lives` is 0–9, default 9 (SA's max; EoSD's is 0–8, default 8). It caps +1 Life and a normal-mode continue, but never takes lives away (a Practice run starts at 9 whatever the limit).
-- (16) A run on a locked shot type or difficulty sends no checks, but counts as a run so the stage's later checks stay aligned. Before connecting, or before the first received items arrive, nothing is filtered (the items are unknown), so those runs' checks are sent on connect.
-- (16) The difficulty guard moves the cursor to the nearest unlocked difficulty on every menu with id 1. If another screen also has id 1 (not seen in 06), its cursor would be moved too.
+- (16) `limit_lives` is 0–9, default 9 (SA's max; EoSD's is 0–8, default 8). It caps +1 Life and a normal-mode continue, but never takes lives away (a Practice run starts at 9 whatever the limit). **Answer: Good**
+- (16) A run on a locked shot type or difficulty sends no checks, but counts as a run so the stage's later checks stay aligned. Before connecting, or before the first received items arrive, nothing is filtered (the items are unknown), so those runs' checks are sent on connect. **Answer: Good**
+- (16) The difficulty guard moves the cursor to the nearest unlocked difficulty on every menu with id 1. If another screen also has id 1 (not seen in 06), its cursor would be moved too. **Answer: Good**
 
-- (34) In the normal modes, the `+1 Life` count also sets the starting lives of every new run, Extra included (vanilla: 2), not only lives after a continue. The game sets both with one instruction, and MoF's patch site does the same. No `+1 Life` received means 0 lives (just the current one) at the start and after a continue.
+- (34) In the normal modes, the `+1 Life` count also sets the starting lives of every new run, Extra included (vanilla: 2), not only lives after a continue. The game sets both with one instruction, and MoF's patch site does the same. No `+1 Life` received means 0 lives (just the current one) at the start and after a continue. **Answer: Good**
 
-- (40) Each tick plays at most one item sound (extend > power-up > ok), and the lives stars are redrawn only with it: lives changed by a trap or RingLink (no sound) stay stale on the HUD until the game redraws them.
+- (40) Each tick plays at most one item sound (extend > power-up > ok), and the lives stars are redrawn only with it: lives changed by a trap or RingLink (no sound) stay stale on the HUD until the game redraws them. **Answer: Good**
 
-- (30) A replay counts as not playing, not only for checks: no DeathLink or RingLink sends, no traps or items applied during one (items wait for the next real run). A saved replay watched from the Replay menu is treated the same, if the flag covers it.
+- (30) A replay counts as not playing, not only for checks: no DeathLink or RingLink sends, no traps or items applied during one (items wait for the next real run). A saved replay watched from the Replay menu is treated the same, if the flag covers it. **Answer: Good**
 
 ## Steps
 1. Do the session setup, then every `R<n>` in order. Paste each one's output under `## Comments`, labeled `R<n>`.
@@ -106,3 +106,83 @@ Context: 40 found SA's play-sound function by static disassembly. On the first r
 - None.
 
 ## Comments
+
+### R7
+
+#### U1
+2 match(es) in 289 regions
+  0x029605FC (base + 0x25605FC)
+  0x03DC05F4 (base + 0x39C05F4)
+
+#### U2
+
+- 2026-10-11 Claude (planner):
+  - **R7-U1 above is void.** Heap addresses only hold within one game process, and the session reset closed it. Redo U1 in the same run as U2–U4 (`.agent-loop/32-simplified.md`, step A3).
+  - **Saves:** the human has two game folders, not two save files. `.games/fresh` has Reimu A Normal 1–2 unlocked and cleared, the rest locked. `.games/sa` is the cheated save, everything unlocked. Locked-content requests (R7, R1, R6-M1/M2, R2) run from `fresh`; Practice requests run from `sa`.
+  - **R1-E1, done offline (no game):** decoding both saves shows the `CR` clear counts are all 0 in both, since no full-game clear exists. The 6 per-shot bytes at `ST` chunk `+0x2C..+0x31` are `00` in `fresh` and `01` in `sa`, next to `+0x26..+0x2B`, which are `01` in both. Candidate: per-shot Extra unlocked. E2 searches the `ST` bytes `+0x0C..+0x2C` (`2020…010101010101`, unique in the file) and E3 pokes `match + 0x20`.
+  - **Batch seed:** `AP_32840168572460319118` (slot `Batch32`: normal_static, traps 100 %, DeathLink on, start shot Reimu B), on the Mac AP server. The apworld is from `main` at `baab69b` in both AP installs.
+  - **Checklist offsets (d0181ba):** `/memsearch practice` matches the practice table start `T` (54-byte pattern from `fresh`), not Normal Stage 1 (`T + 0x30`). So U2 = `/ptrscan T`, U3 = `/peek T-5A4 16`, U4 = `/poke T+45 01`. `/memsearch status` matches `ST + 0x0C` (`P`); Reimu A's Extra flag candidate = `P + 0x20`.
+
+- 2026-10-11 Claude, **Session A results** (human's raw log: `.agent-loop/32-simplified-results.md`, gitignored), game from `.games/fresh`:
+  - **Bug found and fixed (`cae74ff`):** the game loop attached right after launch and pymem's `base_address` named a Wine module (`0x6FFFFFF30000`). Every client write (sound cave, lives, continue patch, difficulty guard) failed with error 998. The base now comes from the `th11.exe` module and is checked for `MZ`. **A5, A7-Q3 and A8-C1 are void → re-run** (the re-run block in `32-simplified.md`). Results transfer to native Windows: `th11.exe` v1.00a is 32-bit with no ASLR, loaded at `0x400000` on both.
+  - **R8-D1** (two demos, Marisa B St3 and Reimu C St2, both Lunatic): `ADDR_GAME_FLAGS = 32` (0x20); `ADDR_REPLAY_MGR_PTR` non-zero; `ADDR_ENEMY_MANAGER` non-zero; `ADDR_MENU_PTR = 0`. Practice play reads 16 (0x10), normal play 0 (06). **Lead for 41: GAME_FLAGS & 0x20 = demo.** D2 (normal and Practice probes) will tell whether `REPLAY_MGR_PTR` is also set in real play.
+  - **R5-K1:** `/memsearch e9dc020000` → 1 match, `0x7B47ADA1`, inside a Wine DLL, not game code. MoF's kill jump isn't in SA, so K2/K3 have nothing to test. **36 needs another kill approach** (e.g. the death path near the `dec [0x4A5718]` at `0x433D32`, found by a static scan).
+  - **R7:**
+    - U1: `M1 = 0x037F218C`, `M2 = 0x03FF05F4`.
+    - U2: `M1−0x30` ← static `0x4A8EBC` → `0x037F1BB0` (= table − 0x5AC); `M2−0x30` ← `0x4C38AC` → `0x03FEFFFF` (unaligned; ignore).
+    - U4: `/poke M1+15 01` unlocked Normal Stage 3 live in the Practice menu, and poking `00` locked it again. Poking M2 did nothing. **Copy 1 is live: `ADDR_PRACTICE_UNLOCK = [0x4A8EBC, 0x5AC]` = Reimu A's practice table (39).** The per-shot stride `0x68D4` is from the save format.
+    - U3 was typed as `-54D` (should be `-5D4`), so it's void and not needed.
+  - **R1-E2/E3:** `/memsearch status` → `P1 = 0x0381F990`, `P2 = 0x0401DDF8`. Poking `P+20` and `P+21` to `01` (both copies) didn't make Extra Start appear, even after leaving and re-entering the menu. The ST `+0x2C..+0x31` flag hypothesis is incomplete. Retry in the re-run: poke `P+20..P+2B` (12 bytes, both changed ranges) and return to the title.
+  - **R6-M1:**
+    - Reimu hovered: menu 2, cursor 0.
+    - Marisa / partner screen: menu 3, cursor 0/1/2 for A/B/C.
+    - `ADDR_CHARACTER` follows the character highlighted; `ADDR_SHOT_TYPE` stays 0 until confirmed.
+    - **38: `MENU_SHOT` = menu 3, cursor = shot index**; character select = menu 2.
+  - **R6-M2:** in the stage, `ADDR_DIFFICULTY = 3` (Lunatic chosen). Q3 ("highlight jumps back to the last hover") is void, because the guard's writes were failing.
+  - **R2-C1:** `ADDR_LIVES = 2` (vanilla), void: the continue-lives patch couldn't be written.
+
+- 2026-10-12 Claude, **re-run results** (human notes, `fresh`, after `cae74ff`/`ad713d9`/`23604b5`):
+  - **R2-C1/C2 ✅:** every run started with 7 lives, and each continue restored 7 (vanilla 2). That's the received `+1 Life` count (7 sent across the sessions), as decision 34 says. The continue-lives patch at `0x41FA38` works.
+  - **R6-M2 / Q3 ✅ (with a UX problem):** every difficulty picked ends on Lunatic (no `Lower Difficulty` received). The cursor "moves only sometimes, as if locked": the guard snaps it back every 0.5 s poll. It works, but it feels broken → 38 should block the move itself (MoF's cursor patch) rather than correct it afterwards.
+  - **R5-K5-like note:** "probing at the Game Over screen sends a death link". Read as timing: Game Over is the last life lost (lives → −1), which sends under `death_link_trigger: life`. `/probe` only reads. Re-check in K5 with `game_over`.
+  - **Session B setup:** `sa` has every Practice difficulty and stage open (cheated save; 39 isn't writing the table yet; the guard only acts on Start's difficulty select). Doesn't affect B's tests: M3's locked-shot filter is client-side.
+
+- 2026-10-12 Claude, **Session B results and review**. The raw answers are in `.agent-loop/32-simplified-results.md`, gitignored; the summary is here.
+  - **R1 ❌:** poking `ST+0x2C` (6 bytes, then 12, both copies) didn't unlock Extra. The flag hypothesis is wrong → 33 by static analysis.
+  - **R2 ✅:** 7 lives at start and after each continue (= the received `+1 Life` count). `0x41FA38` reads `b8 07 00 00` / `b8 08…` (probe values 1976/2232). The pasted C3 `b8 03 07 00 00 00 17 90` is a transcription slip.
+  - **R3 ❓ inconclusive:**
+    - `/playerfloats` P1 (Reimu A) and P2 (Marisa B) each list ~85 floats over 4 KB, mostly option and bullet data. None of them is a clear normal/focus/diagonal speed set.
+    - Differences: `+0x84/+0x8C/+0x94/+0x9C` (0.12 → 0.88/0.99), `+0x8E4/+0x8E8` (1 → 1.75), and option positions.
+    - P3 not done → 35 changes method.
+  - **R4:**
+    - ✅ `-50% Power` (HUD updates), `Power Drain`;
+    - ✅ `-1 Life`, but neither the HUD nor a sound shows it until the next life change (→ 43). The human asked it never to go below 0: it already can't (`max(lives − 1, 0)`).
+    - Speed traps log pending (35).
+  - **R5:**
+    - K1: MoF's `e9 dc 02 00 00` appears only in a Wine DLL (`0x7B47ADA1`) → no kill jump in SA; K2/K3 skipped.
+    - K4a ✅ sends on a lost life. K4b ✅ Restart sends nothing (Practice and full run).
+    - K5 ✅ Game Over with `game_over` sends; at Game Over `ADDR_ENEMY_MANAGER` is non-zero, `GAME_FLAGS = 20`.
+  - **R6:**
+    - M1 ✅ character select = menu 2 (cursor = character); shot select = **menu 3, cursor = shot 0/1/2**; `ADDR_SHOT_TYPE` updates on confirm.
+    - M2 ✅ snaps to Lunatic (UX: "moves only sometimes", → 38).
+    - M3 ✅ locked Reimu A sent nothing; owned Reimu B sent `[Reimu] Kisume - Midboss`.
+    - The human notes that nothing in game says a shot is locked (→ 38).
+  - **R7 ✅:** `ADDR_PRACTICE_UNLOCK = [0x4A8EBC, 0x5AC]` (Session A).
+  - **R8 ✅:**
+    - `GAME_FLAGS`: demo 32, normal run 0 (A8), Practice 16 (B3), Practice Game Over 20 (B7). **Demo = `GAME_FLAGS & 0x20`.**
+    - `ADDR_REPLAY_MGR_PTR` is non-zero in every one of them, including real play, so it can't be the demo flag.
+    - D3 (saved replay) not done.
+  - **R9:**
+    - ✅ with `/itemsound on`: extend and power-up sounds and the HUD star are perfect (S1, S2a); S4 (client restart) had no errors.
+    - S2b had no "ok" sound, but sound was off at that point (B2 came before B3.0).
+    - S3 cave bytes ✅ and ID dword `00 00 00 00` ✅. The hook peek was typed `4429058` (not `429058`) → re-peek in batch 44.
+  - **New problem:** the game crashed on reaching Yamame's dialog, on a reconnect, and on connecting during a demo. In every case the sound cave was installed in that game process → ticket 42, with the reasoning.
+  - **Handed over:**
+    - 39: practice table;
+    - 41: demo flag;
+    - 38: `MENU_SHOT`, cursor UX, locked-run message;
+    - 33: Extra, static work;
+    - 35: speed, method change;
+    - 36: kill, static work via a cave;
+    - 40: blocked behind 42.
+  - **New:** 42 (crash), 43 (trap HUD feedback), 44 (probe batch 2).

@@ -1,7 +1,7 @@
 # 40: Find SA's sound cave and extend routine (static analysis)
 
 Status: ready-for-agent
-Blocked by: 29
+Blocked by: 29, 42
 
 ## Problem
 29 built the item-sound plumbing (`receive.sound`, `TouhouContext.play_sound`), but the sound only plays once SA has MoF's code cave: `Variables.ADDR_CUSTOM_SOUND_ID`, `ADDR_SOUND_HACK_1/2`, their `EXPECTED_BYTES`, and `SOUND_IDS` are all `None`, so the client logs "pending the sound cave (ticket 40)". The HUD still doesn't redraw on a received `+1 Life`. Finding both needs a disassembly of `.games/sa/th11.exe` (v1.00a). The unattended 29 run couldn't do it: `objdump`, `xxd` and ad-hoc `python` aren't in `.claude/settings*.json`, so they need approval.
@@ -42,3 +42,4 @@ Blocked by: 29
   - (b) the 5-byte hook is written over a call the game thread is running every frame (torn write).
 
   Check (a) against the hook site's disassembly (what is in `ecx`, and which convention the play-sound function uses). For (b), suspend the game threads around the write, or hook a site that only runs when idle. **Meanwhile the sound is opt-in:** `/itemsound on` (default off), so the batch can continue; R9 is the controlled re-test.
+- 2026-10-12 planner: batch 32 R9 confirmed the sound and HUD star in game (S1/S2a/S4 OK, cave bytes OK). But every crash happened with the cave installed, so 40 now waits on 42's crash hunt. The hook peek (S3) was mistyped; it gets re-peeked in batch 44.

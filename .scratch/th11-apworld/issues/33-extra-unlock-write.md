@@ -21,3 +21,10 @@ Blocked by: 11, 32
 
 ## Deferred
 - In-game proof: in the next probe batch, "receive `Extra Stage`, Extra is offered".
+
+## Comments
+- 2026-10-12 planner, **from batch 32 R1: the save-flag hypothesis failed.** Decoding both saves showed `ST+0x2C..0x31` as `00` in `fresh` and `01` in `sa` (everything unlocked). But poking those 6 bytes, then 12 (`+0x2C..0x37`), to `01` in both live copies didn't make Extra Start appear, even after returning to the title. Before asking for another game session, **find what the Extra menu actually checks by static analysis** of `.games/sa/th11.exe`:
+  - start from thcrap's `fix_extra_stage_relocking` patch site (`Rx ede8` = `0x4EDE8`, in `.games/sa/thcrap/repos/nmlgc/base_tsa/th11.v1.00a.js`) and the code reading the save struct behind `0x4A8EBC`;
+  - capstone in a pytest scratch, per the repo's disassembly note.
+
+  Then add one request to probe batch 44 with the exact poke and the expected menu result (AGENTS.md batch rule).

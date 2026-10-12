@@ -21,3 +21,9 @@ Blocked by: 32
 
 ## Deferred
 - None.
+
+- 2026-10-12 Claude (from batch 32): the difficulty guard works but feels broken. Writing `ADDR_MENU_CURSOR` back every 0.5 s poll lets the cursor reach a locked difficulty for a moment before it snaps back, so the human saw it "move only sometimes, as if locked". Prefer blocking the move: patch the menu's cursor bounds or skip-locked check, as MoF's cursor hack does, through `safe_patch` with `EXPECTED_BYTES`, and keep the snap as a fallback. Apply the same to the shot guard (menu 3, cursor = shot, from R6-M1).
+- 2026-10-12 planner, **from batch 32 R6:**
+  - Character select = menu 2 (cursor 0 = Reimu, 1 = Marisa). Shot select = **menu 3, cursor = shot index 0/1/2 (A/B/C)**, for the character highlighted. `ADDR_SHOT_TYPE` only changes on confirm, so the guard must read the cursor, not `ADDR_SHOT_TYPE`. Set `Variables.MENU_SHOT = 3`.
+  - M2 confirmed the difficulty snap works (see the UX note above).
+  - **Also (human request):** when a run starts on a shot type or difficulty that isn't received, log one client line, e.g. `Reimu A isn't unlocked: this run sends no checks`, so a player knows why nothing is sent (M3: a locked Reimu A run sent nothing silently). `test_locked_run_logs_once`.

@@ -25,3 +25,6 @@ Blocked by: 32
 - None.
 
 ## Comments
+
+## Comments
+- 2026-10-12 planner, **from batch 32 R5:** MoF's kill jump (`e9 dc 02 00 00`) doesn't exist in SA's code (the only match was in a Wine DLL). Sending works (K4a/K4b/K5 ✅). For receiving, kill by calling the game's own death path on the game thread through a code cave, like 40's sound cave (the cave mechanism plays sounds in game, but see 42 before reusing the same hook). Lead: the death routine around `dec dword [0x4A5718]` at `0x433D32` (static scan). Find its entry and preconditions statically, then add a batch 44 request: receive a DeathLink in a Practice stage → the player dies.

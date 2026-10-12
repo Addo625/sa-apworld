@@ -22,3 +22,10 @@ Blocked by: 32
 
 ## Deferred
 - None.
+
+## Comments
+- 2026-10-12 planner, **from batch 32 R3: inconclusive.** `/playerfloats` lists every speed-like float in 4 KB of the player object (~85 each for Reimu A and Marisa B), mostly options and bullets. No clear normal/focus/diagonal set. Differences: `+0x84/+0x8C/+0x94/+0x9C` (0.12 → 0.88/0.99), `+0x8E4/+0x8E8` (1 → 1.75). Change the method:
+  1. statically find the per-shot speed table (6 shots × normal/focus floats in `.rdata`) and the code copying it into the player;
+  2. **and/or** add `/playerfloats diff` (one snapshot while moving unfocused, one while focused; print only the floats that changed between them).
+
+  Then add a batch 44 request (two snapshots, plus one `/poke` confirm), and keep the speed traps pending until then.

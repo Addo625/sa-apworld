@@ -32,3 +32,10 @@ Blocked by: 32
 ## Deferred
 - In-game proof: ticket 09's smoke run covers it.
 - `cleared` bytes and scores are left alone; only `unlocked` gates Practice (27 finding).
+
+- 2026-10-12 planner, **from batch 32 R7:**
+  - `ADDR_PRACTICE_UNLOCK = [0x4A8EBC, 0x5AC]`: static `0x4A8EBC` points to the live save struct; `+0x5AC` is Reimu A (Yukari)'s practice table.
+  - Entries are 8 bytes: score/10 u32, `cleared` u8, `unlocked` u8, 2 pad. Levels Easy..Lunatic outer, stages 1–6 inner, so Normal Stage 3's `unlocked` is at table + `0x45`.
+  - Per-shot stride `0x68D4` (save format, `th11/scoredat.py`; order Yukari, Suika, Aya, Alice, Patchouli, Nitori).
+  - Proof: poking copy 1's Normal Stage 3 `unlocked` to 1 offered Stage 3 in the Practice menu live, and 0 locked it again. The other heap copy (the file buffer) has no effect.
+  - The `0x4C38AC` pointer from U2 points to an unaligned address near copy 2; ignore it.
