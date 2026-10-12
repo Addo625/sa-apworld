@@ -320,6 +320,10 @@ class TouhouContext(CommonContext):
 		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
 		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
 		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots) if prev else ([], 0)
+		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
+			locked = detect.locked(state, shots, lower, self.slot_data)
+			if locked:  # nothing in game says so (probe 32 R6 M3)
+				logger.info(f"{locked} isn't unlocked: this run sends no checks")
 		if self.slot is None or prev is None:
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:

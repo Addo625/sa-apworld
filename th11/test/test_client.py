@@ -386,6 +386,19 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		await ctx.poll(game_memory(), prev, runs)
 		self.assertEqual(ctx.sent, [])
 
+	async def test_locked_run_logs_once(self):
+		ctx = self.context("Reimu B - Suika", "Lower Difficulty", "Lower Difficulty")
+		prev, runs = await ctx.poll(menu_memory(menu=3, cursor=1), None, 0)
+		with self.assertLogs("Client", "INFO") as logs:
+			state, runs = await ctx.poll(game_memory(), prev, runs)  # Practice S3: Reimu A
+			await ctx.poll(game_memory(), state, runs)
+		self.assertEqual([line for line in logs.output if "isn't unlocked" in line],
+			["INFO:Client:Reimu A isn't unlocked: this run sends no checks"])
+		ctx = self.context("Reimu A - Yukari")  # Normal locked
+		with self.assertLogs("Client", "INFO") as logs:
+			await ctx.poll(game_memory(), prev, 0)
+		self.assertIn("Normal isn't unlocked: this run sends no checks", "\n".join(logs.output))
+
 	async def test_poll_moves_cursor_off_locked_difficulty(self):
 		ctx = self.context("Reimu A - Yukari", "Lower Difficulty")  # Hard and Lunatic open
 		memory = menu_memory(menu=1, cursor=0)

@@ -39,8 +39,12 @@ def location_names(state, names, slot_data, lower):
 
 
 def locked(state, shots, lower, slot_data):
-	"""The run plays a shot type or difficulty the received items don't unlock."""
-	return state.shot not in shots or (state.difficulty in range(4) and state.difficulty not in unlocked_difficulties(lower, slot_data))
+	"""-> the shot type or difficulty the run plays that the received items don't unlock, or None."""
+	if state.shot not in shots:
+		return state.shot or "this shot type"
+	if state.difficulty in range(4) and state.difficulty not in unlocked_difficulties(lower, slot_data):
+		return DIFFICULTY_LIST[state.difficulty]
+	return None
 
 
 def step(prev, state, runs=0, slot_data=None, lower=0, shots=None):

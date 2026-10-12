@@ -1,6 +1,6 @@
 # 38: Turn on the shot select guard
 
-Status: ready-for-agent
+Status: done
 Blocked by: 32
 
 ## Problem
@@ -27,3 +27,4 @@ Blocked by: 32
   - Character select = menu 2 (cursor 0 = Reimu, 1 = Marisa). Shot select = **menu 3, cursor = shot index 0/1/2 (A/B/C)**, for the character highlighted. `ADDR_SHOT_TYPE` only changes on confirm, so the guard must read the cursor, not `ADDR_SHOT_TYPE`. Set `Variables.MENU_SHOT = 3`.
   - M2 confirmed the difficulty snap works (see the UX note above).
   - **Also (human request):** when a run starts on a shot type or difficulty that isn't received, log one client line, e.g. `Reimu A isn't unlocked: this run sends no checks`, so a player knows why nothing is sent (M3: a locked Reimu A run sent nothing silently). `test_locked_run_logs_once`.
+- 2026-10-12 al-work: **done.** `MENU_SHOT = 3`, plus `MENU_CHARACTER = 2`: the character cursor skips a character with no received shot. Both wait for ReceivedItems. A run that starts on a locked shot or difficulty logs `<Reimu A|Normal> isn't unlocked: this run sends no checks` once (`test_locked_run_logs_once`). DoD: 371 passed. The cursor-block patch (UX note above) → deferred 46; the guard still snaps per poll until then.
