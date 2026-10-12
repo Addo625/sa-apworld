@@ -259,6 +259,7 @@ class TouhouContext(CommonContext):
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.item_sound = False  # /itemsound on: the sound cave (40) crashed its first run, so it's opt-in
 		self.sound_cave = None  # controller the sound cave is installed in
+		self.practice_ours = (None, set())  # (controller, practice entries this client unlocked in that game process)
 		self.traps = traps.TrapState()
 		self.traps_seen = 0  # received items scanned for traps, kept across reconnects like items_applied
 		self.link = deathlink.LinkState()
@@ -406,8 +407,10 @@ class TouhouContext(CommonContext):
 			write_entry(controller, Variables.ADDR_EXTRA_UNLOCK, new)
 
 	def unlock_practice(self, controller, rows):
-		"""Write each shot's Practice `unlocked` bytes so only `rows` are offered; the menu reads them live, so no run is
-		needed. Every tick, so stages the game itself unlocks are locked again. Skipped until the save loads."""
+		"""Unlock `rows` in each shot's Practice table; the menu reads it live, so no run is needed. Only entries unlocked
+		in this game process are ever locked again (receive.practice_unlock). Skipped until the save loads."""
+		if self.practice_ours[0] is not controller:  # a restarted game reloaded the save from disk
+			self.practice_ours = (controller, set())
 		offsets = [shot * scoredat.CLEAR_SIZE for shot in range(len(Variables.SHOT_TYPE_LIST))]
 		try:
 			table = resolve(controller, Variables.ADDR_PRACTICE_UNLOCK)
@@ -415,7 +418,8 @@ class TouhouContext(CommonContext):
 		except Exception:  # null save pointer before the title loads it: retried next tick, so no log spam
 			return
 		for shot, (offset, current) in enumerate(zip(offsets, tables)):
-			new = receive.practice_unlock(current, shot, rows)
+			new, ours = receive.practice_unlock(current, shot, rows, self.practice_ours[1])
+			self.practice_ours = (controller, ours)
 			if new != current:
 				write_entry(controller, Variables.ADDR_PRACTICE_UNLOCK, new, offset)
 

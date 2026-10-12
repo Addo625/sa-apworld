@@ -133,19 +133,39 @@ class TestPractice(unittest.TestCase):
 		self.assertEqual(practice_open([MARISA_B], {"mode": 1}), rows([4], [LUNATIC], range(1, 7)))
 
 	def test_practice_unlock_sets_only_unlocked_bytes(self):
-		current = bytes(range(PRACTICE_TABLE_SIZE))  # scores and cleared bytes must survive
-		new = practice_unlock(current, 4, {(4, NORMAL, 3), (0, EASY, 1)})
+		current = bytes([0x11, 0x22, 0x33, 0x44, 0, 0, 0x55, 0x66] * (PRACTICE_TABLE_SIZE // 8))  # scores, padding survive
+		new, ours = practice_unlock(current, 4, {(4, NORMAL, 3), (0, EASY, 1)})
 		self.assertEqual(len(new), PRACTICE_TABLE_SIZE)
 		self.assertEqual(new[0x45], 1)  # Normal Stage 3, the byte probe 32 R7 poked
-		self.assertEqual([i for i in range(5, PRACTICE_TABLE_SIZE, 8) if new[i]], [0x45])  # everything else locked
-		self.assertEqual([i for i in range(PRACTICE_TABLE_SIZE) if new[i] != current[i] and i % 8 != 5], [])
+		self.assertEqual([i for i in range(5, PRACTICE_TABLE_SIZE, 8) if new[i]], [0x45])
+		self.assertEqual([i for i in range(PRACTICE_TABLE_SIZE) if new[i] != current[i]], [0x45])
+		self.assertEqual(ours, {(4, NORMAL, 3)})
 
 	def test_practice_replay_is_idempotent(self):
-		"""The table is a function of the full received list: a reconnect's replay rewrites nothing."""
+		"""A reconnect's replay of the same received list rewrites nothing."""
 		received = ["Reimu A - Yukari", "Next Stage"]
-		once = practice_unlock(bytes(PRACTICE_TABLE_SIZE), 0, practice_open(received, {}))
-		self.assertEqual(practice_unlock(once, 0, practice_open(list(received), {})), once)
+		once, ours = practice_unlock(bytes(PRACTICE_TABLE_SIZE), 0, practice_open(received, {}))
+		self.assertEqual(practice_unlock(once, 0, practice_open(list(received), {}), ours), (once, ours))
 		self.assertEqual([i for i in range(5, PRACTICE_TABLE_SIZE, 8) if once[i]], [0x95, 0x9D])  # Lunatic 1, 2
+
+	def test_lock_never_clears_unlocked_cleared_entry(self):
+		"""47: 'cleared but locked' entries (39's writes) froze every boss dialog. Cleared entries stay or become unlocked."""
+		cleared = bytes([0, 0, 0, 0, 1, 1, 0, 0] * (PRACTICE_TABLE_SIZE // 8))
+		damaged = bytes([0, 0, 0, 0, 1, 0, 0, 0] * (PRACTICE_TABLE_SIZE // 8))
+		every = rows([0], range(4), range(1, 7))
+		self.assertEqual(practice_unlock(cleared, 0, set(), every), (cleared, set()))  # even entries it unlocked itself
+		self.assertEqual(practice_unlock(damaged, 0, set())[0], cleared)  # a damaged save is repaired
+
+	def test_lock_keeps_entries_unlocked_before_attach(self):
+		"""Only entries this client unlocked in this game process are locked again; the save's own unlocks stay."""
+		saved = bytearray(PRACTICE_TABLE_SIZE)
+		saved[0x05] = 1  # Easy 1, unlocked by the game, not cleared
+		new, ours = practice_unlock(bytes(saved), 0, set())
+		self.assertEqual(new, bytes(saved))
+		opened, ours = practice_unlock(bytes(saved), 0, rows([0], [EASY], [1, 2]))  # Easy 2 is ours
+		self.assertEqual((opened[0x05], opened[0x0D], ours), (1, 1, {(0, EASY, 2)}))
+		relocked, ours = practice_unlock(opened, 0, set(), ours)  # another seed, same game: only ours goes
+		self.assertEqual((relocked, ours), (bytes(saved), set()))
 
 
 class TestGoal(unittest.TestCase):

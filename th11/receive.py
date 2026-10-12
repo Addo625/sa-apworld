@@ -17,7 +17,7 @@ UNLOCK_ITEMS = {"Lower Difficulty"} | {
 	name for name, data in item_table.items() if data.category == "Characters" or "Stage" in data.category
 }
 PRACTICE_TABLE_SIZE = len(scoredat.LEVELS) * len(scoredat.STAGES) * scoredat.PRACTICE_SIZE
-PRACTICE_UNLOCKED = 5  # byte of a practice entry: score/10 u32, cleared u8, unlocked u8 (probe 32 R7)
+PRACTICE_CLEARED, PRACTICE_UNLOCKED = 4, 5  # bytes of a practice entry: score/10 u32, cleared u8, unlocked u8 (probe 32 R7)
 SHOT_GROUP = {  # a shot's unlock group, as Rules.owner_groups names it
 	StageUnlock.option_global: lambda shot: "",
 	StageUnlock.option_by_character: Variables.SHOT_TO_CHARACTER.get,
@@ -72,14 +72,26 @@ def practice_open(item_names, slot_data):
 		for level in difficulties}
 
 
-def practice_unlock(current: bytes, shot, rows):
-	"""One shot's practice table with every `unlocked` byte set from `rows` (practice_open); scores and cleared kept.
-	What isn't received is locked too: a fully unlocked save let Reimu B send checks without owning it (09)."""
-	table = bytearray(current)
+def practice_unlock(current: bytes, shot, rows, ours=frozenset()):
+	"""-> (table, ours): one shot's practice table with `rows` (practice_open) unlocked; scores and cleared kept.
+	`ours`: entries this client unlocked in this game process, the only ones it may lock again. A save's own unlocks
+	stay (locking them froze every boss dialog, 47), so a save that was fully unlocked keeps Practice open and only
+	the check filter (16) keeps checks honest. Cleared implies unlocked, as in every save the game writes."""
+	table, ours = bytearray(current), set(ours)
 	for level in range(len(scoredat.LEVELS)):
 		for stage in scoredat.STAGES:
-			table[(level * len(scoredat.STAGES) + stage - 1) * scoredat.PRACTICE_SIZE + PRACTICE_UNLOCKED] = (shot, level, stage) in rows
-	return bytes(table)
+			key, at = (shot, level, stage), (level * len(scoredat.STAGES) + stage - 1) * scoredat.PRACTICE_SIZE
+			if key in rows:
+				if not table[at + PRACTICE_UNLOCKED]:
+					table[at + PRACTICE_UNLOCKED] = 1
+					ours.add(key)
+			elif table[at + PRACTICE_CLEARED]:
+				table[at + PRACTICE_UNLOCKED] = 1  # also repairs an entry 39 locked
+				ours.discard(key)
+			elif key in ours:
+				table[at + PRACTICE_UNLOCKED] = 0
+				ours.discard(key)
+	return bytes(table), ours
 
 
 def in_run(state):
