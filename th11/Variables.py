@@ -65,9 +65,8 @@ ADDR_ENEMY_MANAGER = 0x000A8D7C  # source: thprac enemy manager ptr; probe 06 S8
 ADDR_MENU = [ADDR_MENU_PTR, 0xB0]  # source: probe 06 S0-S2, S9 (menu ptr + 0xB0)
 ADDR_MENU_CURSOR = [ADDR_MENU_PTR, 0x24]  # source: probe 06 S1/S1b (Normal 1, Lunatic 3)
 MENU_DIFFICULTY = 1  # source: probe 06 S1/S1b: difficulty select, cursor Easy 0 .. Lunatic 3
-# Probe 06 S2: character select is menu 3 (cursor 1 on Marisa B), but whether its cursor picks the shot or the
-# character is unknown; guard.correct takes it as the shot (A 0, B 1, C 2) of ADDR_CHARACTER. TODO(32 R6, 38)
-MENU_SHOT = None
+MENU_CHARACTER = 2  # source: probe 32 R6 M1: character select, cursor Reimu 0, Marisa 1; ADDR_CHARACTER follows it
+MENU_SHOT = 3  # source: probe 32 R6 M1: shot select, cursor A 0 .. C 2 for ADDR_CHARACTER; ADDR_SHOT_TYPE set on confirm
 ADDR_GAME_FLAGS = 0x000A5758  # source: probe 06: 0x10 in Practice play (S3-S7, S11), 4 on character select (S2), 0 in Extra (S10)
 ADDR_STAGE = 0x000A5728  # source: probe 06 S3-S10: 1-6, Extra = 7
 ADDR_DIFFICULTY = 0x000A5720  # source: probe 06 S3-S11: Easy 0 .. Lunatic 3, Extra 4; set on confirm, not on cursor move
