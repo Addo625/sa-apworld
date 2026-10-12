@@ -367,6 +367,8 @@ class TouhouContext(CommonContext):
 		trap_writes, new_speeds = traps.tick(self.traps, time.monotonic(), written, None if None in speeds else speeds)
 		for entry, value in trap_writes:
 			write_int(controller, entry, value)
+		if any(entry == Variables.ADDR_LIVES for entry, _ in trap_writes):
+			self.play_sound(controller, "life_lost")  # like +1 Life: the cave redraws the stars after the sound
 		for name, value in zip(traps.SPEED_ENTRIES, new_speeds or []):
 			write_int(controller, getattr(Variables, name), value)
 		if "DeathLink" in self.tags:

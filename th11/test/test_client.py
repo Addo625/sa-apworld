@@ -370,6 +370,27 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			await ctx.poll(memory, None, 0)  # not replayed
 			self.assertEqual(memory.writes, [])
 
+	async def test_trap_life_requests_redraw(self):
+		from unittest import mock
+		from .. import traps
+		lives = (BASE + Variables.ADDR_LIVES, (2).to_bytes(4, "little"))
+		sound = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (Variables.SOUND_IDS["life_lost"]).to_bytes(4, "little"))
+		with mock.patch.object(traps, "ENTER_DELAY", 0):
+			memory = game_memory(lives=3)
+			await self.context("-1 Life", sound=True).poll(memory, None, 0)
+			self.assertEqual([w for w in memory.writes if w[0] not in (BASE + Variables.ADDR_SOUND_HACK_1, BASE + Variables.ADDR_SOUND_HACK_2)], [lives, sound])
+			memory = game_memory(lives=3)
+			await self.context("-1 Life").poll(memory, None, 0)  # /itemsound off: the value only
+			self.assertEqual(memory.writes, [lives])
+
+	async def test_trap_life_never_negative(self):
+		from unittest import mock
+		from .. import traps
+		with mock.patch.object(traps, "ENTER_DELAY", 0):
+			memory = game_memory(lives=0)
+			await self.context("-1 Life", sound=True).poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])  # no write, no redraw
+
 	async def test_poll_trap_sees_item_written_same_tick(self):
 		from unittest import mock
 		from .. import traps
