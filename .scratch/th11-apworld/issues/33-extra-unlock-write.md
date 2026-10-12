@@ -1,6 +1,6 @@
 # 33: Received Extra Stage items unlock the Extra stage
 
-Status: ready-for-agent
+Status: done
 Blocked by: 11, 32
 
 ## Problem
@@ -28,3 +28,9 @@ Blocked by: 11, 32
   - capstone in a pytest scratch, per the repo's disassembly note.
 
   Then add one request to probe batch 44 with the exact poke and the expected menu result (AGENTS.md batch rule).
+- 2026-10-12 al-work, **done by static analysis:**
+  - Found: the ending code (0x40EDC3) stores one byte per shot at `[0x4A8EBC] + 0x2DDEA + idx` (idx = char * 3 + shot, +6 for a good ending). On Normal+ it ORs `0x10` into that byte, and every Extra menu tests that bit at `+0x2DDF0 + shot` (0x439350, 0x43CC17, 0x43D0EF). thcrap's `Rxede8` patch turns the `mov` into an `or` so a replayed ending keeps the bit. The ST bytes R1 poked were something else.
+  - `ADDR_EXTRA_UNLOCK = [0xA8EBC, 0x2DDF0]`, `EXTRA_UNLOCK_BIT = 0x10`.
+  - The write isn't in `apply`: the menus read it outside a run. `Client.unlock_extra` sets the bit each tick from `receive.extra_shots(all received, slot_data)`, which mirrors `Rules.stage_unlocked` level 7, and skips while the save pointer is null.
+  - Tests: `test_extra_unlock_is_what_the_menus_read` (exe bytes), `TestExtra` in test_receive, `test_poll_unlocks_extra_on_a_menu`. DoD: 366 passed.
+  - In-game proof: **batch 44 R3**. The never-relock and normal-linear choices are in batch 44's Decisions. Deferred: **45** (Extra runs without the item send no checks).

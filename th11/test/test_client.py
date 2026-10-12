@@ -156,6 +156,19 @@ class TestPatchSites(unittest.TestCase):
 		sound_id = (BASE + Variables.ADDR_CUSTOM_SOUND_ID).to_bytes(4, "little")
 		self.assertEqual((cave_code[3:7], cave_code[0x0D:0x11]), (sound_id, sound_id))
 
+	@unittest.skipUnless(GAME.exists(), ".games/ is gitignored")
+	def test_extra_unlock_is_what_the_menus_read(self):
+		"""33: the any-shot Extra check and the shot select's Extra row test bit 0x10 at [0x4A8EBC] + 0x2DDF0 (+ char * 3)."""
+		exe = GAME.read_bytes()
+		code = lambda rva, size: exe[rva - 0x1000 + 0x400:][:size]
+		save, offset = Variables.ADDR_EXTRA_UNLOCK
+		pointer, field = (BASE + save).to_bytes(4, "little"), offset.to_bytes(4, "little")
+		bit = bytes([Variables.EXTRA_UNLOCK_BIT])
+		# mov eax, [save]; mov cl, 0x10; test [eax + field], cl
+		self.assertEqual(code(0x39350, 13), b"\xa1" + pointer + b"\xb1" + bit + b"\x84\x88" + field)
+		# mov eax, [character]; mov edx, [save]; lea ecx, [edx + eax * 2]; add ecx, eax; test byte [ecx + field], 0x10
+		self.assertEqual(code(0x3D0DF, 23), bytes.fromhex("a1 10 57 4a 00 8b 15") + pointer + bytes.fromhex("8d 0c 42 03 c8 f6 81") + field + bit)
+
 	def test_patch_sites_have_expected_bytes(self):
 		for name, expected in Variables.EXPECTED_BYTES.items():
 			self.assertIn(name, Variables.PROBE_TABLE)
@@ -387,6 +400,21 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		prev, runs = await ctx.poll(game_memory(boss=0x3100000), None, 0)
 		await ctx.poll(game_memory(), prev, runs)
 		self.assertEqual(len(ctx.sent), 1)
+
+	async def test_poll_unlocks_extra_on_a_menu(self):
+		save = 0x3200000
+		memory = menu_memory(menu=0, cursor=0)
+		ctx = self.context("Marisa B - Patchouli", "[Marisa B] Extra Stage")
+		ctx.slot_data = {"extra_stage": 2, "stage_unlock": 2}
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])  # save struct not loaded: skipped
+		memory.set(BASE + Variables.ADDR_EXTRA_UNLOCK[0], save.to_bytes(4, "little"))
+		memory.set(save + Variables.ADDR_EXTRA_UNLOCK[1], bytes([1, 0, 0, 0, 1, 0]))
+		await ctx.poll(memory, None, 0)
+		self.assertEqual(memory.writes, [(save + Variables.ADDR_EXTRA_UNLOCK[1], bytes([1, 0, 0, 0, 0x11, 0]))])
+		memory.writes.clear()
+		await ctx.poll(memory, None, 0)  # already set: no write
+		self.assertEqual(memory.writes, [])
 
 	async def test_poll_unconnected_leaves_menu(self):
 		ctx = self.context()

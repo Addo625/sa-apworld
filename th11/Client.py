@@ -21,7 +21,7 @@ from .Items import item_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
-from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_float, write_float, write_int
+from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_float, resolve, write_entry, write_float, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
@@ -349,6 +349,7 @@ class TouhouContext(CommonContext):
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them
+		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data))
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
 		self.traps_seen = len(names)
 		speeds = [read_float(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
@@ -379,6 +380,18 @@ class TouhouContext(CommonContext):
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		return state, runs
+
+	def unlock_extra(self, controller, shots):
+		"""Set the Extra bit of `shots` in the live save; the menus read it, so no run is needed. Skipped until the save loads."""
+		if not shots:
+			return
+		try:
+			current = controller.read_bytes(resolve(controller, Variables.ADDR_EXTRA_UNLOCK), len(Variables.SHOT_TYPE_LIST))
+		except Exception:  # null save pointer before the title loads it: retried next tick, so no log spam
+			return
+		new = receive.extra_unlock(current, shots)
+		if new != current:
+			write_entry(controller, Variables.ADDR_EXTRA_UNLOCK, new)
 
 	def play_sound(self, controller, kind):
 		"""MoF playSound: write the kind's sound ID for the sound cave to play on the game thread."""

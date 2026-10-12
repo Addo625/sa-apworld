@@ -99,7 +99,10 @@ ADDR_SPELL_HISTORY = [0x000C343C, 0x6E8]  # source: 06 dumps only: paired u32 co
 
 # Save data (score.dat); MoF reads these through ptr 0x7783C, SA's pointer is unknown.
 ADDR_PRACTICE_UNLOCK = None  # source: none yet, MoF-analogue table (character x shot x difficulty x stage) TODO(06)
-ADDR_EXTRA_UNLOCK = None  # source: none yet, MoF-analogue per-shot bytes TODO(06); thcrap fix_extra_stage_relocking patches Rxede8
+# Save struct + 0x2DDEA: one ending byte per shot (char * 3 + shot), bad endings 0-5 then good endings 6-11. A good ending
+# on Normal+ sets bit 0x10, which is Extra unlocked for that shot (thcrap fix_extra_stage_relocking at 0x40EDE8 keeps it).
+ADDR_EXTRA_UNLOCK = [0x000A8EBC, 0x2DDF0]  # source: probe 32 R1 failed (ST bytes), so static disassembly (33): every Extra menu tests bit 0x10 here (0x43CC17, 0x43D0EF, any-shot 0x439350)
+EXTRA_UNLOCK_BIT = 0x10  # source: 33, as above
 
 # Code patch sites; each carries its original bytes in EXPECTED_BYTES.
 ADDR_PRACTICE_STARTING_LIVES = None  # source: none yet, MoF-analogue of 0x1796A TODO(06)
