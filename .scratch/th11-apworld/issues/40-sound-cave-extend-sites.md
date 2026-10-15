@@ -1,7 +1,7 @@
 # 40: Find SA's sound cave and extend routine (static analysis)
 
 Status: ready-for-agent
-Blocked by: 29, 44
+Blocked by: 29, 50
 
 ## Problem
 29 built the item-sound plumbing (`receive.sound`, `TouhouContext.play_sound`), but the sound only plays once SA has MoF's code cave: `Variables.ADDR_CUSTOM_SOUND_ID`, `ADDR_SOUND_HACK_1/2`, their `EXPECTED_BYTES`, and `SOUND_IDS` are all `None`, so the client logs "pending the sound cave (ticket 40)". The HUD still doesn't redraw on a received `+1 Life`. Finding both needs a disassembly of `.games/sa/th11.exe` (v1.00a). The unattended 29 run couldn't do it: `objdump`, `xxd` and ad-hoc `python` aren't in `.claude/settings*.json`, so they need approval.
@@ -44,3 +44,4 @@ Blocked by: 29, 44
   Check (a) against the hook site's disassembly (what is in `ecx`, and which convention the play-sound function uses). For (b), suspend the game threads around the write, or hook a site that only runs when idle. **Meanwhile the sound is opt-in:** `/itemsound on` (default off), so the batch can continue; R9 is the controlled re-test.
 - 2026-10-12 planner: batch 32 R9 confirmed the sound and HUD star in game (S1/S2a/S4 OK, cave bytes OK). But every crash happened with the cave installed, so 40 now waits on 42's crash hunt. The hook peek (S3) was mistyped; it gets re-peeked in batch 44.
 - 2026-10-12 al-work (42): the hook's disassembly is clean (42's comment), so the crash cause waits on batch 44 R1; blocker changed from 42 to 44. Remaining here: read R1 and R2. (a), (b), (c) all OK → set `item_sound` on by default (drop the `/itemsound` opt-in ponytail in `Client.play_sound`), keep `/itemsound off`. (b) crashes, (a) doesn't → move the hook to another per-frame site (static analysis again; a crash right after install instead points to 42's lead 1: suspend the game threads around the 5-byte write). Only (c) crashes → in the cave, skip the `0x42098A` redraw unless the game is in stage play (42's lead 2). (a) crashes → not this ticket; follow the new ticket from R1. Test: the existing 40/42 patch-site tests stay green; a `TestClientLoop` case for the new default.
+- 2026-10-15 Claude: batch 44 R1(b) crashed at the hook install, and once installed the sound works (#14). Fixed directly (`f098011`, quota-saving): the hook write runs with the game suspended. **Remaining:** batch 50 R2 confirms the install no longer crashes (several fresh launches), then flip `/itemsound` to on by default here.

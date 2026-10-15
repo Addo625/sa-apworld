@@ -1,6 +1,6 @@
 # 44: [human] Probe batch 2
 
-Status: ready-for-human
+Status: done
 Blocked by: 42, 47
 
 ## Problem
@@ -96,3 +96,29 @@ Context: 47 stops the client from ever locking a Practice entry the save already
     The game saved this on exit, so it persists without the client.
   - **Next, T4:** `.games/sa` with the 10-11 save restored, no client. No freeze → 39's lock writes cause it, and a bug ticket against 39 follows. Today's save is kept as `.games/sa/scoreth11_BACKUP.dat` (evidence). `th11.dat` was checked: identical to `fresh`'s, never written.
 - 2026-10-12 Claude: **T4: `.games/sa` with the 10-11 save, no client: dialog, the whole stage and pause all fine.** So the freeze comes from 39's practice-table writes in the save → bug ticket 47. This batch is now blocked by 47: connecting today's client re-applies 39's locks and would damage the restored save again. R1 (b)/(c) must be redone on a clean save once 47 lands, since (b) froze with the damaged save loaded. The pause crash in T3 (`fresh`, whose save 39 never touched) is separate and intermittent: T4 paused fine.
+
+- 2026-10-15 Claude, **batch 44 results** (raw: `.agent-loop/44-simplified-results.md`, gitignored):
+  - **R7 (47) ✅:**
+    - T6: `--repair` reopened 6 cleared entries; no freeze with the repaired save. Scored-but-uncleared stages stayed locked (scores hidden), so `--repair` now reopens scored entries too (`3ae9059`).
+    - T5 + R1(a): fixed client, clean save, Reimu C Easy, through Yamame's dialog, **no freeze**.
+  - **R5 (36) ✅:**
+    - D1: `ADDR_PLAYER_STATE` unreadable at stage start, then 1; 2 while dying.
+    - D2: `/receivedeath` killed at once, no death sound (as decided).
+    - D3: kills through a bomb (accepted).
+    - D4: two `/receivedeath` → two lives (respawn, then an instant kill; accepted).
+    - D5: the kill during the boss dialog works.
+  - **R4 (35) ✅:**
+    - V1: speeds 640/256/452/181.
+    - V2: No Focus 640/640/452/452; Reverse = all negated; Aya Speed 1280/128/904/90 (focus slower than base, accepted). All restore after.
+    - V3: a new stage after a trap has normal speeds.
+  - **R1(b)/R2 (40/42) ❌ → fixed:** `/itemsound on`, the first `+1 Life` wrote lives, cave, hook and sound ID, then **crashed** (not a freeze). In #14 the cave was already installed, and sound plus HUD redraw worked, even in the pause menu. → the torn 5-byte hook write while the game runs that call. Fixed in `f098011` (threads suspended for the hook write). R1(c) and R2 not reached.
+  - **R6 (43) ✅:** L1 death sound and star redraw, even in the pause menu; L2 silent and stale with sound off.
+  - **R3 (33) ✅:**
+    - X1: Extra locked.
+    - X2: `/send [Marisa C] Extra Stage` wrote 6 bytes at `[0x4A8EBC]+0x2DDF0`, and Extra Start offered only Marisa C. The X1 `/probe` line pasted was the practice table's address, so the zero peek proved nothing; the menu result is the proof.
+    - X3: `[Marisa C] Sanae - Midboss` sent.
+  - **Decisions:** Q1–Q4 not answered in the results; defaults stand.
+  - **Human notes → tickets:**
+    - the menu guard also forces the Options screen's cursor (48);
+    - Practice starts at max lives, the game's default (49, deferred);
+    - P4: a sound-ID write with no cave install in a new game is unexplained (two `th11.exe` running?); watch for it.
