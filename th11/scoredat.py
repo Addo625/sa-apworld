@@ -102,15 +102,17 @@ def encode(decoded: bytes) -> bytes:
 
 
 def repair(decoded: bytes):
-	"""-> (decoded, entries fixed): `unlocked` set wherever `cleared` is, as the game itself keeps it (47), checksums
-	updated. Undoes the 'cleared but locked' entries 39's practice locks left in saves."""
+	"""-> (decoded, entries fixed): `unlocked` set wherever `cleared` is or a Practice score exists (both mean the game
+	had opened the stage), checksums updated. Undoes the locks 39 left in saves (47; batch 44 P1: scored-but-uncleared
+	stages stayed hidden when only cleared ones were reopened)."""
 	out, fixed = bytearray(decoded), 0
 	for signature, offset, _, body in chunks(decoded):
 		if signature != CLEAR_SIGNATURE.decode():
 			continue
 		for entry in range(len(LEVELS) * len(STAGES)):
 			at = offset + PRACTICE_OFFSET + entry * PRACTICE_SIZE
-			if out[at + PRACTICE_CLEARED] and not out[at + PRACTICE_UNLOCKED]:
+			scored = struct.unpack_from("<I", out, at)[0]
+			if (out[at + PRACTICE_CLEARED] or scored) and not out[at + PRACTICE_UNLOCKED]:
 				out[at + PRACTICE_UNLOCKED], fixed = 1, fixed + 1
 		struct.pack_into("<I", out, offset + 4, sum(out[offset + 8:offset + len(body)]))
 	return bytes(out), fixed

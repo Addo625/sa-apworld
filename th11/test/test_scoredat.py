@@ -57,11 +57,13 @@ class TestScoredat(unittest.TestCase):
 		practice = scoredat.PRACTICE_OFFSET - scoredat.CHUNK_HEADER_SIZE
 		struct.pack_into("<IBB", clear, practice, 500, 1, 0)  # Easy 1: cleared but locked, as 39 left it
 		struct.pack_into("<IBB", clear, practice + 8, 600, 0, 1)  # Easy 2: unlocked, not cleared
+		struct.pack_into("<IBB", clear, practice + 32, 700, 0, 0)  # Easy 5: scored, locked (batch 44 P1)
 		decoded = bytes(scoredat.HEADER_SIZE) + chunk(b"CR", bytes(clear)) + chunk(b"ST", b"\x01\x02")
 		repaired, fixed = scoredat.repair(decoded)
-		self.assertEqual(fixed, 1)
+		self.assertEqual(fixed, 2)
 		progress = scoredat.practice_progress(scoredat.chunks(repaired)[0][3])  # checksums still valid
 		self.assertEqual((progress["Easy"][1], progress["Easy"][2], progress["Easy"][3]), ((1, 1, 5000), (1, 0, 6000), (0, 0, 0)))
+		self.assertEqual(progress["Easy"][5], (1, 0, 7000))
 		self.assertEqual(scoredat.repair(repaired), (repaired, 0))
 
 	@unittest.skipUnless(DAMAGED.exists(), "no damaged save (.games is gitignored)")
