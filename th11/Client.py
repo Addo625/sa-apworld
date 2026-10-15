@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import nullcontext
 import os
 import random
 import subprocess
@@ -438,12 +439,13 @@ class TouhouContext(CommonContext):
 			base = controller.base_address
 			try:
 				# The cave before the call into it; a site already patched (an earlier client, same game) is kept.
-				# ponytail: the 5-byte hook is one non-atomic write over a call the game runs every frame; a torn read
-				# would crash. Once per game process, so the window is tiny; suspend the game's threads if that's ever seen.
 				if controller.read_bytes(base + Variables.ADDR_SOUND_HACK_2, len(Variables.SOUND_CAVE)) != Variables.SOUND_CAVE:
 					safe_patch(controller, base + Variables.ADDR_SOUND_HACK_2, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_2"], Variables.SOUND_CAVE)
 				if controller.read_bytes(base + Variables.ADDR_SOUND_HACK_1, len(Variables.SOUND_HOOK)) != Variables.SOUND_HOOK:
-					safe_patch(controller, base + Variables.ADDR_SOUND_HACK_1, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_1"], Variables.SOUND_HOOK)
+					# The game runs this call every frame: a torn 5-byte write crashed it at install (batch 44 #12),
+					# so its threads are frozen for the write.
+					with getattr(controller, "suspended", nullcontext)():
+						safe_patch(controller, base + Variables.ADDR_SOUND_HACK_1, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_1"], Variables.SOUND_HOOK)
 			except PatchMismatch as e:
 				logger.error(f"Item sound ({kind}) not played, unexpected game code: {e}")
 				return

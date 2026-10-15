@@ -563,3 +563,28 @@ class TestParsePattern(unittest.TestCase):
 		for bad in ("", "zz", "029605CC - 30", "+-5"):
 			with self.assertRaises(ValueError):
 				parse_address(bad)
+
+
+class TestHookInstallFreezesGame(unittest.IsolatedAsyncioTestCase):
+	async def test_hook_written_while_game_is_suspended(self):
+		"""Batch 44 #12: a torn 5-byte hook write crashed the game; only the hook write may run frozen."""
+		from contextlib import contextmanager
+		memory = game_memory(lives=2)
+		events = []
+		original_write = memory.write_bytes
+
+		def write_bytes(address, data):
+			events.append(("write", address))
+			original_write(address, data)
+
+		@contextmanager
+		def suspended():
+			events.append("suspend")
+			yield
+			events.append("resume")
+
+		memory.write_bytes, memory.suspended = write_bytes, suspended
+		await TestClientLoop.context(self, "+1 Life", sound=True).poll(memory, None, 0)
+		hook, cave = BASE + Variables.ADDR_SOUND_HACK_1, BASE + Variables.ADDR_SOUND_HACK_2
+		self.assertLess(events.index(("write", cave)), events.index("suspend"))
+		self.assertEqual(events[events.index("suspend") + 1:events.index("resume")], [("write", hook)])

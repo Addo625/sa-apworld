@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 import pymem
 import pymem.memory
 import pymem.process
@@ -27,6 +29,19 @@ class gameController:
 	def write_bytes(self, address, data: bytes):
 		log_write(address, len(data))
 		self.pm.write_bytes(address, data, len(data))
+
+	@contextmanager
+	def suspended(self):
+		"""Freeze every game thread while code is patched, then flush the instruction cache.
+		Batch 44 #12: writing the 5-byte sound hook while the game ran it every frame crashed it at install."""
+		import ctypes
+		ntdll, kernel32 = ctypes.windll.ntdll, ctypes.windll.kernel32
+		ntdll.NtSuspendProcess(self.pm.process_handle)
+		try:
+			yield
+		finally:
+			kernel32.FlushInstructionCache(self.pm.process_handle, None, 0)
+			ntdll.NtResumeProcess(self.pm.process_handle)
 
 	def readable_regions(self) -> list:
 		"""[(start, size)] of committed, accessible pages, walked with VirtualQueryEx up to the 32-bit limit."""
