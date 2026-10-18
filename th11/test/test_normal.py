@@ -109,3 +109,15 @@ class TestNormalClient(unittest.TestCase):
 			locations, runs = step(prev, state, runs)
 			sent += locations
 		self.assertEqual(sent, ids("[Reimu] Kisume - Midboss", "[Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear", "[Reimu] Parsee - Midboss"))
+
+
+class TestPracticeStartingLives(unittest.TestCase):
+	@unittest.skipUnless(GAME.exists(), "no th11.exe (.games is gitignored)")
+	def test_practice_starting_lives_site_bytes(self):
+		"""49: th11.exe v1.00a's Practice init sets lives with this exact instruction, and the patch keeps its shape."""
+		exe = GAME.read_bytes()
+		offset = Variables.ADDR_PRACTICE_STARTING_LIVES - 0x1000 + 0x400
+		original = Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"]
+		self.assertEqual(exe[offset:offset + len(original)], original)
+		self.assertEqual(Variables.PRACTICE_STARTING_LIVES_CODE(9), original)  # 9 restores vanilla
+		self.assertEqual(len(Variables.PRACTICE_STARTING_LIVES_CODE(3)), len(original))

@@ -260,6 +260,7 @@ class TouhouContext(CommonContext):
 		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
+		self.practice_lives = None  # the same for Practice's starting lives (49)
 		self.item_sound = False  # /itemsound on: the sound cave (40) crashed its first run, so it's opt-in
 		self.sound_cave = None  # controller the sound cave is installed in
 		self.practice_ours = (None, set())  # (controller, practice entries this client unlocked in that game process)
@@ -396,6 +397,8 @@ class TouhouContext(CommonContext):
 		self.link_prev = receive.with_writes(written, ring_writes)
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
+		if self.slot is not None and not state.in_game:  # the patched code runs at run start: patch it from a menu
+			self.patch_practice_lives(controller, receive.continue_lives(names, self.limit_lives))
 		return state, runs
 
 	def stage6_cleared(self):
@@ -470,9 +473,22 @@ class TouhouContext(CommonContext):
 			logger.info(f"Continue lives ({lives}): pending the continue-lives code site (probe batch 32, R2)")
 			return
 		try:
-			patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
+			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
+				patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
 		except PatchMismatch as e:
 			logger.error(f"Continue lives not patched, unexpected game code: {e}")
+
+
+	def patch_practice_lives(self, controller, lives):
+		"""Practice runs start with the lives from items, not the game's 9 (49, as EoSD). Once per value and game process."""
+		if self.practice_lives == (controller, lives):
+			return
+		self.practice_lives = (controller, lives)
+		try:
+			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
+				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"], Variables.PRACTICE_STARTING_LIVES_CODE, lives)
+		except PatchMismatch as e:
+			logger.error(f"Practice lives not patched, unexpected game code: {e}")
 
 
 async def game_loop(ctx: TouhouContext):
