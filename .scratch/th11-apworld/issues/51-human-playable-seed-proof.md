@@ -1,6 +1,6 @@
 # 51: [human] Prove a playable seed live: unlocks, a locked save, stages 3–4, the goal
 
-Status: ready-for-human
+Status: done
 Blocked by: None
 
 ## Problem
@@ -40,3 +40,15 @@ Where a failure would point:
 - An `Ending - Koishi` / `goal: both` live check needs an Extra clear (ticket 11's goals). Its reporting can be checked the same way as G2.
 
 ## Comments
+
+- 2026-10-18 Claude, **results** (raw: `.agent-loop/51-simplified-results.md`):
+  - **P1 ✅:** the new save is fully locked; on connect, only Marisa A Lunatic Stage 1 opens.
+  - **P2 ✅:** each `Lower Difficulty` opened the next easier difficulty (192-byte table write).
+  - **P3 ✅:** each `Next Stage` opened the next stage.
+  - **P4 ✅:** the new shot appeared.
+  - **D3 ✅ (with a crash):** Yuugi's midboss, Yuugi Defeated and Stage 3 Clear all arrived when Yuugi went down, by design. The first attempt **crashed at Yuugi's midboss dialog line**, on a brand-new save with the fixed client, so it isn't 39's save damage. Cause unknown; the retry passed.
+  - **D4 ✅:** cat Orin ×2, then Satori, then the clear, in order.
+  - **G1 ✅:** `[Marisa] Stage 6 Clear` → `[Marisa] Ending - Utsuho` → "Play1 has completed their goal" → collect.
+  - **S1 ✅:** Marisa A all unlocked, cleared stages consistent, no `0/1`.
+  - The human doesn't need the old `sa` save.
+  - Human question Q1 (how stages unlock across shots) led to 52 (filter stages the items haven't opened) and the goal expander (53).

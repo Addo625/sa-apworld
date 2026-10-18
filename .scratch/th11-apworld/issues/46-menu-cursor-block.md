@@ -1,6 +1,6 @@
 # 46: Block the menu cursor on locked choices instead of snapping it back
 
-Status: deferred
+Status: ready-for-agent
 Blocked by: 38
 
 ## Problem
@@ -26,3 +26,14 @@ Blocked by: 38
 
 ## Comments
 - 2026-10-12 al-work (38): split out of 38's notes (the "prefer blocking the move" UX note). 38 shipped the snap guard for menus 2 and 3, which has the same flicker.
+- 2026-10-18 Claude (human promoted it; a bounded static search, not finished):
+  - **Not found:** no `inc`/`dec`/`add`/`sub` of the cursor (`menu + 0x24`) sits within 40 instructions of a menu-id read (`menu + 0xB0`). The cursor is set by a computed `mov`.
+  - **Leads:**
+    - menu-id writes at `0x411924` (`mov [eax+0xB0], edx`) and `0x4139AE` (`mov [ebx+0xB0], edx`), plus `0x40460C` / `0x404988` (`[ebx+0xB0]`);
+    - one cursor-like `inc dword [edi+0x24]` at `0x40F136`.
+  - **Next:**
+    - disassemble the functions around `0x411924`/`0x4139AE`;
+    - find where the difficulty/shot select reads input and stores `menu + 0x24`;
+    - patch that store through a cave that skips choices flagged locked in a client-written byte table (MoF `initCursorHack`), with `safe_patch` and `EXPECTED_BYTES`;
+    - in-game check in the next probe batch.
+  - Until then the 0.5 s snap (16/38) stays.
