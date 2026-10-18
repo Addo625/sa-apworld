@@ -3,7 +3,9 @@ Location detection: compares two decoded GameStates. Pure, no memory access.
 """
 from .Locations import location_table
 from .guard import unlocked_difficulties
+from .Options import Mode
 from .receive import stage_open
+from .state import PRACTICE_FLAG
 from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lowest_unlocked
 
 
@@ -46,6 +48,9 @@ def locked(state, shots, lower, slot_data, received=None):
 		return state.shot or "this shot type"
 	if state.difficulty in range(4) and state.difficulty not in unlocked_difficulties(lower, slot_data):
 		return DIFFICULTY_LIST[state.difficulty]
+	if (slot_data.get("mode", Mode.option_practice) == Mode.option_practice and state.stage in range(1, 7)
+		and state.flags is not None and not state.flags & PRACTICE_FLAG):
+		return "Start (the normal game; this seed plays from Practice)"
 	if received is not None and state.stage in range(1, 8) and not stage_open(received, slot_data, state.shot, state.stage):
 		return f"{state.shot} Stage {'Extra' if state.stage == 7 else state.stage}"
 	return None

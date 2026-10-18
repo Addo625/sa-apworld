@@ -6,6 +6,7 @@ Ported from Nepley's EoSD apworld.
 ## How does this randomizer work ?
 At the start, you have only one shot type, zero resources and only the Lunatic difficulty.<br />
 You play stage by stage in Practice Mode and unlock the stages progressively. Each item makes the stages easier to clear.<br />
+In Practice mode, runs started from **Start** (the normal game) send no checks: play from the Practice menu (the Extra stage is played as usual).<br />
 **Goal:** clear Stage 6 (Utsuho) once, with both characters, or with N shot types, plus optionally the Extra stage (Koishi) once or with both characters (see **Utsuho Endings** and **Koishi Endings**).
 
 ## Locations

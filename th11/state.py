@@ -15,6 +15,9 @@ STATE_ENTRIES = [
 # ADDR_GAME_FLAGS bit set while a replay plays (batch 32 R8: in both title demos, never in normal or Practice play).
 # Saved replays (R8-D3) weren't probed; assumed to set it too.
 DEMO_FLAG = 0x20
+# ADDR_GAME_FLAGS bit set in Practice play (probe 06: 16 in Practice, 0 in normal play and Extra; 32 R8: 0x14 at a
+# Practice game over).
+PRACTICE_FLAG = 0x10
 
 
 class GameState(NamedTuple):
@@ -29,6 +32,7 @@ class GameState(NamedTuple):
 	shot: Optional[str]
 	lives: Optional[int]  # -1 = game over
 	power: Optional[int]  # units of 0.05, max 80
+	flags: Optional[int] = None  # ADDR_GAME_FLAGS
 
 
 def decode_state(values) -> GameState:
@@ -49,6 +53,7 @@ def decode_state(values) -> GameState:
 		shot=Variables.SHOT_TYPE_LIST[character * 3 + shot] if valid else None,
 		lives=values.get("ADDR_LIVES"),
 		power=values.get("ADDR_POWER"),
+		flags=values.get("ADDR_GAME_FLAGS"),
 	)
 
 
