@@ -1,7 +1,7 @@
 # 57: Losing to a boss doesn't send its Defeated and Clear checks
 
 Status: ready-for-agent
-Blocked by: 58
+Blocked by: 61
 
 ## Problem
 Batch 50 R3 (a normal Start run, Normal difficulty): losing at Parsee sent `[Marisa] Parsee Defeated` and `[Marisa] Stage 2 Clear`. In a Practice seed, 55 now ignores such runs, but normal-mode seeds still count a boss leaving at a game over or continue as a kill.

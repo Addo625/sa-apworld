@@ -1,7 +1,7 @@
 # 48: The menu guard must leave the Options screen alone
 
 Status: ready-for-agent
-Blocked by: 58
+Blocked by: 61
 
 ## Problem
 Batch 44 (human): while connected, the guard (16/38) also forces the cursor on the **Options** screen (volume and similar), not only on the difficulty and shot selects. It keys on the menu id alone (difficulty = 1, shot = 3), and the Options screen evidently uses one of those ids.

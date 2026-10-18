@@ -1,6 +1,6 @@
 # 58: [human] Probe batch 4
 
-Status: ready-for-human
+Status: done
 Blocked by: None
 
 ## Problem
@@ -41,3 +41,44 @@ Seed `AP_96277890279384246223`, slot **`Playtest2`** (Playtest1's settings + `sp
 - 59: `min_lives` adds to the +1 Life count (not a floor), so every item still raises the start. OK?
 
 ## Comments
+
+### R1
+
+ADDR_MENU = 0 (addr 0x02D51F80)
+ADDR_GAME_FLAGS = 0 (addr 0x004A5758)
+
+#### a
+/peek 02D51F80-B0 256
+0x02D51ED0: c8 03 4a 01 b8 03 4a 01 18 fc cb 02 48 fc cb 02 68 fe 4a 01 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 3f 00 00 80 3f 00 00 00 00 00 00 00 00 00 00 f0 41 00 00 38 42 00 00 00 00 00 00 00 00 09 00 00 00 0a 00 00 00 00 00 20 41 48 79 4a 00 01 00 00 00 00 00 21 3f 00 00 c2 3e 00 00 3f 3f 00 00 c2 3e 00 00 21 3f 00 00 0f 3f 00 00 3f 3f 00 00 0f 3f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#### b
+0x02D51ED0: c8 03 4a 01 b8 03 4a 01 18 fc cb 02 48 fc cb 02 68 fe 4a 01 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 3f 00 00 80 3f 00 00 00 00 00 00 00 00 00 00 f0 41 00 00 38 42 00 00 00 00 00 00 00 00 09 00 00 00 0a 00 00 00 00 00 20 41 48 79 4a 00 01 00 00 00 00 00 21 3f 00 00 c2 3e 00 00 3f 3f 00 00 c2 3e 00 00 21 3f 00 00 0f 3f 00 00 3f 3f 00 00 0f 3f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#### c
+0x02D51ED0: c8 03 4a 01 b8 03 4a 01 18 fc cb 02 48 fc cb 02 68 fe 4a 01 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 3f 00 00 80 3f 00 00 00 00 00 00 00 00 00 00 f0 41 00 00 38 42 00 00 00 00 00 00 00 00 09 00 00 00 0a 00 00 00 00 00 20 41 48 79 4a 00 01 00 00 00 00 00 21 3f 00 00 c2 3e 00 00 3f 3f 00 00 c2 3e 00 00 21 3f 00 00 0f 3f 00 00 3f 3f 00 00 0f 3f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#### d
+0x02D51ED0: c8 03 4a 01 b8 03 4a 01 18 fc cb 02 48 fc cb 02 68 fe 4a 01 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 3f 00 00 80 3f 00 00 00 00 00 00 00 00 00 00 f0 41 00 00 38 42 00 00 00 00 00 00 00 00 09 00 00 00 0a 00 00 00 00 00 20 41 48 79 4a 00 01 00 00 00 00 00 21 3f 00 00 c2 3e 00 00 3f 3f 00 00 c2 3e 00 00 21 3f 00 00 0f 3f 00 00 3f 3f 00 00 0f 3f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+#### e
+0x02D51ED0: c8 03 4a 01 b8 03 4a 01 18 fc cb 02 48 fc cb 02 68 fe 4a 01 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 e4 1e d5 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 3f 00 00 80 3f 00 00 00 00 00 00 00 00 00 00 f0 41 00 00 38 42 00 00 00 00 00 00 00 00 09 00 00 00 0a 00 00 00 00 00 20 41 48 79 4a 00 01 00 00 00 00 00 21 3f 00 00 c2 3e 00 00 3f 3f 00 00 c2 3e 00 00 21 3f 00 00 0f 3f 00 00 3f 3f 00 00 0f 3f 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+### R2
+
+**the `/send [Reimu A] Extra Stage` does not unlock the extra stage - cannot check**
+
+### R3
+
+**CONSISTENT CRASH** at first message of dialogs - can't complete stage
+
+### R4 
+
+Works well, for each stage shows the count of checks left (maybe worth to think of a way to split it _textwise_ between boss checks and spell checks)
+
+### R5
+
+From stage 2 onwards, I start with 4 Power (max). I always get the correct amount of lives.
+
+### Claude, 2026-10-19
+- **R1:** the five dumps are byte-identical and all at the title's menu object (`ADDR_MENU = 0`), so the address wasn't re-read per screen. Redo as batch 61 R1, with a fresh `/probe` on each screen.
+- **R2:** with global unlocks the item is `Extra Stage` (the README now lists the names per grouping), and the server's form is `/send <slot> <item>`: `/send Playtest2 Extra Stage`. Redo as batch 61 R2.
+- **R3:** the crash happened at every dialog. Suspect: 24 read 25 KB of save data every poll during play. Now the save is read only on menus and at stage transitions. Re-test is batch 61 R3, which also carries the continue screen request.
+- **R4:** OK. The counts now split into boss checks and captures (`685d262`).
+- **R5:** stage 2+ started at 4.00 because the client kept the game's power when it was higher. Practice now starts at exactly packs × 0.50 (60, `e45d0c8`). Lives OK.
+- **R6 (from the chat):** a capture was detected and sent. Kisume captured twice sent Capture 1 and 2: a crash lost the first capture from the save, so the card looked new. Captured cards now also live in server data storage (24, `bb232d1`).
