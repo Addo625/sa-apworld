@@ -170,6 +170,11 @@ def continue_lives(item_names, limit_lives=MAX_LIVES):
 	return min(list(item_names).count("+1 Life"), 8, limit_lives)
 
 
+def practice_lives(item_names, slot_data, limit_lives=MAX_LIVES):
+	"""Spare lives a Practice run starts with: min_lives + one per +1 Life received, at most limit_lives (and 9)."""
+	return min(slot_data.get("min_lives", 0) + list(item_names).count("+1 Life"), MAX_LIVES, limit_lives)
+
+
 def goal_reached(item_names, slot_data):
 	"""Ending items received meet slot_data's goal (missing: Utsuho once, no Koishi)."""
 	item_names = list(item_names)

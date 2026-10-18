@@ -112,6 +112,14 @@ class TestNormalClient(unittest.TestCase):
 
 
 class TestPracticeStartingLives(unittest.TestCase):
+	def test_min_lives_adds_to_received(self):
+		"""59: min_lives + the +1 Life items, capped by limit_lives and the game's 9."""
+		from ..receive import practice_lives
+		self.assertEqual(practice_lives(["+1 Life"], {}), 1)
+		self.assertEqual(practice_lives(["+1 Life"], {"min_lives": 2}), 3)
+		self.assertEqual(practice_lives(["+1 Life"] * 8, {"min_lives": 8}), 9)
+		self.assertEqual(practice_lives(["+1 Life"], {"min_lives": 2}, limit_lives=2), 2)
+
 	@unittest.skipUnless(GAME.exists(), "no th11.exe (.games is gitignored)")
 	def test_practice_starting_lives_site_bytes(self):
 		"""49: th11.exe v1.00a's Practice init sets lives with this exact instruction, and the patch keeps its shape."""

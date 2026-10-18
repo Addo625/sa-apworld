@@ -79,6 +79,7 @@ Touhou Chireiden ~ Subterranean Animism:
   death_link_amnesty: 0         # 0-10: deaths forgiven before one is sent (2 = every third). (/deathlink_amnesty)
   ring_link: 'false'            # 'true': power gained or lost is shared with other RingLink players. (/ringlink)
   limit_lives: 9                # 0-9: the most lives a +1 Life or a continue can give you. (/limits)
+  min_lives: 0                  # 0-8: Practice runs start with min_lives + your +1 Life items (at most limit_lives).
 
   # ---------------------------------------------------------------- Archipelago common options
   progression_balancing: 50     # 0-99: higher moves your progression items earlier in the multiworld.

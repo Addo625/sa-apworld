@@ -75,7 +75,7 @@ class TestGenerate(bases.TH11TestBase):
 			"number_life_mid", "power_mid", "difficulty_mid",
 			"number_life_end", "power_end", "difficulty_end",
 			"extra_stage", "number_life_extra", "power_extra", "utsuho_endings", "utsuho_shots", "koishi_endings",
-			"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives",
+			"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives", "min_lives",
 			"spell_card_keys", "captures_per_stage", "capture_slots",
 			"stage_requirements",
 		})

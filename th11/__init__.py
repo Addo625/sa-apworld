@@ -166,7 +166,7 @@ class TWorld(World):
 				"extra_stage", "number_life_extra", "power_extra",
 				# The goal (both parts must hold); shot_type/extra_stage above already include what it turned on.
 				"utsuho_endings", "utsuho_shots", "koishi_endings",
-				"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives",
+				"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives", "min_lives",
 				# spell_card_keys is the mode in effect (keys_only without keys reads alongside).
 				"spell_card_keys", "captures_per_stage", "capture_slots",
 			),

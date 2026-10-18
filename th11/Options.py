@@ -317,6 +317,15 @@ class LimitLives(Range):
 	default = 9
 
 
+class MinLives(Range):
+	"""Spare lives a Practice run starts with before any +1 Life: it starts with min_lives + your +1 Life items (at most
+	limit_lives). Only the client applies it; logic still counts the +1 Life items for the gates."""
+	display_name = "Minimum Practice lives"
+	range_start = 0
+	range_end = 8
+	default = 0
+
+
 @dataclass
 class TH11Options(PerGameCommonOptions):
 	mode: Mode
@@ -356,3 +365,4 @@ class TH11Options(PerGameCommonOptions):
 	death_link_amnesty: DeathLinkAmnesty
 	ring_link: RingLink
 	limit_lives: LimitLives
+	min_lives: MinLives

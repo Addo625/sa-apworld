@@ -431,7 +431,7 @@ class TouhouContext(CommonContext):
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		if self.slot is not None and not state.in_game:  # the patched code runs at run start: patch it from a menu
-			self.patch_practice_lives(controller, receive.continue_lives(names, self.limit_lives))
+			self.patch_practice_lives(controller, receive.practice_lives(names, self.slot_data, self.limit_lives))
 		return state, runs
 
 	def stage6_cleared(self):
