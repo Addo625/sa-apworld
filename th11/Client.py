@@ -19,6 +19,7 @@ from settings import get_settings
 
 from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, traps
 from .Items import item_table
+from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
@@ -26,6 +27,7 @@ from .probe import float_candidates, format_probe, memsearch, parse_address, par
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
+LOCATION_NAMES = {code: name for name, code in location_table.items()}
 POLL_SECONDS = 0.5
 MEMSEARCH_CAP = 50
 DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
@@ -330,9 +332,10 @@ class TouhouContext(CommonContext):
 		lower = self.received_names().count("Lower Difficulty")
 		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
 		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots) if prev else ([], 0)
+		received = self.received_names() if shots is not None else None
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received) if prev else ([], 0)
 		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
-			locked = detect.locked(state, shots, lower, self.slot_data)
+			locked = detect.locked(state, shots, lower, self.slot_data, received)
 			if locked:  # nothing in game says so (probe 32 R6 M3)
 				logger.info(f"{locked} isn't unlocked: this run sends no checks")
 		if self.slot is None or prev is None:
@@ -344,7 +347,7 @@ class TouhouContext(CommonContext):
 		self.locations_found.update(locations)
 		if shots is not None:  # with the items in, for the lock filter and check_multiple_difficulty
 			for found, run in self.runs_found:
-				if not detect.locked(found, shots, lower, self.slot_data):
+				if not detect.locked(found, shots, lower, self.slot_data, received):
 					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower))
 			self.runs_found.clear()
 		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)
@@ -359,7 +362,7 @@ class TouhouContext(CommonContext):
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them
-		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data))
+		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data, self.stage6_cleared()))
 		if shots is not None:
 			self.unlock_practice(controller, receive.practice_open(names, self.slot_data))
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
@@ -394,6 +397,11 @@ class TouhouContext(CommonContext):
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		return state, runs
+
+	def stage6_cleared(self):
+		"""Owners (character, or shot with shot_type) whose Stage 6 Clear is checked, for a normal-mode linear Extra."""
+		names = {LOCATION_NAMES.get(location) for location in self.checked_locations | self.locations_found}
+		return {name[1:].split("] ")[0] for name in names if name and name.endswith("] Stage 6 Clear")}
 
 	def unlock_extra(self, controller, shots):
 		"""Set the Extra bit of `shots` in the live save; the menus read it, so no run is needed. Skipped until the save loads."""

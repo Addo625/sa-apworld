@@ -147,3 +147,27 @@ class TestDetectGranularity(unittest.TestCase):
 		self.assertEqual(step(play(boss=True), play(), 0, shots={"Reimu A"}, lower=2)[0], ids("[Reimu] Kisume - Midboss"))
 		extra = step(play(7, boss=True, ADDR_DIFFICULTY=4), play(7, ADDR_DIFFICULTY=4), 1, shots={"Reimu A"})[0]
 		self.assertEqual(extra, ids("[Reimu] Koishi Defeated", "[Reimu] Stage Extra Clear"))  # Extra has no difficulty lock
+
+
+class TestStageGate(unittest.TestCase):
+	"""52/45: a run on a stage the received items don't open sends nothing (playing ahead can't skip a gate)."""
+	SHOTS = {"Reimu A"}
+
+	def test_practice_stage_beyond_next_stage_is_locked(self):
+		from ..detect import locked
+		received, slot = ["Reimu A - Yukari", "Next Stage"], {"mode": 0, "stage_unlock": 0, "progressive_stage": 1}
+		self.assertIsNone(locked(play(2, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot, received))
+		self.assertEqual(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot, received), "Reimu A Stage 3")
+		self.assertIsNone(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot, received + ["Next Stage"]))
+		self.assertIsNone(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot))  # no received list: no stage check
+
+	def test_normal_mode_stages_are_always_open(self):
+		from ..detect import locked
+		self.assertIsNone(locked(play(6, ADDR_DIFFICULTY=3), self.SHOTS, 0, {"mode": 2}, ["Reimu A - Yukari"]))
+
+	def test_extra_needs_its_item(self):
+		from ..detect import locked
+		slot = {"mode": 0, "stage_unlock": 0, "progressive_stage": 1, "extra_stage": 2}  # apart
+		received = ["Reimu A - Yukari"] + ["Next Stage"] * 5
+		self.assertEqual(locked(play(7, ADDR_DIFFICULTY=4), self.SHOTS, 0, slot, received), "Reimu A Stage Extra")
+		self.assertIsNone(locked(play(7, ADDR_DIFFICULTY=4), self.SHOTS, 0, slot, received + ["Extra Stage"]))

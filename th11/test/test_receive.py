@@ -193,3 +193,14 @@ class TestSound(unittest.TestCase):
 		"""The cave sites go through safe_patch: listed in EXPECTED_BYTES, so the guard and thcrap overlap tests cover them."""
 		for name in ("ADDR_SOUND_HACK_1", "ADDR_SOUND_HACK_2"):
 			self.assertIn(name, Variables.EXPECTED_BYTES)
+
+
+class TestLinearExtraInNormalMode(unittest.TestCase):
+	"""Q3: a normal-mode linear Extra opens when that owner's Stage 6 Clear is checked, not after a no-continue clear."""
+	def test_opens_for_cleared_owner_only(self):
+		from ..receive import extra_shots
+		slot = {"mode": 2, "extra_stage": 1}  # normal_static, linear
+		received = ["Reimu A - Yukari", "Reimu C - Aya", "Marisa B - Patchouli"]
+		self.assertEqual(extra_shots(received, slot), set())
+		self.assertEqual(extra_shots(received, slot, {"Reimu"}), {0, 2})  # Reimu's received shots
+		self.assertEqual(extra_shots(received, slot, {"Marisa B"}), {4})  # shot_type owner
