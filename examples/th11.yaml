@@ -1,25 +1,85 @@
-name: Player{number}
+# Touhou 11 (Subterranean Animism) Archipelago player settings.
+# Every option below is at its default. Change values and keep the indentation.
+# Choices: write the value name (e.g. mode: normal_static). Ranges: a number in the stated range.
+# Toggles: 'true' or 'false'.
+
+name: Player{number}           # Your slot name. {number} becomes your player number.
 game: Touhou Chireiden ~ Subterranean Animism
 description: Every option at its default.
 
 Touhou Chireiden ~ Subterranean Animism:
-  mode: practice
-  stage_unlock: global
-  progressive_stage: 'true'
-  shot_type: 'false'
-  difficulty_check: 'false'
-  check_multiple_difficulty: 'false'
-  exclude_lunatic: 'false'
-  number_life_mid: 0
-  power_mid: 0
-  difficulty_mid: lunatic
-  number_life_end: 0
-  power_end: 0
-  difficulty_end: lunatic
-  extra_stage: exclude
-  number_life_extra: 0
-  power_extra: 0
-  utsuho_endings: once
-  utsuho_shots: 6
-  koishi_endings: none
-  death_link: 'false'
+  # ---------------------------------------------------------------- Mode and stage unlocks
+  mode: practice                # practice: play stage by stage from the Practice menu; stages unlock with items.
+                                # normal_dynamic: full runs from Stage 1; the difficulty is forced to the
+                                #   lowest one your Lower Difficulty items open (never Easy).
+                                # normal_static: full runs from Stage 1 on the difficulty you pick.
+  stage_unlock: global          # How stage unlocks are grouped (Practice mode, and Extra Stage items):
+                                # global: one set for everyone. by_character: one per character.
+                                # by_shot_type: one per shot type (needs shot_type or difficulty_check,
+                                #   otherwise it acts as by_character).
+  progressive_stage: 'true'     # 'true': Next Stage items open stages in order.
+                                # 'false': each stage has its own item (Stage 2 .. Stage 6).
+
+  # ---------------------------------------------------------------- Checks
+  shot_type: 'false'            # 'true': each of the 6 shot types has its own checks (6x the checks),
+                                #   instead of one set per character.
+  difficulty_check: 'false'     # 'true': midboss and boss checks are separate per difficulty.
+  check_multiple_difficulty: 'false'  # With difficulty_check: beating a boss also sends the checks of the
+                                      #   lower difficulties you have unlocked.
+  exclude_lunatic: 'false'      # 'true': no Lunatic; you start on Hard (one Lower Difficulty fewer).
+
+  # ---------------------------------------------------------------- Gates (what logic expects before a stage)
+  # Each gate ramps up stage by stage. If a gate can't fit in the checks before its stage, it is
+  # lowered (largest resource first) and a warning is printed during generation.
+  number_life_mid: 0            # 0-8: +1 Life items expected before Yuugi and Satori (stages 3-4).
+  power_mid: 0                  # 0-8: +0.50 Power packs expected before stages 3-4.
+  difficulty_mid: lunatic       # lunatic / hard / normal / easy: the difficulty expected for stages 3-4.
+  number_life_end: 0            # 0-8: +1 Life items expected before Orin and Utsuho (stages 5-6).
+  power_end: 0                  # 0-8: +0.50 Power packs expected before stages 5-6.
+  difficulty_end: lunatic       # lunatic / hard / normal / easy: the difficulty expected for stages 5-6.
+
+  # ---------------------------------------------------------------- Extra stage
+  extra_stage: exclude          # exclude: no Extra stage.
+                                # linear: Extra is a 7th stage (one more Next Stage when progressive).
+                                # apart: Extra opens with its own Extra Stage item.
+  number_life_extra: 0          # 0-8: +1 Life items expected before Koishi.
+  power_extra: 0                # 0-8: +0.50 Power packs expected before Koishi.
+
+  # ---------------------------------------------------------------- Goal (both parts must be met)
+  utsuho_endings: once          # Stage 6 clears needed. once: with either character.
+                                # both_characters: with Reimu and with Marisa.
+                                # shot_types: with utsuho_shots different shot types (turns shot_type on).
+  utsuho_shots: 6               # 1-6: with utsuho_endings: shot_types, how many shot types must clear Stage 6.
+  koishi_endings: none          # Extra clears needed on top of Utsuho's. none / once / both_characters.
+                                #   Anything but none turns the Extra stage on (linear) if it's excluded.
+
+  # ---------------------------------------------------------------- Spell Card Keys (experimental)
+  # Keep spell_card_keys at off for now: the client can't detect spell captures yet (ticket 24),
+  # so capture checks could never be sent.
+  spell_card_keys: off          # off / alongside (keys gate stages 3-6 together with the gates above) /
+                                #   keys_only (keys are the only gate).
+  captures_per_stage: 2         # 0-6: capture checks per stage (the k-th different card captured).
+  capture_slots: per_character  # per_character / shared (one set per stage for both characters).
+  spell_card_keys_in_pool: 50   # 0-100: % of capture checks that add a Spell Card Key; the rest add filler.
+  spell_card_keys_required: 75  # 0-100: % of the keys needed by Stage 6 (ramps up from Stage 3).
+
+  # ---------------------------------------------------------------- Traps
+  traps: 0                      # 0-100: % of filler items replaced by traps. The weights below pick which trap.
+  power_trap: 20                # -50% Power: halves your power.
+  life_trap: 0                  # -1 Life: removes a life (never a game over).
+  no_focus_trap: 20             # No Focus: focusing doesn't slow you, for 20 s.
+  reverse_movement_trap: 20     # Reverse Movement: controls reversed, for 20 s.
+  aya_speed_trap: 20            # Aya Speed: twice as fast unfocused, slower focused, for 20 s.
+  freeze_trap: 5                # Freeze: you can't move, for 3 s.
+  power_drain_trap: 15          # Power Drain: you lose 0.05 power per second, for 20 s.
+
+  # ---------------------------------------------------------------- Links (client commands can change these live)
+  death_link: 'false'           # 'true': your deaths are shared with other DeathLink players, and theirs with you.
+  death_link_trigger: life      # life: every life lost is sent. game_over: only a game over. (/deathlink_trigger)
+  death_link_amnesty: 0         # 0-10: deaths forgiven before one is sent (2 = every third). (/deathlink_amnesty)
+  ring_link: 'false'            # 'true': power gained or lost is shared with other RingLink players. (/ringlink)
+  limit_lives: 9                # 0-9: the most lives a +1 Life or a continue can give you. (/limits)
+
+  # ---------------------------------------------------------------- Archipelago common options
+  progression_balancing: 50     # 0-99: higher moves your progression items earlier in the multiworld.
+  accessibility: full           # full: everything reachable. minimal: only what the goal needs.
