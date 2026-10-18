@@ -52,3 +52,4 @@ Where a failure would point:
   - **S1 ✅:** Marisa A all unlocked, cleared stages consistent, no `0/1`.
   - The human doesn't need the old `sa` save.
   - Human question Q1 (how stages unlock across shots) led to 52 (filter stages the items haven't opened) and the goal expander (53).
+- 2026-10-18 human: D3's crash at Yuugi's midboss dialog had **no `/writelog` lines** before it, so no client write caused it. It's in the game or Wine, and intermittent (the retry passed). Watch for it in the full playtest.
