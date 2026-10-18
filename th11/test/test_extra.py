@@ -26,27 +26,35 @@ def beaten_with(test, locations):
 
 
 class TestExtraExcluded(bases.TH11TestBase):
-	options = {"goal": "koishi", "ending_required": "all_shot_types"}
-
 	def test_no_extra_locations(self):
 		self.assertEqual(location_count(self), 2 * PER_OWNER)
 		self.assertFalse(self.get_items_by_name("Extra Stage"))
 
-	def test_goal_falls_back_to_utsuho(self):
+	def test_default_goal_is_utsuho_once(self):
 		slot_data = self.world.fill_slot_data()
-		self.assertEqual(slot_data["goal"], 0)
+		self.assertEqual((slot_data["utsuho_endings"], slot_data["koishi_endings"]), (0, 0))
 		self.assertEqual(len(slot_data["stage_requirements"]), 6)
 
 
-class TestGoalKoishiOnce(bases.TH11TestBase):
-	options = {"extra_stage": "apart", "goal": "koishi"}
+class TestKoishiTurnsExtraOn(bases.TH11TestBase):
+	options = {"koishi_endings": "once"}
 
-	def test_goal_koishi_once(self):
+	def test_extra_set_to_linear(self):
+		self.assertEqual(self.world.fill_slot_data()["extra_stage"], 1)
+		self.assertEqual(location_count(self), 2 * (PER_OWNER + EXTRA_PER_OWNER))
+
+
+class TestGoalUtsuhoAndKoishiOnce(bases.TH11TestBase):
+	options = {"extra_stage": "apart", "koishi_endings": "once"}
+
+	def test_goal_needs_both_parts(self):
 		self.assertEqual(locked(self), {
+			"[Reimu] Stage 6 Clear": "[Reimu] Ending - Utsuho", "[Marisa] Stage 6 Clear": "[Marisa] Ending - Utsuho",
 			"[Reimu] Stage Extra Clear": "[Reimu] Ending - Koishi", "[Marisa] Stage Extra Clear": "[Marisa] Ending - Koishi",
 		})
-		self.assertFalse(beaten_with(self, []))
-		self.assertTrue(beaten_with(self, ["[Marisa] Stage Extra Clear"]))
+		self.assertFalse(beaten_with(self, ["[Marisa] Stage Extra Clear"]))
+		self.assertFalse(beaten_with(self, ["[Reimu] Stage 6 Clear"]))
+		self.assertTrue(beaten_with(self, ["[Reimu] Stage 6 Clear", "[Marisa] Stage Extra Clear"]))
 
 	def test_counts(self):
 		self.assertEqual(location_count(self), 2 * (PER_OWNER + EXTRA_PER_OWNER))
@@ -64,10 +72,10 @@ class TestGoalKoishiOnce(bases.TH11TestBase):
 		self.assertFalse(self.can_reach_location(EXTRA))
 
 
-class TestGoalBothAllCharacters(bases.TH11TestBase):
-	options = {"extra_stage": "linear", "goal": "both", "ending_required": "both_characters"}
+class TestGoalBothCharacters(bases.TH11TestBase):
+	options = {"extra_stage": "linear", "utsuho_endings": "both_characters", "koishi_endings": "both_characters"}
 
-	def test_goal_both_all_characters(self):
+	def test_goal_both_characters(self):
 		self.assertEqual(len(locked(self)), 4)
 		self.assertFalse(beaten_with(self, ["[Reimu] Stage 6 Clear", "[Marisa] Stage 6 Clear", "[Reimu] Stage Extra Clear"]))
 		self.assertFalse(beaten_with(self, ["[Reimu] Stage Extra Clear", "[Marisa] Stage Extra Clear", "[Reimu] Stage 6 Clear"]))
@@ -84,22 +92,21 @@ class TestGoalBothAllCharacters(bases.TH11TestBase):
 		self.assertTrue(self.can_reach_location(EXTRA))
 
 
-class TestAllShotTypesFallsBack(bases.TH11TestBase):
-	options = {"extra_stage": "apart", "goal": "both", "ending_required": "all_shot_types"}
+class TestShotTypesTurnShotTypeOn(bases.TH11TestBase):
+	options = {"utsuho_endings": "shot_types", "utsuho_shots": 3}
 
-	def test_all_shot_types_falls_back(self):
-		self.assertEqual(self.world.fill_slot_data()["ending_required"], 1)
+	def test_shot_type_turned_on(self):
+		slot_data = self.world.fill_slot_data()
+		self.assertTrue(slot_data["shot_type"])
+		self.assertEqual((slot_data["utsuho_endings"], slot_data["utsuho_shots"]), (2, 3))
 
 
-class TestAllShotTypes(bases.TH11TestBase):
-	options = {"extra_stage": "apart", "goal": "koishi", "ending_required": "all_shot_types", "shot_type": True,
-		"stage_unlock": "by_shot_type"}
+class TestUtsuhoShots(bases.TH11TestBase):
+	options = {"utsuho_endings": "shot_types", "utsuho_shots": 3, "shot_type": True, "stage_unlock": "by_shot_type"}
 
-	def test_needs_every_shot(self):
-		self.assertEqual(self.world.fill_slot_data()["ending_required"], 2)
-		self.assertEqual(len(self.get_items_by_name("[Reimu A] Extra Stage")), 1)
-		clears = [f"[{shot}] Stage Extra Clear" for shot in ("Reimu A", "Reimu B", "Reimu C", "Marisa A", "Marisa B", "Marisa C")]
-		self.assertFalse(beaten_with(self, clears[:5]))
+	def test_needs_n_shots(self):
+		clears = [f"[{shot}] Stage 6 Clear" for shot in ("Reimu A", "Reimu B", "Marisa C")]
+		self.assertFalse(beaten_with(self, clears[:2]))
 		self.assertTrue(beaten_with(self, clears))
 
 
@@ -129,12 +136,14 @@ class TestExtraLifeGate(bases.TH11TestBase):
 
 class TestGoalMet(unittest.TestCase):
 	def test_goal_met(self):
-		def met(items, goal, required):
-			return goal_met(items.count, goal, required)
-		self.assertTrue(met(["[Reimu] Ending - Utsuho"], 0, 0))
-		self.assertFalse(met(["[Reimu] Ending - Koishi"], 0, 0))
-		self.assertFalse(met(["[Reimu] Ending - Utsuho"], 2, 0))
-		self.assertTrue(met(["[Reimu] Ending - Utsuho", "[Marisa] Ending - Koishi"], 2, 0))
-		self.assertFalse(met(["[Reimu] Ending - Koishi"] * 3, 1, 1))
-		self.assertFalse(met(["[Reimu] Ending - Koishi"] * 3 + ["[Marisa] Ending - Koishi"] * 2, 1, 2))
-		self.assertTrue(met(["[Reimu] Ending - Koishi"] * 3 + ["[Marisa] Ending - Koishi"] * 3, 1, 2))
+		def met(items, utsuho=0, shots=6, koishi=0):
+			return goal_met(items.count, utsuho, shots, koishi)
+		self.assertTrue(met(["[Reimu] Ending - Utsuho"]))
+		self.assertFalse(met(["[Reimu] Ending - Koishi"]))
+		self.assertFalse(met(["[Reimu] Ending - Utsuho"], koishi=1))
+		self.assertTrue(met(["[Reimu] Ending - Utsuho", "[Marisa] Ending - Koishi"], koishi=1))
+		self.assertFalse(met(["[Reimu] Ending - Utsuho", "[Reimu] Ending - Koishi"], koishi=2))
+		self.assertTrue(met(["[Reimu] Ending - Utsuho", "[Reimu] Ending - Koishi", "[Marisa] Ending - Koishi"], koishi=2))
+		self.assertFalse(met(["[Reimu] Ending - Utsuho"] * 3, utsuho=1))
+		self.assertFalse(met(["[Reimu] Ending - Utsuho"] * 2 + ["[Marisa] Ending - Utsuho"], utsuho=2, shots=4))
+		self.assertTrue(met(["[Reimu] Ending - Utsuho"] * 2 + ["[Marisa] Ending - Utsuho"] * 2, utsuho=2, shots=4))

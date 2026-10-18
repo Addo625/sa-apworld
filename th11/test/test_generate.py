@@ -74,7 +74,7 @@ class TestGenerate(bases.TH11TestBase):
 			"exclude_lunatic",
 			"number_life_mid", "power_mid", "difficulty_mid",
 			"number_life_end", "power_end", "difficulty_end",
-			"extra_stage", "number_life_extra", "power_extra", "goal", "ending_required",
+			"extra_stage", "number_life_extra", "power_extra", "utsuho_endings", "utsuho_shots", "koishi_endings",
 			"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives",
 			"spell_card_keys", "captures_per_stage", "capture_slots",
 			"stage_requirements",
@@ -178,28 +178,28 @@ EXTREMES = {
 		**MAX_GATES, "stage_unlock": "by_shot_type", "difficulty_check": True, "exclude_lunatic": True,
 	},
 	"max extra linear goal both": {
-		**MAX_GATES, "extra_stage": "linear", "goal": "both", "ending_required": "both_characters",
+		**MAX_GATES, "extra_stage": "linear", "utsuho_endings": "both_characters", "koishi_endings": "both_characters",
 		"number_life_extra": 8, "power_extra": 8,
 	},
 	"max extra linear by_character not progressive": {
-		**MAX_GATES, "extra_stage": "linear", "goal": "koishi", "stage_unlock": "by_character", "progressive_stage": False,
+		**MAX_GATES, "extra_stage": "linear", "koishi_endings": "once", "stage_unlock": "by_character", "progressive_stage": False,
 		"number_life_extra": 8, "power_extra": 8,
 	},
 	"max extra apart by_character": {
 		**MAX_GATES, "extra_stage": "apart", "stage_unlock": "by_character", "number_life_extra": 8, "power_extra": 8,
 	},
 	"max extra apart goal both all_shot_types": {
-		**MAX_GATES, "extra_stage": "apart", "goal": "both", "ending_required": "all_shot_types", "shot_type": True,
+		**MAX_GATES, "extra_stage": "apart", "utsuho_endings": "shot_types", "koishi_endings": "both_characters", "shot_type": True,
 		"stage_unlock": "by_shot_type", "number_life_extra": 8, "power_extra": 8,
 	},
 	# Normal mode drops the stage items: filler fills their locations.
 	"normal_dynamic min gates": {"mode": "normal_dynamic"},
 	"max normal_static extra apart by_shot_type": {
-		**MAX_GATES, "mode": "normal_static", "extra_stage": "apart", "goal": "both", "shot_type": True,
+		**MAX_GATES, "mode": "normal_static", "extra_stage": "apart", "koishi_endings": "once", "shot_type": True,
 		"stage_unlock": "by_shot_type", "number_life_extra": 8, "power_extra": 8,
 	},
 	"max normal_dynamic extra linear": {
-		**MAX_GATES, "mode": "normal_dynamic", "extra_stage": "linear", "goal": "koishi", "number_life_extra": 8, "power_extra": 8,
+		**MAX_GATES, "mode": "normal_dynamic", "extra_stage": "linear", "koishi_endings": "once", "number_life_extra": 8, "power_extra": 8,
 	},
 }
 

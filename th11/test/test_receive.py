@@ -174,9 +174,10 @@ class TestGoal(unittest.TestCase):
 		self.assertTrue(goal_reached(["+1 Life", "[Marisa] Ending - Utsuho"], {}))
 
 	def test_goal_koishi_both_characters(self):
-		slot_data = {"goal": 1, "ending_required": 1}
+		slot_data = {"koishi_endings": 2}
 		self.assertFalse(goal_reached(["[Reimu] Ending - Koishi", "[Marisa] Ending - Utsuho"], slot_data))
-		self.assertTrue(goal_reached(iter(["[Reimu] Ending - Koishi", "[Marisa] Ending - Koishi"]), slot_data))
+		self.assertFalse(goal_reached(["[Reimu] Ending - Koishi", "[Marisa] Ending - Koishi"], slot_data))  # Utsuho too
+		self.assertTrue(goal_reached(iter(["[Reimu] Ending - Koishi", "[Marisa] Ending - Koishi", "[Reimu] Ending - Utsuho"]), slot_data))
 
 
 class TestSound(unittest.TestCase):

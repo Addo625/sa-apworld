@@ -171,6 +171,7 @@ def continue_lives(item_names, limit_lives=MAX_LIVES):
 
 
 def goal_reached(item_names, slot_data):
-	"""Ending items received meet slot_data's goal and ending_required (missing: Utsuho once)."""
+	"""Ending items received meet slot_data's goal (missing: Utsuho once, no Koishi)."""
 	item_names = list(item_names)
-	return goal_met(item_names.count, slot_data.get("goal", 0), slot_data.get("ending_required", 0))
+	return goal_met(item_names.count, slot_data.get("utsuho_endings", 0), slot_data.get("utsuho_shots", 6),
+		slot_data.get("koishi_endings", 0))
