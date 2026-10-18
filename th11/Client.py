@@ -24,7 +24,7 @@ from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
 from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, resolve, write_entry, write_int
-from .state import read_state
+from .state import PRACTICE_FLAG, read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 LOCATION_NAMES = {code: name for name, code in location_table.items()}
@@ -392,7 +392,10 @@ class TouhouContext(CommonContext):
 			self.locations_found.clear()
 		names = self.received_names()
 		applied = self.items_applied
-		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives)
+		# ponytail: a Practice retry from the pause menu may not leave play between two polls, and then keeps the
+		# game's start power; detect retries (a run timer?) if batch 58 R5 shows it.
+		started = bool(prev and not prev.in_game and state.in_game and (state.flags or 0) & PRACTICE_FLAG)
+		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them

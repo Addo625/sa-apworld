@@ -129,15 +129,28 @@ def with_writes(state, writes):
 	return state._replace(**{"lives" if entry == Variables.ADDR_LIVES else "power": value for entry, value in writes})
 
 
-def apply_new(item_names, applied, state, limit_lives=MAX_LIVES):
+def practice_power(item_names, state):
+	"""Power a Practice run starts with: 0.50 per +0.50 Power pack received, at most 4.00. It replaces the game's own,
+	which is 4.00 from Stage 2 on (batch 58 R5) and would make the power gates meaningless."""
+	if state.power is None:
+		return []
+	return [(Variables.ADDR_POWER, min(list(item_names).count("+0.50 Power") * POWER["+0.50 Power"], MAX_POWER))]
+
+
+def apply_new(item_names, applied, state, limit_lives=MAX_LIVES, started=False):
 	"""-> (writes, items applied). Only items after `applied` take effect, so a reconnect's full replay writes nothing.
-	Outside a run nothing is applied: items wait for the next run."""
+	Outside a run nothing is applied: items wait for the next run.
+	started: a Practice run just began. It starts with every +1 Life (49's patch) and +0.50 Power (practice_power)
+	received, so the waiting ones aren't added again (batch 50 R4: 2 lives became 4)."""
 	# ponytail: `applied` lives in the client only, so restarting the client replays every life and power once;
 	# store it in server data storage if that's abused.
 	if not in_run(state):
 		return [], applied
-	writes = []
+	writes = practice_power(item_names, state) if started else []
+	state = with_writes(state, writes)
 	for name in item_names[applied:]:
+		if started and name in ("+1 Life", "+0.50 Power"):
+			continue
 		new = apply(name, state, limit_lives)
 		writes += new
 		state = with_writes(state, new)

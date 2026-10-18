@@ -80,7 +80,7 @@ def report(item_names, missing_names, slot_data):
 		"  " + ", ".join(f"{ending}: " + " / ".join(f"{c} {count[f'[{c}] {ending}']}" for c in CHARACTERS_LIST) for ending in endings),
 		"",
 		f"+1 Life {count['+1 Life']} (Practice starts with {practice_lives(item_names, slot_data, slot_data.get('limit_lives', 9))})"
-		f"  ·  +0.50 Power {count['+0.50 Power']}  ·  Lower Difficulty {count['Lower Difficulty']}"
+		f"  ·  +0.50 Power {count['+0.50 Power']} (Practice starts at {min(count['+0.50 Power'] * 0.5, 4):.2f})  ·  Lower Difficulty {count['Lower Difficulty']}"
 		f" (easiest: {DIFFICULTY_LIST[lowest_unlocked(count['Lower Difficulty'], exclude_lunatic)]})"
 		+ (f"  ·  Spell Card Key {count['Spell Card Key']}" if slot_data.get("spell_card_keys") else ""),
 		"",

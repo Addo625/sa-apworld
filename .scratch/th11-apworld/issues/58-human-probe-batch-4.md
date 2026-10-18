@@ -24,6 +24,11 @@ Setup: the client from the latest `main`, connected to any seed (Playtest1 is fi
 ### R4, needed by 54: the Tracker tab
 - Does the client show a **Tracker** tab next to Archipelago/Hints? Does it update within a second or two when an item arrives or a check is sent? Is it readable (font, scrolling)? A screenshot or a short note.
 
+### R5, needed by 60: Practice runs start with the packs' power (and no double life)
+- Note `/received`: how many `+0.50 Power` and `+1 Life`. Start a Practice run: is the power 0.50 × packs (at most 4.00), and the lives as before?
+- In the menu, `/send <slot> +0.50 Power` and `/send <slot> +1 Life`, then start Practice: exactly +0.50 power and one more star (batch 50 R4 got two)?
+- Pause → Retry: does the power stay?
+
 ## Decisions to confirm
 - 59: `min_lives` adds to the +1 Life count (not a floor), so every item still raises the start. OK?
 
