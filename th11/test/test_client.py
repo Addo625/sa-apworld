@@ -10,7 +10,7 @@ from ..patching import PatchMismatch, safe_patch
 from ..probe import format_probe, memsearch, parse_address, parse_pattern, ptrscan
 
 BASE = 0x400000
-CAPTURE_ENTRIES = ["ADDR_SPELL_ID", "ADDR_SPELL_BONUS", "ADDR_SPELL_HISTORY"]
+CAPTURE_ENTRIES = ["ADDR_SPELL_CARDS"]
 THCRAP =Path(__file__).resolve().parents[2] / ".games/sa/thcrap/repos/nmlgc/base_tsa"
 GAME = Path(__file__).resolve().parents[2] / ".games/sa/th11.exe"
 
@@ -68,12 +68,10 @@ class TestProbe(unittest.TestCase):
 
 	def test_probe_lists_capture_entries(self):
 		memory = FakeMemory()
-		memory.set(BASE + 0xC343C, (0x14AF998).to_bytes(4, "little"))
-		memory.set(0x14AF998 + 0x6E8, (5).to_bytes(4, "little"))
+		memory.set(BASE + 0xA8EBC, (0x14AF998).to_bytes(4, "little"))
+		memory.set(0x14AF998 + 0x66C, (5).to_bytes(4, "little"))
 		lines = format_probe(memory, Variables.PROBE_TABLE).splitlines()
-		self.assertIn("ADDR_SPELL_HISTORY = 5 (addr 0x014B0080)", lines)
-		self.assertIn("ADDR_SPELL_ID = <unsourced>", lines)
-		self.assertIn("ADDR_SPELL_BONUS = <unsourced>", lines)
+		self.assertIn("ADDR_SPELL_CARDS = 5 (addr 0x014B0004)", lines)
 
 
 class TestMemsearch(unittest.TestCase):
@@ -325,6 +323,45 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		await ctx.poll(midboss_gone, state, runs)  # the next tick: nothing new
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertEqual(midboss_gone.writes, [])
+
+	async def test_poll_sends_capture_once(self):
+		"""24: a card's capture count rising in the live save sends the last run's stage's next capture check, once. The
+		save is read on menus only; the first read is the baseline; a card the character captured before (with any shot,
+		or as stored on the server after a crash lost it from the save) sends nothing."""
+		import struct
+		from unittest import mock
+		from ..Locations import location_table
+		from .. import Client, scoredat
+		save, size = 0x5000000, Variables.SPELL_CARD_COUNT * Variables.SPELL_CARD_SIZE
+
+		def set_counts(memory, kisume=0, other_shot=0):
+			for shot, count in enumerate([kisume, other_shot, 0, 0, 0, 0]):
+				block = bytearray(size)
+				struct.pack_into("<i", block, 1 * Variables.SPELL_CARD_SIZE + Variables.SPELL_CLEAR_OFFSET, count)
+				memory.set(save + Variables.ADDR_SPELL_CARDS[1] + shot * scoredat.CLEAR_SIZE, bytes(block))
+
+		async def run(*counts, stored=None):
+			"""A run, then a menu, per (Reimu A, Reimu B) Kisume capture counts -> the LocationChecks sent."""
+			play, menu = game_memory(lives=2), menu_memory(0, 0)
+			for memory in (play, menu):
+				memory.set(BASE + Variables.ADDR_SPELL_CARDS[0], save.to_bytes(4, "little"))
+			ctx = self.context(*UNLOCKED)
+			ctx.slot_data = {"spell_card_keys": 1, "captures_per_stage": 2}
+			ctx.stored_data[ctx.capture_key()] = stored
+			state, runs = None, 0
+			for kisume, other_shot in counts:  # only the menu reads the save, so `menu` is the one game process
+				for memory in (play, menu):
+					set_counts(memory, kisume, other_shot)
+					state, runs = await ctx.poll(memory, state, runs)
+			return [msg for msg in ctx.sent if msg["cmd"] == "LocationChecks"]
+
+		capture = [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Stage 1 - Capture 1"],)}]
+		with mock.patch.object(Client, "CAPTURE_READ_SECONDS", 0):
+			self.assertEqual(await run((0, 0), (1, 0)), capture)
+			self.assertEqual(await run((0, 0), (1, 0), (2, 0)), capture)  # the same card again
+			self.assertEqual(await run((1, 0)), [])  # the first read is the baseline
+			self.assertEqual(await run((0, 1), (1, 1)), [])  # Reimu B had it: not a new card for Reimu
+			self.assertEqual(await run((0, 0), (1, 0), stored={"Reimu:1": 1}), [])  # captured before a crash lost it
 
 	async def test_poll_plays_item_sound_once(self):
 		from unittest import mock

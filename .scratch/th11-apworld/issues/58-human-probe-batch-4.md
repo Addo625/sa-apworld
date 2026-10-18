@@ -29,7 +29,15 @@ Setup: the client from the latest `main`, connected to any seed (Playtest1 is fi
 - In the menu, `/send <slot> +0.50 Power` and `/send <slot> +1 Life`, then start Practice: exactly +0.50 power and one more star (batch 50 R4 got two)?
 - Pause → Retry: does the power stay?
 
+### R6, needed by 24: a spell capture sends a capture check
+Seed `AP_96277890279384246223`, slot **`Playtest2`** (Playtest1's settings + `spell_card_keys: alongside`): `python MultiServer.py output/AP_96277890279384246223.zip`. Captures persist in the save, so use one where Kisume's Lunatic card was never captured with that character (e.g. a fresh save).
+- Practice Stage 1, Lunatic (Kisume's card exists on Hard/Lunatic only). Capture Kisume's card: does the client log `Spell card 1 captured: [<character>] Stage 1 - Capture 1` right away, or only when the run ends?
+- Capture the same card again in a later run: nothing new is sent.
+- Fail a card (bomb or get hit): nothing is sent.
+- Paste the client lines.
+
 ## Decisions to confirm
+- 24: once R6 passes, `spell_card_keys` defaults to `alongside` (the target from 21). Until then it stays `off`.
 - 59: `min_lives` adds to the +1 Life count (not a floor), so every item still raises the start. OK?
 
 ## Comments
