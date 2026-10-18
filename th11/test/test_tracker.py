@@ -34,8 +34,9 @@ class TestTracker(unittest.TestCase):
 
 	def test_checks_left_drop_when_checked(self):
 		line = lambda missing: stage_line(report(["Marisa C - Nitori"], missing, SLOT), "Marisa C", 1)
-		self.assertIn("3 checks left", line(MARISA))
-		self.assertIn("2 checks left", line([name for name in MARISA if name != "[Marisa] Kisume - Midboss"]))
+		self.assertIn("left: 3 boss checks", line(MARISA))
+		self.assertIn("left: 2 boss checks", line([name for name in MARISA if name != "[Marisa] Kisume - Midboss"]))
+		self.assertIn("left: 3 boss checks, 1 capture", line(MARISA + ["[Marisa] Stage 1 - Capture 1"]))
 		self.assertIn("all checked", line([]))
 
 	def test_goal_line(self):
@@ -43,7 +44,7 @@ class TestTracker(unittest.TestCase):
 		self.assertIn("DONE", report(["[Marisa] Ending - Utsuho"], [], SLOT)[0])
 
 	def test_location_stage(self):
-		self.assertEqual(location_stage("[Hard][Marisa C] Parsee Defeated"), ("Marisa C", 2))
-		self.assertEqual(location_stage("[Reimu] Stage Extra Clear"), ("Reimu", 7))
-		self.assertEqual(location_stage("Stage 3 - Capture 2"), (None, 3))
-		self.assertEqual(location_stage("[Marisa] Cat Orin - Second Appearance"), ("Marisa", 4))
+		self.assertEqual(location_stage("[Hard][Marisa C] Parsee Defeated"), ("Marisa C", 2, False))
+		self.assertEqual(location_stage("[Reimu] Stage Extra Clear"), ("Reimu", 7, False))
+		self.assertEqual(location_stage("Stage 3 - Capture 2"), (None, 3, True))
+		self.assertEqual(location_stage("[Marisa] Cat Orin - Second Appearance"), ("Marisa", 4, False))
