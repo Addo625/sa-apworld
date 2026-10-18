@@ -17,7 +17,7 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, traps
+from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, tracker, traps
 from .Items import item_table
 from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
@@ -234,6 +234,12 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(f"Write log {state}")
 		return True
 
+	def _cmd_tracker(self):
+		"""Show each stage's gate, what you have toward it, and the checks left (also in the Tracker tab)"""
+		for line in self.ctx.tracker_lines():
+			logger.info(line)
+		return True
+
 	def _cmd_launch(self):
 		"""Launch Touhou SA"""
 		game_exe = get_settings().touhou_sa_settings.game_exe
@@ -288,6 +294,33 @@ class TouhouContext(CommonContext):
 			await super().server_auth(password_requested)
 		await self.get_username()
 		await self.send_connect()
+
+	def tracker_lines(self):
+		if not self.slot_data:
+			return ["Connect to see the tracker."]
+		missing = [LOCATION_NAMES.get(location) for location in self.missing_locations - self.locations_found]
+		return tracker.report(self.received_names(), filter(None, missing), self.slot_data)
+
+	def make_gui(self):
+		manager, ctx = super().make_gui(), self
+
+		class TouhouManager(manager):
+			def build(self):
+				container = super().build()
+				from kivy.clock import Clock
+				from kivy.uix.label import Label
+				from kivy.uix.scrollview import ScrollView
+				label = Label(size_hint_y=None, halign="left", valign="top", padding=(10, 10))
+				label.bind(width=lambda widget, width: setattr(widget, "text_size", (width, None)),
+					texture_size=lambda widget, size: setattr(widget, "height", size[1]))
+				view = ScrollView()
+				view.add_widget(label)
+				self.add_client_tab("Tracker", view)
+				# ponytail: redraws every second; hook ReceivedItems/RoomUpdate if this ever costs anything.
+				Clock.schedule_interval(lambda dt: setattr(label, "text", "\n".join(ctx.tracker_lines())), 1)
+				return container
+
+		return TouhouManager
 
 	def received_names(self):
 		return [ITEM_NAMES.get(item.item) for item in self.items_received]

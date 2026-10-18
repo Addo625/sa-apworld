@@ -1,6 +1,6 @@
 # 50: [human] Probe batch 3
 
-Status: ready-for-human
+Status: done
 Blocked by: None
 
 ## Problem
@@ -36,3 +36,12 @@ Setup: one `th11.exe` from `.games/sa` with a **brand-new save** (none in the fo
 - None.
 
 ## Comments
+
+- 2026-10-18 human (via Claude, from `.agent-loop/50-simplified-results.md`):
+  - **R1:** Options screen: `ADDR_MENU = 1`, `ADDR_MENU_CURSOR = 3`, `ADDR_GAME_FLAGS = 4` (`ADDR_MENU_PTR` 0x394D0E8). The guard still moves the cursor there. The difficulty and shot select comparisons weren't pasted; probe 06 had the difficulty select at flags 0 and the character/shot select at 4. → 48.
+  - **R2:** the install worked (`write 0x004CAF00` after `+1 Life`, no crash), and `/peek 429058 5` = `e8 a3 1e 06 00`. → 40: sound on by default.
+  - **R3:** a normal Start run into Stage 2 sent Stage 2 checks. Not a 52 bug: Kisume's midboss gave `Next Stage` in the same run, so Stage 2 was open. But losing to Parsee in that run sent `Parsee Defeated` + `Stage 2 Clear`. → 55 (Practice seeds ignore Start runs), 56 (deferred: block Start), 57 (a boss loss isn't a kill).
+  - **R4:** set aside by the human (Practice lives look doubled when an item arrives mid-run); Q1 → 59 `min_lives`.
+  - **R5:** buzzer and HUD OK.
+  - **Q2:** the gates can't be tracked → 54 (Tracker tab).
+  - The full playtest comes in a separate file.

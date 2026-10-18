@@ -62,6 +62,14 @@ With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clea
 3. Launch the Touhou SA client found in the Archipelago launcher.
 4. Connect the client to the server.
 
+### Tracker
+The client's **Tracker** tab (or `/tracker`) shows, for each shot type you have, every stage as:
+- **OPEN**: in logic, the stage is unlocked and you have everything its gate expects;
+- **PLAYABLE**: the game lets you play it, but logic expects more first (e.g. `+0.50 Power 0/2, Hard: Lower Difficulty 0/1`);
+- **LOCKED**: it still needs its stage item (`Next Stage 1/2`, `Stage 3`, `Extra Stage`).
+
+Each line also counts the checks left on that stage. The top shows the goal's progress and your `+1 Life`, power and Lower Difficulty counts.
+
 ## Linux / macOS (Wine) Notes
 
 The Windows version of Archipelago must be installed in the same Wine prefix as Touhou.
