@@ -347,7 +347,11 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			self.assertIn("pending the sound cave", "\n".join(logs.output))
 			self.assertEqual(memory.writes, [lives])
 
-	async def test_item_sound_off_by_default_writes_no_cave(self):
+	async def test_item_sound_on_by_default(self):
+		from ..Client import TouhouContext
+		self.assertTrue(TouhouContext().item_sound)  # batch 50 R2: the suspended hook install no longer crashes
+
+	async def test_item_sound_off_writes_no_cave(self):
 		memory = game_memory(lives=2)
 		await self.context("+1 Life").poll(memory, None, 0)
 		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # no cave, hook or sound id
