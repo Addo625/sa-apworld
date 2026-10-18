@@ -274,6 +274,7 @@ def menu_memory(menu, cursor):
 	memory, menu_object = FakeMemory(), 0x3100000
 	memory.set(BASE + Variables.ADDR_MENU_PTR, menu_object.to_bytes(4, "little"))
 	memory.set(BASE + Variables.ADDR_ENEMY_MANAGER, bytes(4))
+	memory.set(BASE + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"])  # vanilla code (49)
 	memory.set(menu_object + Variables.ADDR_MENU[1], menu.to_bytes(4, "little"))
 	memory.set(menu_object + Variables.ADDR_MENU_CURSOR[1], cursor.to_bytes(4, "little"))
 	return memory
@@ -289,6 +290,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 	def context(self, *items, sound=False):
 		from ..Client import TouhouContext
 		ctx = TouhouContext()  # needs the running loop
+		ctx.patch_practice_lives = lambda controller, lives: None  # tested on its own (49)
 		ctx.item_sound = sound
 		ctx.slot = 1
 		ctx.missing_locations = set(range(Variables.STARTING_ID, Variables.STARTING_ID + 1000))
@@ -345,7 +347,11 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			self.assertIn("pending the sound cave", "\n".join(logs.output))
 			self.assertEqual(memory.writes, [lives])
 
-	async def test_item_sound_off_by_default_writes_no_cave(self):
+	async def test_item_sound_on_by_default(self):
+		from ..Client import TouhouContext
+		self.assertTrue(TouhouContext().item_sound)  # batch 50 R2: the suspended hook install no longer crashes
+
+	async def test_item_sound_off_writes_no_cave(self):
 		memory = game_memory(lives=2)
 		await self.context("+1 Life").poll(memory, None, 0)
 		self.assertEqual(memory.writes, [(BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))])  # no cave, hook or sound id
@@ -588,3 +594,18 @@ class TestHookInstallFreezesGame(unittest.IsolatedAsyncioTestCase):
 		hook, cave = BASE + Variables.ADDR_SOUND_HACK_1, BASE + Variables.ADDR_SOUND_HACK_2
 		self.assertLess(events.index(("write", cave)), events.index("suspend"))
 		self.assertEqual(events[events.index("suspend") + 1:events.index("resume")], [("write", hook)])
+
+
+class TestPracticeLivesPatch(unittest.IsolatedAsyncioTestCase):
+	async def test_patched_from_a_menu_with_received_lives(self):
+		"""49: outside a run, the Practice init's lives become the received +1 Life count; once per value."""
+		from ..Client import TouhouContext
+		ctx = TouhouContext()
+		ctx.slot, ctx.items_received = 1, received("Reimu A - Yukari", "+1 Life", "+1 Life")
+		memory = menu_memory(0, 0)
+		await ctx.poll(memory, None, 0)
+		site = BASE + Variables.ADDR_PRACTICE_STARTING_LIVES
+		self.assertIn((site, Variables.PRACTICE_STARTING_LIVES_CODE(2)), memory.writes)
+		memory.writes.clear()
+		await ctx.poll(memory, None, 0)
+		self.assertNotIn(site, [address for address, _ in memory.writes])

@@ -151,26 +151,28 @@ def set_rules(world):
 				state.has("Lower Difficulty", player, lower)
 			))
 
-	goal, required = options.goal.value, options.ending_required.value
-	world.multiworld.completion_condition[player] = lambda state: goal_met(lambda name: state.count(name, player), goal, required)
+	utsuho, shots, koishi = options.utsuho_endings.value, options.utsuho_shots.value, options.koishi_endings.value
+	world.multiworld.completion_condition[player] = lambda state: goal_met(lambda name: state.count(name, player), utsuho, shots, koishi)
 
 
-def goal_endings(goal):
-	"""Ending items the goal option (0 utsuho, 1 koishi, 2 both) needs."""
-	return [[ENDING_NORMAL_ITEM], [ENDING_EXTRA_ITEM], [ENDING_NORMAL_ITEM, ENDING_EXTRA_ITEM]][goal]
+def goal_endings(koishi):
+	"""Ending items the goal needs: Utsuho always, Koishi unless koishi_endings is none."""
+	return [ENDING_NORMAL_ITEM] + ([ENDING_EXTRA_ITEM] if koishi else [])
 
 
-def goal_met(count, goal, ending_required):
-	"""count(item name) -> int. ending_required: 0 once, 1 both characters, 2 all shot types
-	(each shot's clear holds one "[<character>] Ending", so one per shot)."""
-	for ending in goal_endings(goal):
-		if ending_required == 0:
-			met = any(count(f"[{character}] {ending}") for character in CHARACTERS_LIST)
-		else:
-			met = all(
-				count(f"[{character}] {ending}") >= (len(CHARACTER_TO_ITEM[character]) if ending_required == 2 else 1)
-				for character in CHARACTERS_LIST
-			)
-		if not met:
-			return False
-	return True
+def ending_count_met(count, ending, mode, shots=6):
+	"""mode 0: either character; 1: both characters; 2: at least `shots` endings in total (shot_types: each shot's
+	clear holds one "[<character>] Ending", so the endings of both characters add up to the shots that cleared)."""
+	per_character = [count(f"[{character}] {ending}") for character in CHARACTERS_LIST]
+	if mode == 0:
+		return any(per_character)
+	if mode == 1:
+		return all(per_character)
+	return sum(per_character) >= shots
+
+
+def goal_met(count, utsuho, utsuho_shots, koishi):
+	"""count(item name) -> int. Both parts must hold: Utsuho's (utsuho_endings, utsuho_shots) and Koishi's
+	(koishi_endings: 0 none, 1 once, 2 both characters)."""
+	return ending_count_met(count, ENDING_NORMAL_ITEM, utsuho, utsuho_shots) and (
+		not koishi or ending_count_met(count, ENDING_EXTRA_ITEM, koishi - 1))

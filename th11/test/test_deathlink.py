@@ -69,6 +69,7 @@ class ClientCase(unittest.IsolatedAsyncioTestCase):
 	def context(self, *items):
 		from ..Client import TouhouContext
 		ctx = TouhouContext()
+		ctx.patch_practice_lives = lambda controller, lives: None  # tested on its own (49)
 		ctx.slot = 1
 		ctx.items_received = received(*items)
 		ctx.tags.add("DeathLink")

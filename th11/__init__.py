@@ -58,6 +58,13 @@ class TWorld(World):
 
 	def generate_early(self):
 		options = self.options
+		# The goal's needs first: they change who owns checks and whether Extra exists.
+		if options.utsuho_endings == options.utsuho_endings.option_shot_types and not options.shot_type:
+			logging.warning(f"{self.player_name}: utsuho_endings: shot_types needs shot_type; turning it on")
+			options.shot_type.value = True
+		if options.koishi_endings and not options.extra_stage:
+			logging.warning(f"{self.player_name}: koishi_endings needs the Extra stage; extra_stage set to linear")
+			options.extra_stage.value = options.extra_stage.option_linear
 		# Checks belong to characters, or shot types with shot_type; difficulty checks exist per playable difficulty.
 		self.owners = SHOT_TYPE_LIST if options.shot_type else CHARACTERS_LIST
 		self.difficulties = [d for d in DIFFICULTY_LIST if d != "Lunatic" or not options.exclude_lunatic] if options.difficulty_check else []
@@ -68,11 +75,6 @@ class TWorld(World):
 		# Too few locations for 30 stage items without extra checks (EoSD).
 		if options.stage_unlock == options.stage_unlock.option_by_shot_type and not (options.shot_type or options.difficulty_check):
 			options.stage_unlock.value = options.stage_unlock.option_by_character
-		# Koishi needs the Extra stage, and all shot types needs shot-type checks (EoSD).
-		if not options.extra_stage:
-			options.goal.value = options.goal.option_utsuho
-		if options.ending_required == options.ending_required.option_all_shot_types and not options.shot_type:
-			options.ending_required.value = options.ending_required.option_both_characters
 		self.unlock_groups = {
 			options.stage_unlock.option_global: [""],
 			options.stage_unlock.option_by_character: CHARACTERS_LIST,
@@ -102,7 +104,7 @@ class TWorld(World):
 	def create_items(self):
 		total_locations = len(self.multiworld.get_unfilled_locations(self.player))
 
-		endings = goal_endings(self.options.goal.value)
+		endings = goal_endings(self.options.koishi_endings.value)
 		for owner in self.owners:
 			for ending, level in zip([ENDING_NORMAL_ITEM, ENDING_EXTRA_ITEM], [6, "Extra"]):
 				if ending in endings:
@@ -162,10 +164,9 @@ class TWorld(World):
 				"number_life_mid", "power_mid", "difficulty_mid",
 				"number_life_end", "power_end", "difficulty_end",
 				"extra_stage", "number_life_extra", "power_extra",
-				# goal and ending_required are in effect (koishi/both without Extra read utsuho,
-				# all_shot_types without shot_type reads both_characters).
-				"goal", "ending_required",
-				"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives",
+				# The goal (both parts must hold); shot_type/extra_stage above already include what it turned on.
+				"utsuho_endings", "utsuho_shots", "koishi_endings",
+				"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives", "min_lives",
 				# spell_card_keys is the mode in effect (keys_only without keys reads alongside).
 				"spell_card_keys", "captures_per_stage", "capture_slots",
 			),

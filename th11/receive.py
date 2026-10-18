@@ -39,18 +39,32 @@ class Received:
 		return any(self.count[name] for name in names)
 
 
-def extra_shots(item_names, slot_data):
+def extra_shots(item_names, slot_data, cleared=()):
 	"""-> indexes (SHOT_TYPE_LIST order, the game's char * 3 + shot) of received shots whose Extra the items open.
-	A normal-mode linear Extra is left to the game (its own clear unlocks it)."""
+	A normal-mode linear Extra opens for the received shots of each owner (character, or shot with shot_type) whose
+	Stage 6 Clear is checked: logic expects Extra once Stage 6 is beaten, the game only after a no-continue clear (Q3)."""
 	extra = slot_data.get("extra_stage", ExtraStage.default)
 	apart = extra == ExtraStage.option_apart
 	normal = slot_data.get("mode", Mode.option_practice) != Mode.option_practice
-	if not extra or (normal and not apart):
+	if not extra:
 		return set()
+	if normal and not apart:
+		return {i for i, shot in enumerate(Variables.SHOT_TYPE_LIST) if Variables.CHARACTER_TO_ITEM[shot][0] in item_names
+			and (shot in cleared or Variables.SHOT_TO_CHARACTER[shot] in cleared)}
 	state, group = Received(item_names), SHOT_GROUP[slot_data.get("stage_unlock", StageUnlock.default)]
 	progressive = slot_data.get("progressive_stage", ProgressiveStage.default)
 	return {i for i, shot in enumerate(Variables.SHOT_TYPE_LIST) if state.has(Variables.CHARACTER_TO_ITEM[shot][0], None)
 		and stage_unlocked(state, None, group(shot), 7, progressive, apart, normal)}
+
+
+def stage_open(item_names, slot_data, shot, level):
+	"""Whether the received items open `level` (1-6, Extra 7) for `shot`, as logic and Practice see it. A run on a
+	stage they don't open sends no checks, so playing ahead (or a natural unlock in the save) can't skip a gate (52, 45)."""
+	group = SHOT_GROUP[slot_data.get("stage_unlock", StageUnlock.default)](shot)
+	progressive = slot_data.get("progressive_stage", ProgressiveStage.default)
+	apart = slot_data.get("extra_stage", ExtraStage.default) == ExtraStage.option_apart
+	normal = slot_data.get("mode", Mode.option_practice) != Mode.option_practice
+	return stage_unlocked(Received(list(item_names)), None, group, level, progressive, apart, normal)
 
 
 def extra_unlock(current: bytes, shots):
@@ -156,7 +170,13 @@ def continue_lives(item_names, limit_lives=MAX_LIVES):
 	return min(list(item_names).count("+1 Life"), 8, limit_lives)
 
 
+def practice_lives(item_names, slot_data, limit_lives=MAX_LIVES):
+	"""Spare lives a Practice run starts with: min_lives + one per +1 Life received, at most limit_lives (and 9)."""
+	return min(slot_data.get("min_lives", 0) + list(item_names).count("+1 Life"), MAX_LIVES, limit_lives)
+
+
 def goal_reached(item_names, slot_data):
-	"""Ending items received meet slot_data's goal and ending_required (missing: Utsuho once)."""
+	"""Ending items received meet slot_data's goal (missing: Utsuho once, no Koishi)."""
 	item_names = list(item_names)
-	return goal_met(item_names.count, slot_data.get("goal", 0), slot_data.get("ending_required", 0))
+	return goal_met(item_names.count, slot_data.get("utsuho_endings", 0), slot_data.get("utsuho_shots", 6),
+		slot_data.get("koishi_endings", 0))

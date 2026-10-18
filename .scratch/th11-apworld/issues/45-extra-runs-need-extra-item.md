@@ -1,6 +1,6 @@
 # 45: An Extra run without its Extra item sends no checks
 
-Status: deferred
+Status: done
 Blocked by: 33
 
 ## Problem
@@ -20,3 +20,6 @@ Blocked by: 33
 
 ## Deferred
 - None.
+
+## Comments
+- 2026-10-18 Claude (human promoted it; coded directly): Extra is stage 7 in 52's `stage_open`, so a run on Extra without that shot's Extra item (apart), or without enough Next Stage (linear), sends no checks. **Q3 (human decision):** in normal mode with `linear` Extra, the client sets a shot's Extra bit once its owner's `Stage 6 Clear` is checked (`receive.extra_shots(..., cleared)`, `Client.stage6_cleared`), instead of waiting for the game's no-continue clear.

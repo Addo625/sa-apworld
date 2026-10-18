@@ -17,8 +17,9 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, traps
+from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, tracker, traps
 from .Items import item_table
+from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
@@ -26,6 +27,7 @@ from .probe import float_candidates, format_probe, memsearch, parse_address, par
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
+LOCATION_NAMES = {code: name for name, code in location_table.items()}
 POLL_SECONDS = 0.5
 MEMSEARCH_CAP = 50
 DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
@@ -215,12 +217,12 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		return True
 
 	def _cmd_itemsound(self, state: str = ""):
-		"""Item sounds on/off (off by default: the sound cave is being fixed, ticket 40)"""
+		"""Item sounds on/off (on by default)"""
 		if state not in ("on", "off"):
 			logger.info(f"Item sounds are {'on' if self.ctx.item_sound else 'off'}. Usage: /itemsound on|off")
 			return False
 		self.ctx.item_sound = state == "on"
-		logger.info(f"Item sounds {state}" + (" (experimental: may crash the game, ticket 40)" if state == "on" else ""))
+		logger.info(f"Item sounds {state}")
 		return True
 
 	def _cmd_writelog(self, state: str = ""):
@@ -230,6 +232,12 @@ class TouhouClientProcessor(ClientCommandProcessor):
 			return False
 		probe.write_log = state == "on"
 		logger.info(f"Write log {state}")
+		return True
+
+	def _cmd_tracker(self):
+		"""Show each stage's gate, what you have toward it, and the checks left (also in the Tracker tab)"""
+		for line in self.ctx.tracker_lines():
+			logger.info(line)
 		return True
 
 	def _cmd_launch(self):
@@ -258,7 +266,8 @@ class TouhouContext(CommonContext):
 		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
-		self.item_sound = False  # /itemsound on: the sound cave (40) crashed its first run, so it's opt-in
+		self.practice_lives = None  # the same for Practice's starting lives (49)
+		self.item_sound = True  # /itemsound off: no cave or hook is written
 		self.sound_cave = None  # controller the sound cave is installed in
 		self.practice_ours = (None, set())  # (controller, practice entries this client unlocked in that game process)
 		self.traps = traps.TrapState()
@@ -285,6 +294,33 @@ class TouhouContext(CommonContext):
 			await super().server_auth(password_requested)
 		await self.get_username()
 		await self.send_connect()
+
+	def tracker_lines(self):
+		if not self.slot_data:
+			return ["Connect to see the tracker."]
+		missing = [LOCATION_NAMES.get(location) for location in self.missing_locations - self.locations_found]
+		return tracker.report(self.received_names(), filter(None, missing), self.slot_data)
+
+	def make_gui(self):
+		manager, ctx = super().make_gui(), self
+
+		class TouhouManager(manager):
+			def build(self):
+				container = super().build()
+				from kivy.clock import Clock
+				from kivy.uix.label import Label
+				from kivy.uix.scrollview import ScrollView
+				label = Label(size_hint_y=None, halign="left", valign="top", padding=(10, 10))
+				label.bind(width=lambda widget, width: setattr(widget, "text_size", (width, None)),
+					texture_size=lambda widget, size: setattr(widget, "height", size[1]))
+				view = ScrollView()
+				view.add_widget(label)
+				self.add_client_tab("Tracker", view)
+				# ponytail: redraws every second; hook ReceivedItems/RoomUpdate if this ever costs anything.
+				Clock.schedule_interval(lambda dt: setattr(label, "text", "\n".join(ctx.tracker_lines())), 1)
+				return container
+
+		return TouhouManager
 
 	def received_names(self):
 		return [ITEM_NAMES.get(item.item) for item in self.items_received]
@@ -330,9 +366,10 @@ class TouhouContext(CommonContext):
 		lower = self.received_names().count("Lower Difficulty")
 		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
 		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots) if prev else ([], 0)
+		received = self.received_names() if shots is not None else None
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received) if prev else ([], 0)
 		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
-			locked = detect.locked(state, shots, lower, self.slot_data)
+			locked = detect.locked(state, shots, lower, self.slot_data, received)
 			if locked:  # nothing in game says so (probe 32 R6 M3)
 				logger.info(f"{locked} isn't unlocked: this run sends no checks")
 		if self.slot is None or prev is None:
@@ -344,7 +381,7 @@ class TouhouContext(CommonContext):
 		self.locations_found.update(locations)
 		if shots is not None:  # with the items in, for the lock filter and check_multiple_difficulty
 			for found, run in self.runs_found:
-				if not detect.locked(found, shots, lower, self.slot_data):
+				if not detect.locked(found, shots, lower, self.slot_data, received):
 					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower))
 			self.runs_found.clear()
 		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)
@@ -359,7 +396,7 @@ class TouhouContext(CommonContext):
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them
-		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data))
+		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data, self.stage6_cleared()))
 		if shots is not None:
 			self.unlock_practice(controller, receive.practice_open(names, self.slot_data))
 		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
@@ -393,7 +430,14 @@ class TouhouContext(CommonContext):
 		self.link_prev = receive.with_writes(written, ring_writes)
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
+		if self.slot is not None and not state.in_game:  # the patched code runs at run start: patch it from a menu
+			self.patch_practice_lives(controller, receive.practice_lives(names, self.slot_data, self.limit_lives))
 		return state, runs
+
+	def stage6_cleared(self):
+		"""Owners (character, or shot with shot_type) whose Stage 6 Clear is checked, for a normal-mode linear Extra."""
+		names = {LOCATION_NAMES.get(location) for location in self.checked_locations | self.locations_found}
+		return {name[1:].split("] ")[0] for name in names if name and name.endswith("] Stage 6 Clear")}
 
 	def unlock_extra(self, controller, shots):
 		"""Set the Extra bit of `shots` in the live save; the menus read it, so no run is needed. Skipped until the save loads."""
@@ -429,7 +473,6 @@ class TouhouContext(CommonContext):
 		if kind is None:
 			return
 		if not self.item_sound:
-			# ponytail: the cave crashed the game on its first real run (batch 32, 2026-10-11); opt-in until 40 fixes it.
 			return
 		sound_id = Variables.SOUND_IDS[kind]
 		if Variables.ADDR_CUSTOM_SOUND_ID is None or sound_id is None:
@@ -462,9 +505,22 @@ class TouhouContext(CommonContext):
 			logger.info(f"Continue lives ({lives}): pending the continue-lives code site (probe batch 32, R2)")
 			return
 		try:
-			patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
+			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
+				patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
 		except PatchMismatch as e:
 			logger.error(f"Continue lives not patched, unexpected game code: {e}")
+
+
+	def patch_practice_lives(self, controller, lives):
+		"""Practice runs start with the lives from items, not the game's 9 (49, as EoSD). Once per value and game process."""
+		if self.practice_lives == (controller, lives):
+			return
+		self.practice_lives = (controller, lives)
+		try:
+			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
+				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"], Variables.PRACTICE_STARTING_LIVES_CODE, lives)
+		except PatchMismatch as e:
+			logger.error(f"Practice lives not patched, unexpected game code: {e}")
 
 
 async def game_loop(ctx: TouhouContext):

@@ -137,24 +137,36 @@ class PowerExtra(Range):
 	default = 0
 
 
-class Goal(Choice):
-	"""Which boss's ending is the goal. koishi and both need the Extra stage; without it the goal is utsuho."""
-	display_name = "Goal"
-	option_utsuho = 0
-	option_koishi = 1
-	option_both = 2
+class UtsuhoEndings(Choice):
+	"""How many Utsuho endings (Stage 6 clears) the goal needs.
+	once: with either character.
+	both_characters: with Reimu and with Marisa.
+	shot_types: with utsuho_shots different shot types; turns shot_type on (endings sit on each shot's Stage 6 Clear)."""
+	display_name = "Utsuho endings required"
+	option_once = 0
+	option_both_characters = 1
+	option_shot_types = 2
 	default = 0
 
 
-class EndingRequired(Choice):
-	"""How many times each goal ending is needed.
+class UtsuhoShots(Range):
+	"""With utsuho_endings: shot_types, how many shot types must clear Stage 6."""
+	display_name = "Utsuho shot types required"
+	range_start = 1
+	range_end = 6
+	default = 6
+
+
+class KoishiEndings(Choice):
+	"""How many Koishi endings (Extra clears) the goal needs, on top of Utsuho's.
+	none: Koishi isn't part of the goal.
 	once: with either character.
 	both_characters: with Reimu and with Marisa.
-	all_shot_types: with every shot type; needs shot_type, otherwise acts as both_characters."""
-	display_name = "Ending required"
-	option_once = 0
-	option_both_characters = 1
-	option_all_shot_types = 2
+	Anything but none turns the Extra stage on (linear) if it's excluded."""
+	display_name = "Koishi endings required"
+	option_none = 0
+	option_once = 1
+	option_both_characters = 2
 	default = 0
 
 
@@ -305,6 +317,15 @@ class LimitLives(Range):
 	default = 9
 
 
+class MinLives(Range):
+	"""Spare lives a Practice run starts with before any +1 Life: it starts with min_lives + your +1 Life items (at most
+	limit_lives). Only the client applies it; logic still counts the +1 Life items for the gates."""
+	display_name = "Minimum Practice lives"
+	range_start = 0
+	range_end = 8
+	default = 0
+
+
 @dataclass
 class TH11Options(PerGameCommonOptions):
 	mode: Mode
@@ -323,8 +344,9 @@ class TH11Options(PerGameCommonOptions):
 	extra_stage: ExtraStage
 	number_life_extra: NumberLifeExtra
 	power_extra: PowerExtra
-	goal: Goal
-	ending_required: EndingRequired
+	utsuho_endings: UtsuhoEndings
+	utsuho_shots: UtsuhoShots
+	koishi_endings: KoishiEndings
 	spell_card_keys: SpellCardKeys
 	captures_per_stage: CapturesPerStage
 	capture_slots: CaptureSlots
@@ -343,3 +365,4 @@ class TH11Options(PerGameCommonOptions):
 	death_link_amnesty: DeathLinkAmnesty
 	ring_link: RingLink
 	limit_lives: LimitLives
+	min_lives: MinLives

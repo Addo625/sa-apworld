@@ -112,7 +112,8 @@ ADDR_EXTRA_UNLOCK = [0x000A8EBC, 0x2DDF0]  # source: probe 32 R1 failed (ST byte
 EXTRA_UNLOCK_BIT = 0x10  # source: 33, as above
 
 # Code patch sites; each carries its original bytes in EXPECTED_BYTES.
-ADDR_PRACTICE_STARTING_LIVES = None  # source: none yet, MoF-analogue of 0x1796A TODO(06)
+ADDR_PRACTICE_STARTING_LIVES = 0x0001FA49  # source: static (49): the game init's Practice branch, `mov dword [0x4A5718], 9`; rewritten by PRACTICE_STARTING_LIVES_CODE so a Practice run starts with the lives from items
+PRACTICE_STARTING_LIVES_CODE = lambda lives: bytes([0xC7, 0x05, 0x18, 0x57, 0x4A, 0x00, lives, 0, 0, 0])  # source: 49; mov dword [lives], lives
 ADDR_NORMAL_CONTINUE_LIVES = 0x0001FA38  # source: static disassembly (34): a continue re-runs the game init, whose non-Practice branch stores esi (mov esi, 2 at 0x41F947, shared with an ANM interrupt) into lives; rewritten by NORMAL_CONTINUE_LIVES_CODE TODO(32 R2)
 NORMAL_CONTINUE_LIVES_CODE = lambda lives: bytes([0xB8, lives, 0, 0, 0, 0xEB, 0x17, 0x90])  # source: 34; mov eax, lives; jmp 0x41FA56 (the Practice branch's mov [lives], eax); nop
 
@@ -121,7 +122,7 @@ NORMAL_CONTINUE_LIVES_CODE = lambda lives: bytes([0xB8, lives, 0, 0, 0, 0xEB, 0x
 ADDR_CUSTOM_SOUND_ID = 0x000CAF00  # source: 40: .data slack past its virtual end 0x4CAE40, mapped (page) and zero, never referenced
 ADDR_SOUND_HACK_1 = 0x00029058  # source: 40: call 0x44A340 (sound queue update) in the supervisor's per-frame calc 0x429030; becomes call cave
 ADDR_SOUND_HACK_2 = 0x0008AF00  # source: 40: zero slack past .text's end 0x48AE15, executable; holds SOUND_CAVE
-SOUND_IDS = {"extend": 0x2C, "power": 0x1D, "ok": 0x0A, "life_lost": 0x04}  # source: 40: sound table 0x4A34F0 -> se_extend, se_powerup, se_ok00; extend 0x420950 and item pickup 0x423ABA play the first two. 43: 0x04 -> se_pldead00 (the player's death)
+SOUND_IDS = {"extend": 0x2C, "power": 0x1D, "ok": 0x0A, "life_lost": 0x25}  # source: 40: sound table 0x4A34F0 -> se_extend, se_powerup, se_ok00; extend 0x420950 and item pickup 0x423ABA play the first two. life_lost: 0x25 se_invalid, the menu buzzer (human decision Q2, was 43's 0x04 se_pldead00), so a trap reads as a trap, not a death
 _SOUND_ID = (0x400000 + ADDR_CUSTOM_SOUND_ID).to_bytes(4, "little")
 SOUND_HOOK = bytes.fromhex("e8 a3 1e 06 00")  # source: 40; call 0x48AF00 (the cave), which tail-jumps to the replaced call's 0x44A340
 SOUND_CAVE = (  # source: 40
@@ -132,7 +133,7 @@ SOUND_CAVE = (  # source: 40
 	+ bytes.fromhex("61 e9 12 f4 fb ff")  # done: popad; jmp 0x44A340
 )
 EXPECTED_BYTES = {
-	"ADDR_PRACTICE_STARTING_LIVES": None,
+	"ADDR_PRACTICE_STARTING_LIVES": bytes.fromhex("c7 05 18 57 4a 00 09 00 00 00"),  # mov dword [lives], 9
 	"ADDR_NORMAL_CONTINUE_LIVES": bytes.fromhex("89 35 18 57 4a 00 eb 1b"),  # mov [lives], esi; jmp 0x41FA5B
 	"ADDR_SOUND_HACK_1": bytes.fromhex("e8 e3 12 02 00"),  # call 0x44A340
 	"ADDR_SOUND_HACK_2": bytes(len(SOUND_CAVE)),

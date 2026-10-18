@@ -3,6 +3,9 @@ Location detection: compares two decoded GameStates. Pure, no memory access.
 """
 from .Locations import location_table
 from .guard import unlocked_difficulties
+from .Options import Mode
+from .receive import stage_open
+from .state import PRACTICE_FLAG
 from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lowest_unlocked
 
 
@@ -38,16 +41,22 @@ def location_names(state, names, slot_data, lower):
 	return located
 
 
-def locked(state, shots, lower, slot_data):
-	"""-> the shot type or difficulty the run plays that the received items don't unlock, or None."""
+def locked(state, shots, lower, slot_data, received=None):
+	"""-> the shot type, difficulty or stage the run plays that the received items don't unlock, or None.
+	received: the item names; None skips the stage check (52/45)."""
 	if state.shot not in shots:
 		return state.shot or "this shot type"
 	if state.difficulty in range(4) and state.difficulty not in unlocked_difficulties(lower, slot_data):
 		return DIFFICULTY_LIST[state.difficulty]
+	if (slot_data.get("mode", Mode.option_practice) == Mode.option_practice and state.stage in range(1, 7)
+		and state.flags is not None and not state.flags & PRACTICE_FLAG):
+		return "Start (the normal game; this seed plays from Practice)"
+	if received is not None and state.stage in range(1, 8) and not stage_open(received, slot_data, state.shot, state.stage):
+		return f"{state.shot} Stage {'Extra' if state.stage == 7 else state.stage}"
 	return None
 
 
-def step(prev, state, runs=0, slot_data=None, lower=0, shots=None):
+def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
 	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected)."""
 	if not prev.in_game or prev.stage != state.stage:
@@ -58,7 +67,7 @@ def step(prev, state, runs=0, slot_data=None, lower=0, shots=None):
 		return [], runs
 	if state.stage not in range(1, 8) or state.character is None:
 		return [], runs + 1
-	if shots is not None and locked(state, shots, lower, slot_data or {}):
+	if shots is not None and locked(state, shots, lower, slot_data or {}, received):
 		return [], runs + 1
 	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
 	return run_locations(state, runs, slot_data or {}, lower), runs + 1

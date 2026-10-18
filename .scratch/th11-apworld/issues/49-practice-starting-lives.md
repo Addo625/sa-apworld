@@ -1,7 +1,7 @@
 # 49: Practice starts with lives from received +1 Life items
 
-Status: deferred
-Blocked by: 50
+Status: done
+Blocked by: None
 
 ## Problem
 Batch 44 (human): Practice always starts with the maximum lives (the game's default, 9), so `+1 Life` items barely matter in Practice mode. EoSD/MoF set Practice starting lives to the received `+1 Life` count (MoF `ADDR_PRACTICE_STARTING_LIVES`, a code-site immediate). SA's `ADDR_PRACTICE_STARTING_LIVES` is unsourced; 34's static scan found the Practice init `mov [0x4A5718], 9` at `0x41FA4B`. The human hasn't decided whether this is wanted ("not sure this should be that way, but sure, for now").
@@ -18,3 +18,6 @@ Batch 44 (human): Practice always starts with the maximum lives (the game's defa
 
 ## Deferred
 - Promote only if the human wants it (decision).
+
+## Comments
+- 2026-10-18 Claude (human promoted it; coded directly): `ADDR_PRACTICE_STARTING_LIVES = 0x41FA49` (the whole `mov dword [0x4A5718], 9`; the earlier `0x41FA4B` was its address operand), rewritten by `PRACTICE_STARTING_LIVES_CODE` to the received `+1 Life` count (capped by `limit_lives`). Patched from a menu, never mid-run, with the game threads suspended (also now for 34's continue patch). No `+1 Life` received → Practice starts with 0 spare lives. Verify in game: a Practice run starts with N lives.
