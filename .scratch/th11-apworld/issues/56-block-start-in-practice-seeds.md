@@ -1,7 +1,7 @@
 # 56: Block Start from the title menu in Practice-mode seeds
 
 Status: deferred
-Blocked by: 55
+Blocked by: 55, 58
 
 ## Problem
 55 makes normal Start runs in a Practice seed send nothing, but the player can still start one and only learns from the client log. The human suggested blocking Start through the menu, as the guard does for locked difficulties.
