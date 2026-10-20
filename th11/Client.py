@@ -401,9 +401,9 @@ class TouhouContext(CommonContext):
 			self.locations_found.clear()
 		names = self.received_names()
 		applied = self.items_applied
-		# ponytail: a Practice retry from the pause menu may not leave play between two polls, and then keeps the
-		# game's start power; detect retries (a run timer?) if batch 58 R5 shows it.
-		started = bool(prev and not prev.in_game and state.in_game and (state.flags or 0) & PRACTICE_FLAG)
+		# A retry never leaves play, so it starts a run too (detect.restarted, batch 61).
+		started = bool(prev and state.in_game and (state.flags or 0) & PRACTICE_FLAG
+			and (not prev.in_game or detect.restarted(prev, state)))
 		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)

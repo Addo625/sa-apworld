@@ -9,6 +9,7 @@ from .probe import read_entry
 STATE_ENTRIES = [
 	"ADDR_ENEMY_MANAGER", "ADDR_IS_BOSS_PRESENT", "ADDR_MENU", "ADDR_MENU_CURSOR", "ADDR_STAGE",
 	"ADDR_DIFFICULTY", "ADDR_CHARACTER", "ADDR_SHOT_TYPE", "ADDR_LIVES", "ADDR_POWER", "ADDR_GAME_FLAGS",
+	"ADDR_SCORE",
 ]
 
 
@@ -33,6 +34,7 @@ class GameState(NamedTuple):
 	lives: Optional[int]  # -1 = game over
 	power: Optional[int]  # units of 0.05, max 80
 	flags: Optional[int] = None  # ADDR_GAME_FLAGS
+	score: Optional[int] = None  # never drops within a run, so a drop in Practice play is a retry
 
 
 def decode_state(values) -> GameState:
@@ -54,6 +56,7 @@ def decode_state(values) -> GameState:
 		lives=values.get("ADDR_LIVES"),
 		power=values.get("ADDR_POWER"),
 		flags=values.get("ADDR_GAME_FLAGS"),
+		score=values.get("ADDR_SCORE"),
 	)
 
 

@@ -56,14 +56,26 @@ def locked(state, shots, lower, slot_data, received=None):
 	return None
 
 
+def restarted(prev, state):
+	"""A Practice run restarted without leaving play (batch 61): Retry at a game over (lives come back from -1) or
+	Give up and Retry (the score drops). Practice only: a normal-mode continue also restores lives, but play goes on."""
+	if not (prev.in_game and state.in_game and state.flags is not None and state.flags & PRACTICE_FLAG):
+		return False
+	if prev.lives == -1 and state.lives is not None and state.lives >= 0:
+		return True
+	return prev.score is not None and state.score is not None and state.score < prev.score
+
+
 def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
 	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected)."""
-	if not prev.in_game or prev.stage != state.stage:
+	restart = restarted(prev, state)
+	if not prev.in_game or prev.stage != state.stage or restart:
 		runs = 0
 	ended = prev.boss_present and not state.boss_present
-	# A drop with a menu exit (S9) or a game over is a quit, not a kill.
-	if not ended or not state.in_game or state.menu is not None or state.lives == -1:
+	# A drop with a menu exit (S9), at or right after a game over (61 R4: lives -1 with the boss still up), or on a
+	# retry is a quit, not a kill.
+	if not ended or not state.in_game or state.menu is not None or -1 in (state.lives, prev.lives) or restart:
 		return [], runs
 	if state.stage not in range(1, 8) or state.character is None:
 		return [], runs + 1

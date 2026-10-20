@@ -363,6 +363,15 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			self.assertEqual(await run((0, 1), (1, 1)), [])  # Reimu B had it: not a new card for Reimu
 			self.assertEqual(await run((0, 0), (1, 0), stored={"Reimu:1": 1}), [])  # captured before a crash lost it
 
+	async def test_retry_restarts_practice_power(self):
+		"""62: Give up and Retry never leaves play; the restarted run still starts at the packs' power, not the game's 4.00."""
+		ctx = self.context(*UNLOCKED, "+0.50 Power")
+		fight = game_memory(lives=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=20000, ADDR_POWER=40)
+		state, runs = await ctx.poll(fight, None, 0)
+		retry = game_memory(lives=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0, ADDR_POWER=80)
+		await ctx.poll(retry, state, runs)
+		self.assertIn((BASE + Variables.ADDR_POWER, (10).to_bytes(4, "little")), retry.writes)
+
 	async def test_poll_plays_item_sound_once(self):
 		from unittest import mock
 		lives = (BASE + Variables.ADDR_LIVES, (3).to_bytes(4, "little"))
