@@ -10,6 +10,7 @@ MARISA = [name for name in location_table if name.startswith("[Marisa] ") and "C
 
 
 def stage_line(lines, shot, stage):
+	"""The stage line in the block whose title starts with `shot` (a character block: its name)."""
 	start = next(i for i, line in enumerate(lines) if line.startswith(shot))
 	return next(line for line in lines[start:] if line.strip().startswith(f"Stage {stage}:"))
 
@@ -17,12 +18,12 @@ def stage_line(lines, shot, stage):
 class TestTracker(unittest.TestCase):
 	def test_fresh_start_opens_stage_1_only(self):
 		lines = report(["Marisa C - Nitori"], MARISA, SLOT)
-		self.assertIn("OPEN", stage_line(lines, "Marisa C", 1))
-		self.assertIn("LOCKED, needs Next Stage 0/1", stage_line(lines, "Marisa C", 2))
+		self.assertIn("OPEN", stage_line(lines, "Marisa", 1))
+		self.assertIn("LOCKED, needs Next Stage 0/1", stage_line(lines, "Marisa", 2))
 
 	def test_open_stage_with_unmet_gate_is_playable(self):
 		lines = report(["Marisa C - Nitori", "Next Stage", "Next Stage", "+1 Life"], MARISA, SLOT)
-		line = stage_line(lines, "Marisa C", 3)
+		line = stage_line(lines, "Marisa", 3)
 		self.assertIn("PLAYABLE", line)
 		self.assertIn("+0.50 Power 0/1", line)
 		self.assertIn("Hard: Lower Difficulty 0/1", line)
@@ -30,14 +31,24 @@ class TestTracker(unittest.TestCase):
 
 	def test_met_gate_is_open(self):
 		items = ["Marisa C - Nitori", "Next Stage", "Next Stage", "+1 Life", "+0.50 Power", "Lower Difficulty"]
-		self.assertIn("Stage 3: OPEN", stage_line(report(items, MARISA, SLOT), "Marisa C", 3))
+		self.assertIn("Stage 3: OPEN", stage_line(report(items, MARISA, SLOT), "Marisa", 3))
 
 	def test_checks_left_drop_when_checked(self):
-		line = lambda missing: stage_line(report(["Marisa C - Nitori"], missing, SLOT), "Marisa C", 1)
+		line = lambda missing: stage_line(report(["Marisa C - Nitori"], missing, SLOT), "Marisa", 1)
 		self.assertIn("left: 3 boss checks", line(MARISA))
 		self.assertIn("left: 2 boss checks", line([name for name in MARISA if name != "[Marisa] Kisume - Midboss"]))
 		self.assertIn("left: 3 boss checks, 1 capture", line(MARISA + ["[Marisa] Stage 1 - Capture 1"]))
 		self.assertIn("all checked", line([]))
+
+	def test_one_block_per_character_unless_shots_differ(self):
+		"""Q1 (batch 61): without shot_type or by_shot_type, a character's shots share everything: one block."""
+		items = ["Reimu A - Yukari", "Reimu C - Aya", "Marisa C - Nitori"]
+		lines = report(items, MARISA, SLOT)
+		self.assertIn("Reimu (A, C)", lines)
+		self.assertIn("Marisa (C)", lines)
+		self.assertFalse(any(line.startswith("Reimu A") for line in lines))
+		per_shot = report(items, MARISA, {**SLOT, "stage_unlock": 2})
+		self.assertIn("Reimu A (checks shared with Reimu)", per_shot)
 
 	def test_goal_line(self):
 		self.assertIn("not yet", report([], [], SLOT)[0])

@@ -69,7 +69,7 @@ With **Spell Card Keys** (experimental): `Stage N - Capture k` for the k-th diff
 **Set the volume (Option screen) before connecting the client.** While connected, the client keeps the menu cursor off locked difficulties, and the Option screen looks like the difficulty select to it, so the cursor jumps off the BGM row.
 
 ### Tracker
-The client's **Tracker** tab (or `/tracker`) shows, for each shot type you have, every stage as:
+The client's **Tracker** tab (or `/tracker`) shows, for each character you have (each shot type with **Shot Type Check** or per-shot stage unlocks), every stage as:
 - **OPEN**: in logic, the stage is unlocked and you have everything its gate expects;
 - **PLAYABLE**: the game lets you play it, but logic expects more first (e.g. `+0.50 Power 0/2, Hard: Lower Difficulty 0/1`);
 - **LOCKED**: it still needs its stage item (`Next Stage 1/2`, `Stage 3`, `Extra Stage`).

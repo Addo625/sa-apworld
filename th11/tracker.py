@@ -89,9 +89,14 @@ def report(item_names, missing_names, slot_data):
 	shots = [shot for shot in SHOT_TYPE_LIST if CHARACTER_TO_ITEM[shot][0] in count]
 	if not shots:
 		lines.append("No shot type received yet.")
-	for shot in shots:
+	# A character's shots share checks and stage unlocks unless shot_type or by_shot_type splits them: one block each.
+	per_shot = slot_data.get("shot_type") or slot_data.get("stage_unlock") == StageUnlock.option_by_shot_type
+	blocks = [(shot, shot) for shot in shots] if per_shot else [
+		(f"{character} ({', '.join(shot.split()[1] for shot in group)})", group[0])
+		for character in CHARACTERS_LIST if (group := [shot for shot in shots if SHOT_TO_CHARACTER[shot] == character])]
+	for title, shot in blocks:
 		owner = shot if slot_data.get("shot_type") else SHOT_TO_CHARACTER[shot]
-		lines += ["", f"{shot}" + ("" if owner == shot else f" (checks shared with {owner})")]
+		lines += ["", title + ("" if not per_shot or owner == shot else f" (checks shared with {owner})")]
 		for level, requirement in enumerate(requirements, 1):
 			bosses, spells = left[(owner, level, False)], left[(owner, level, True)] + left[(None, level, True)]
 			parts = [f"{bosses} boss check{'s' * (bosses != 1)}"] * bool(bosses) + [f"{spells} capture{'s' * (spells != 1)}"] * bool(spells)
