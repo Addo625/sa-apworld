@@ -1,7 +1,7 @@
 # 56: Block Start from the title menu in Practice-mode seeds
 
 Status: deferred
-Blocked by: 55, 61
+Blocked by: 55
 
 ## Problem
 55 makes normal Start runs in a Practice seed send nothing, but the player can still start one and only learns from the client log. The human suggested blocking Start through the menu, as the guard does for locked difficulties.
@@ -11,3 +11,6 @@ Blocked by: 55, 61
 
 ## Deferred
 - None.
+
+## Comments
+- 2026-10-20 Claude: batch 61 R3: the title menu (`ADDR_MENU = 0`) has cursor Start 0, Practice 2 (Extra Start 1). Promoting this is now code only: in Practice seeds, `guard.correct` moves a title cursor of 0 to 2.
