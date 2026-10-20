@@ -31,12 +31,12 @@ Touhou Chireiden ~ Subterranean Animism:
   # ---------------------------------------------------------------- Gates (what logic expects before a stage)
   # Each gate ramps up stage by stage. If a gate can't fit in the checks before its stage, it is
   # lowered (largest resource first) and a warning is printed during generation.
-  number_life_mid: 0            # 0-8: +1 Life items expected before Yuugi and Satori (stages 3-4).
+  number_life_mid: 2            # 0-8: +1 Life items expected before Yuugi and Satori (stages 3-4).
   power_mid: 0                  # 0-8: +0.50 Power packs expected before stages 3-4.
-  difficulty_mid: lunatic       # lunatic / hard / normal / easy: the difficulty expected for stages 3-4.
-  number_life_end: 0            # 0-8: +1 Life items expected before Orin and Utsuho (stages 5-6).
+  difficulty_mid: hard       # lunatic / hard / normal / easy: the difficulty expected for stages 3-4.
+  number_life_end: 4            # 0-8: +1 Life items expected before Orin and Utsuho (stages 5-6).
   power_end: 0                  # 0-8: +0.50 Power packs expected before stages 5-6.
-  difficulty_end: lunatic       # lunatic / hard / normal / easy: the difficulty expected for stages 5-6.
+  difficulty_end: normal       # lunatic / hard / normal / easy: the difficulty expected for stages 5-6.
 
   # ---------------------------------------------------------------- Extra stage
   extra_stage: exclude          # exclude: no Extra stage.
