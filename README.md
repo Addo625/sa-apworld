@@ -66,6 +66,8 @@ With **Spell Card Keys** (experimental): `Stage N - Capture k` for the k-th diff
 3. Launch the Touhou SA client found in the Archipelago launcher.
 4. Connect the client to the server.
 
+**Set the volume (Option screen) before connecting the client.** While connected, the client keeps the menu cursor off locked difficulties, and the Option screen looks like the difficulty select to it, so the cursor jumps off the BGM row.
+
 ### Tracker
 The client's **Tracker** tab (or `/tracker`) shows, for each shot type you have, every stage as:
 - **OPEN**: in logic, the stage is unlocked and you have everything its gate expects;
