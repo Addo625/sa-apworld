@@ -405,6 +405,13 @@ class TouhouContext(CommonContext):
 		started = bool(prev and state.in_game and (state.flags or 0) & PRACTICE_FLAG
 			and (not prev.in_game or detect.restarted(prev, state)))
 		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
+		# Diagnostics for batch 65 (crash ~1 s after a midboss): which write belongs to which item or run start.
+		if started:
+			packs = names.count("+0.50 Power")
+			kind = "retry" if prev.in_game else "new run"
+			logger.info(f"Run start ({kind}, stage {state.stage}, score {state.score}): power set to {min(packs * 0.5, 4):.2f} from {packs} packs")
+		if self.items_applied > applied and receive.in_run(state):
+			logger.info(f"Applied: {', '.join(name for name in names[applied:self.items_applied] if name)}")
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them
