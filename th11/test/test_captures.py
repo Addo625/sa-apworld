@@ -6,7 +6,7 @@ from BaseClasses import CollectionState, ItemClassification
 from .. import test as bases
 from ..Rules import stage_rooms
 from ..Variables import CHARACTER_TO_ITEM, SPELL_CARD_COUNT, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
-from ..captures import capture_location, clear_counts, new_captures, owner_shots
+from ..captures import capture_location, clear_counts, new_captures, owner_shots, slot_cards, spell_slot
 
 ALL_SHOTS = CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"]
 STAGE3 = "[Reimu] Yuugi Defeated"
@@ -155,6 +155,15 @@ class TestCaptureDetection(unittest.TestCase):
 		self.assertEqual(capture_location("Marisa C", 2, False, {**self.SLOT, "shot_type": 1}, set()), "[Marisa C] Stage 2 - Capture 1")
 		self.assertEqual(owner_shots("Marisa C", self.SLOT), ["Marisa A", "Marisa B", "Marisa C"])
 		self.assertEqual(len(owner_shots("Marisa C", {"capture_slots": 1})), 6)
+
+	def test_spell_slots_ignore_difficulty(self):
+		"""63: Kisume's Hard and Lunatic cards are one spell; each 4 IDs from 2 are one attack on E/N/H/L."""
+		self.assertEqual({spell_slot(card) for card in (0, 1)}, {0})
+		self.assertEqual({spell_slot(card) for card in range(2, 6)}, {1})
+		self.assertEqual(spell_slot(6), 2)
+		self.assertEqual(spell_slot(161), 40)
+		self.assertEqual(spell_slot(162), 41)
+		self.assertEqual(slot_cards(1), [2, 3, 4, 5])
 
 	def test_counts_from_records(self):
 		block = bytearray(SPELL_CARD_COUNT * SPELL_CARD_SIZE)

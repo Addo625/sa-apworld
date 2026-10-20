@@ -447,12 +447,12 @@ class TouhouContext(CommonContext):
 		return state, runs
 
 	def captured_cards(self):
-		"""{"<owner>:<card ID>"} captured in this seed, kept in server data storage: the save forgets a capture when the
-		game crashes before writing it, and the server must not get a second check for that card (batch 58)."""
+		"""{"<owner>:<spell slot>"} captured in this seed, kept in server data storage: the save forgets a capture when the
+		game crashes before writing it, and the server must not get a second check for that spell (batch 58)."""
 		return set(self.stored_data.get(self.capture_key()) or {}) | self.captures_seen
 
 	def capture_key(self):
-		return f"th11_captures_{self.team}_{self.slot}"
+		return f"th11_spells_{self.team}_{self.slot}"  # spell slots (63); th11_captures_ held card IDs
 
 	async def detect_captures(self, controller, state, lower, shots, received):
 		"""Capture checks from the live save's per-card capture counts (24), attributed to the last run's shot and stage.
@@ -487,8 +487,10 @@ class TouhouContext(CommonContext):
 		sent = {LOCATION_NAMES.get(location) for location in self.checked_locations | self.locations_found} | self.captures_sent
 		mates = [baseline[shot] for shot in captures.owner_shots(run.shot, self.slot_data) if shot != run.shot and shot in baseline]
 		for card in captures.new_captures(before, counts[run.shot]):
-			entry = f"{captures.owner(run.shot, self.slot_data)}:{card}"
-			had = entry in self.captured_cards() or before[card] > 0 or any(counts_[card] > 0 for counts_ in mates)
+			slot = captures.spell_slot(card)
+			entry = f"{captures.owner(run.shot, self.slot_data)}:{slot}"
+			had = entry in self.captured_cards() or any(
+				counts_[other] > 0 for counts_ in [before] + mates for other in captures.slot_cards(slot))
 			self.captures_seen.add(entry)
 			await self.send_msgs([{"cmd": "Set", "key": self.capture_key(), "default": {}, "want_reply": False,
 				"operations": [{"operation": "update", "value": {entry: 1}}]}])
@@ -499,7 +501,7 @@ class TouhouContext(CommonContext):
 				self.captures_sent.add(name)
 				sent.add(name)
 			else:
-				logger.info(f"Spell card {card} captured (captured before, or no capture check left in this stage)")
+				logger.info(f"Spell card {card} captured (this spell was captured before, or no capture check is left in this stage)")
 
 	def stage6_cleared(self):
 		"""Owners (character, or shot with shot_type) whose Stage 6 Clear is checked, for a normal-mode linear Extra."""

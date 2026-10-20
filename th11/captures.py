@@ -11,6 +11,21 @@ def clear_counts(block: bytes):
 	return [struct.unpack_from("<i", block, card * SPELL_CARD_SIZE + SPELL_CLEAR_OFFSET)[0] for card in range(SPELL_CARD_COUNT)]
 
 
+def spell_slot(card):
+	"""Card ID -> the attack it is, whatever the difficulty (63). The save's records: 0-1 Kisume Hard/Lunatic, then each
+	4 IDs one attack on Easy, Normal, Hard, Lunatic (2-161), then Extra's 13 cards (162-174)."""
+	if card < 2:
+		return 0
+	if card < 162:
+		return 1 + (card - 2) // 4
+	return 41 + card - 162
+
+
+def slot_cards(slot):
+	"""The card IDs of a spell slot."""
+	return [card for card in range(SPELL_CARD_COUNT) if spell_slot(card) == slot]
+
+
 def new_captures(before, after):
 	"""Card IDs whose capture count rose."""
 	return [card for card, (old, new) in enumerate(zip(before, after)) if new > old]

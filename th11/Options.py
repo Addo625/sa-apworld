@@ -185,8 +185,8 @@ class SpellCardKeys(Choice):
 
 
 class CapturesPerStage(Range):
-	"""Capture checks per stage: the k-th different spell card you capture in a stage with a character
-	sends that stage's k-th check. Captures count across runs and on any difficulty.
+	"""Capture checks per stage: the k-th different spell you capture in a stage with a character
+	sends that stage's k-th check. Captures count across runs; the same spell on another difficulty counts once.
 	Capped per stage at the fewest cards any difficulty has (stage 1: 2, stages 2-4: 4, stage 5: 5, stage 6: 6)."""
 	display_name = "Captures per stage"
 	range_start = 0

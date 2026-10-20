@@ -334,10 +334,11 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		from .. import Client, scoredat
 		save, size = 0x5000000, Variables.SPELL_CARD_COUNT * Variables.SPELL_CARD_SIZE
 
-		def set_counts(memory, kisume=0, other_shot=0):
+		def set_counts(memory, kisume=0, other_shot=0, hard=0):
 			for shot, count in enumerate([kisume, other_shot, 0, 0, 0, 0]):
 				block = bytearray(size)
 				struct.pack_into("<i", block, 1 * Variables.SPELL_CARD_SIZE + Variables.SPELL_CLEAR_OFFSET, count)
+				struct.pack_into("<i", block, Variables.SPELL_CLEAR_OFFSET, hard)  # Kisume's Hard card: the same spell (63)
 				memory.set(save + Variables.ADDR_SPELL_CARDS[1] + shot * scoredat.CLEAR_SIZE, bytes(block))
 
 		async def run(*counts, stored=None):
@@ -349,9 +350,9 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			ctx.slot_data = {"spell_card_keys": 1, "captures_per_stage": 2}
 			ctx.stored_data[ctx.capture_key()] = stored
 			state, runs = None, 0
-			for kisume, other_shot in counts:  # only the menu reads the save, so `menu` is the one game process
+			for kisume, other_shot, *hard in counts:  # only the menu reads the save, so `menu` is the one game process
 				for memory in (play, menu):
-					set_counts(memory, kisume, other_shot)
+					set_counts(memory, kisume, other_shot, *hard)
 					state, runs = await ctx.poll(memory, state, runs)
 			return [msg for msg in ctx.sent if msg["cmd"] == "LocationChecks"]
 
@@ -361,7 +362,8 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			self.assertEqual(await run((0, 0), (1, 0), (2, 0)), capture)  # the same card again
 			self.assertEqual(await run((1, 0)), [])  # the first read is the baseline
 			self.assertEqual(await run((0, 1), (1, 1)), [])  # Reimu B had it: not a new card for Reimu
-			self.assertEqual(await run((0, 0), (1, 0), stored={"Reimu:1": 1}), [])  # captured before a crash lost it
+			self.assertEqual(await run((0, 0, 1), (1, 0, 1)), [])  # Kisume on Hard before: Lunatic is the same spell
+			self.assertEqual(await run((0, 0), (1, 0), stored={"Reimu:0": 1}), [])  # captured before a crash lost it
 
 	async def test_retry_restarts_practice_power(self):
 		"""62: Give up and Retry never leaves play; the restarted run still starts at the packs' power, not the game's 4.00."""

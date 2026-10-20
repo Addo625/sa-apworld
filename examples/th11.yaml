@@ -58,7 +58,7 @@ Touhou Chireiden ~ Subterranean Animism:
   # character (or shot, with shot_type) never captured before. Not yet confirmed in game (batch 58 R6).
   spell_card_keys: off          # off / alongside (keys gate stages 3-6 together with the gates above) /
                                 #   keys_only (keys are the only gate).
-  captures_per_stage: 2         # 0-6: capture checks per stage (the k-th different card captured).
+  captures_per_stage: 2         # 0-6: capture checks per stage (the k-th different spell captured; any difficulty).
   capture_slots: per_character  # per_character / shared (one set per stage for both characters).
   spell_card_keys_in_pool: 50   # 0-100: % of capture checks that add a Spell Card Key; the rest add filler.
   spell_card_keys_required: 75  # 0-100: % of the keys needed by Stage 6 (ramps up from Stage 3).
