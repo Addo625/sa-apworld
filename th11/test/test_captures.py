@@ -25,8 +25,14 @@ def assert_pool_fills(test, captures, keys):
 	test.assertEqual(len(test.get_items_by_name("Spell Card Key")), keys)
 
 
-class TestDefaultOff(bases.TH11TestBase):
-	def test_spell_card_keys_default_off(self):
+class TestDefaultAlongside(unittest.TestCase):
+	def test_spell_card_keys_default_alongside(self):
+		from ..Options import SpellCardKeys
+		self.assertEqual(SpellCardKeys.default, SpellCardKeys.option_alongside)
+
+
+class TestOff(bases.TH11TestBase):
+	def test_spell_card_keys_off(self):
 		self.assertEqual(self.world.options.spell_card_keys.value, 0)
 		self.assertEqual(capture_locations(self), [])
 		self.assertEqual(self.get_items_by_name("Spell Card Key"), [])

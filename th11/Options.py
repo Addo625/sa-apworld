@@ -180,8 +180,8 @@ class SpellCardKeys(Choice):
 	option_off = 0
 	option_alongside = 1
 	option_keys_only = 2
-	# Off until batch 58 R6 confirms capture detection in game; then alongside (24).
-	default = 0
+	# Captures confirmed in game by batches 58/61 (24).
+	default = 1
 
 
 class CapturesPerStage(Range):
