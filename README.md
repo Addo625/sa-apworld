@@ -1,7 +1,8 @@
 # Touhou 11 ~ Subterranean Animism Apworld
 
 This is an implementation of Touhou 11 (v1.00a `th11.exe`) for [Archipelago](https://github.com/ArchipelagoMW/Archipelago).<br />
-Ported from Nepley's EoSD apworld.
+
+Logic and main ideas ported from Nepley's Randomizers for Touhou 6,7 and 8
 
 ## How does this randomizer work ?
 At the start, you have only one shot type, zero resources and only the Lunatic difficulty.<br />
