@@ -19,7 +19,7 @@ With **Difficulty Check**, midboss and boss checks exist once per difficulty (`[
 
 With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clear` per character or shot type (no difficulty checks).
 
-With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th different spell you capture in stage N, per character (or shot type, or shared). The same spell on another difficulty counts once. The check is sent as soon as the card ends captured. The client reads the card's capture count from the game's save data, so a spell that character already captured before (even before this seed) doesn't count again: start from a fresh save.
+With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th different spell you capture in stage N, per character (or shot type, or shared). The same spell on another difficulty counts once. The check is sent as soon as the card ends captured. A spell counts once per character in a seed: with **Capture Slots** per_character, a character's three shots share one set of capture checks (use **Shot Type Check** for a set per shot). Captures made before the seed don't matter.
 
 ## Items
 * Shot Types (Reimu A/B/C, Marisa A/B/C)

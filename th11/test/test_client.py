@@ -326,13 +326,13 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 
 	async def test_capture_sends_its_check_during_the_run(self):
 		"""66: a card that ends with its capture count up sends the stage's next capture check right away. A card that
-		ends without a rise, or a spell the character captured before (another shot, another difficulty's card, or as
-		stored on the server after a crash lost it from the save), sends nothing."""
+		ends without a rise sends nothing. 68: "captured before" is only what this seed stored on the server (any
+		difficulty, any of the character's shots); captures the save had before the seed don't block."""
 		from ..Locations import location_table
 		from .. import scoredat
 		save, spell = 0x5000000, 0x5800000
 
-		async def run(start, end, card=1, stored=None, reimu_b=0, hard=0):
+		async def run(start, end, card=1, stored=None, reimu_b=0, hard=0, **slot):
 			"""Card `card` runs with Reimu A's count `start`, then ends at `end` -> the LocationChecks sent."""
 			memory = game_memory(lives=2)
 			memory.set(BASE + Variables.ADDR_SPELL_CARDS[0], save.to_bytes(4, "little"))
@@ -345,7 +345,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			memory.set(captures_address(table, "Reimu A", 0), hard.to_bytes(4, "little"))
 			memory.set(captures_address(table, "Reimu B", 1), reimu_b.to_bytes(4, "little"))
 			ctx = self.context(*UNLOCKED)
-			ctx.slot_data = {"spell_card_keys": 1, "captures_per_stage": 2}
+			ctx.slot_data = {"spell_card_keys": 1, "captures_per_stage": 2, **slot}
 			ctx.stored_data[ctx.capture_key()] = stored
 			state, runs = None, 0
 			for active, count in [(1, start), (0, end)]:
@@ -358,10 +358,10 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		capture = [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Stage 1 - Capture 1"],)}]
 		self.assertEqual(await run(0, 1), capture)
 		self.assertEqual(await run(0, 0), [])  # failed: the count didn't move
-		self.assertEqual(await run(1, 2), [])  # this card captured before
-		self.assertEqual(await run(0, 1, reimu_b=1), [])  # Reimu B had it: not a new spell for Reimu
-		self.assertEqual(await run(0, 1, hard=1), [])  # Kisume on Hard (card 0) before: Lunatic is the same spell
-		self.assertEqual(await run(0, 1, stored={"Reimu:0": 1}), [])  # captured before a crash lost it
+		self.assertEqual(await run(1, 2, reimu_b=1, hard=1), capture)  # the save's captures from before the seed don't block
+		self.assertEqual(await run(0, 1, stored={"Reimu:0": 1}), [])  # Reimu (any shot, any difficulty) captured it this seed
+		shot_capture = [{"cmd": "LocationChecks", "locations": (location_table["[Reimu A] Stage 1 - Capture 1"],)}]
+		self.assertEqual(await run(0, 1, stored={"Reimu B:0": 1}, shot_type=1), shot_capture)  # shot_type: per shot
 
 	async def test_retry_restarts_practice_power(self):
 		"""62: Give up and Retry never leaves play; the restarted run still starts at the packs' power, not the game's 4.00."""

@@ -486,15 +486,14 @@ class TouhouContext(CommonContext):
 			return None
 
 	async def card_ended(self, controller, card, before, run, lower, shots, received):
-		"""A card ended: captured if its count rose. Only a spell new to the owner sends its stage's next capture check."""
+		"""A card ended: captured if its count rose. Only a spell the owner hasn't captured in this seed (server data
+		storage) sends its stage's next capture check; the save's older captures don't count (68)."""
 		now = self.card_count(controller, run.shot, card)
 		if now is None or now <= before or detect.locked(run, shots, lower, self.slot_data, received):
 			return
 		slot = captures.spell_slot(card)
 		entry = f"{captures.owner(run.shot, self.slot_data)}:{slot}"
-		others = [(shot, other) for shot in captures.owner_shots(run.shot, self.slot_data) for other in captures.slot_cards(slot)
-			if (shot, other) != (run.shot, card)]
-		had = before > 0 or entry in self.captured_cards() or any((self.card_count(controller, *pair) or 0) > 0 for pair in others)
+		had = entry in self.captured_cards()
 		self.captures_seen.add(entry)
 		await self.send_msgs([{"cmd": "Set", "key": self.capture_key(), "default": {}, "want_reply": False,
 			"operations": [{"operation": "update", "value": {entry: 1}}]}])
@@ -505,7 +504,7 @@ class TouhouContext(CommonContext):
 			self.locations_found.add(location_table[name])
 			self.captures_sent.add(name)
 		else:
-			logger.info(f"Spell card {card} captured (this spell was captured before, or no capture check is left in this stage)")
+			logger.info(f"Spell card {card} captured ({'already captured in this seed' if had else 'no capture check left in this stage'})")
 
 	def stage6_cleared(self):
 		"""Owners (character, or shot with shot_type) whose Stage 6 Clear is checked, for a normal-mode linear Extra."""

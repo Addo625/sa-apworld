@@ -1,6 +1,6 @@
 # 68: A spell counts as captured before only if this seed recorded it
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 
 ## Problem
@@ -22,3 +22,6 @@ Note: `per_character` does share one set of slots across a character's three sho
 
 ## Deferred
 - None.
+
+## Comments
+- 2026-10-21 Claude: done. `card_ended` checks only the server storage; `captures.owner_shots` and `slot_cards` went with the save check.
