@@ -1,7 +1,8 @@
 # Touhou 11 ~ Subterranean Animism Apworld
 
 This is an implementation of Touhou 11 (v1.00a `th11.exe`) for [Archipelago](https://github.com/ArchipelagoMW/Archipelago).<br />
-Ported from Nepley's EoSD apworld.
+
+Logic and main ideas ported from Nepley's Randomizers for Touhou 6,7 and 8
 
 ## How does this randomizer work ?
 At the start, you have only one shot type, zero resources and only the Lunatic difficulty.<br />
@@ -19,7 +20,7 @@ With **Difficulty Check**, midboss and boss checks exist once per difficulty (`[
 
 With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clear` per character or shot type (no difficulty checks).
 
-With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th different spell you capture in stage N, per character (or shot type, or shared). The same spell on another difficulty counts once. The check is sent as soon as the card ends captured. The client reads the card's capture count from the game's save data, so a spell that character already captured before (even before this seed) doesn't count again: start from a fresh save.
+With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th different spell you capture in stage N, per character (or shot type, or shared). The same spell on another difficulty counts once. The check is sent as soon as the card ends captured. A spell counts once per character in a seed: with **Capture Slots** per_character, a character's three shots share one set of capture checks (use **Shot Type Check** for a set per shot). Captures made before the seed don't matter.
 
 ## Items
 * Shot Types (Reimu A/B/C, Marisa A/B/C)
@@ -74,7 +75,7 @@ The client's **Tracker** tab (or `/tracker`) shows, for each character you have 
 - **PLAYABLE**: the game lets you play it, but logic expects more first (e.g. `+0.50 Power 0/2, Hard: Lower Difficulty 0/1`);
 - **LOCKED**: it still needs its stage item (`Next Stage 1/2`, `Stage 3`, `Extra Stage`).
 
-Each line also counts the checks left on that stage. The top shows the goal's progress and your `+1 Life`, power and Lower Difficulty counts.
+Each line also counts the boss checks left on that stage and the capture checks sent (`captures 1/2`); each block says how many spells you've captured in this seed, since a capture check needs a spell not captured yet. The top shows the goal's progress and your `+1 Life`, power and Lower Difficulty counts.
 
 ## Linux / macOS (Wine) Notes
 

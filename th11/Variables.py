@@ -1,5 +1,5 @@
 """
-Variables (names, lists, IDs). Ported from Nepley's EoSD world (MIT).
+Variables (names, lists, IDs).
 """
 
 DISPLAY_NAME = "Touhou Chireiden ~ Subterranean Animism"

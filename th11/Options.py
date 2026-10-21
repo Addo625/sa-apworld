@@ -195,7 +195,8 @@ class CapturesPerStage(Range):
 
 
 class CaptureSlots(Choice):
-	"""per_character: Reimu and Marisa each have their own capture checks.
+	"""per_character: Reimu and Marisa each have their own capture checks; a character's three shots share them
+	(with Shot Type Check, each shot has its own).
 	shared: one set of capture checks per stage, sent by either character."""
 	display_name = "Capture slots"
 	option_per_character = 0

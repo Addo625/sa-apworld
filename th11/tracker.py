@@ -3,10 +3,11 @@ Text tracker: what each stage's gate expects, what's received, and the checks le
 """
 from collections import Counter
 
+from . import captures
 from .Options import ExtraStage, ProgressiveStage, StageUnlock
 from .receive import SHOT_GROUP, goal_reached, practice_lives, stage_open
 from .Variables import (
-	CHARACTER_TO_ITEM, CHARACTERS_LIST, DIFFICULTY_LIST, ENDING_EXTRA_ITEM, ENDING_NORMAL_ITEM, SHOT_TO_CHARACTER,
+	CAPTURE_CAPS, CHARACTER_TO_ITEM, CHARACTERS_LIST, DIFFICULTY_LIST, ENDING_EXTRA_ITEM, ENDING_NORMAL_ITEM, SHOT_TO_CHARACTER,
 	SHOT_TYPE_LIST, STAGE4_APPEARANCES, STAGES_LIST, lower_difficulty_needed, lowest_unlocked,
 )
 
@@ -61,8 +62,9 @@ def gate_missing(count, requirement, exclude_lunatic):
 	return parts
 
 
-def report(item_names, missing_names, slot_data):
-	"""-> tracker lines. missing_names: location names not checked yet."""
+def report(item_names, missing_names, slot_data, captured=()):
+	"""-> tracker lines. missing_names: location names not checked yet. captured: the "<owner>:<spell slot>" entries this
+	seed recorded (68), "" as owner when capture slots are shared."""
 	item_names = [name for name in item_names if name]
 	count = Counter(item_names)
 	requirements = [tuple(r) for r in slot_data.get("stage_requirements") or [(0, 0, 0, 0)] * 6]
@@ -97,10 +99,17 @@ def report(item_names, missing_names, slot_data):
 	for title, shot in blocks:
 		owner = shot if slot_data.get("shot_type") else SHOT_TO_CHARACTER[shot]
 		lines += ["", title + ("" if not per_shot or owner == shot else f" (checks shared with {owner})")]
+		if slot_data.get("spell_card_keys"):
+			spell_owner = captures.owner(shot, slot_data)
+			done = sum(1 for entry in captured if entry.rsplit(":", 1)[0] == spell_owner)
+			who = f"{spell_owner} hasn't captured" if spell_owner else "not captured"
+			lines.append(f"  Spells captured this seed: {done}. A capture check needs a spell {who} yet in this seed (any difficulty)")
 		for level, requirement in enumerate(requirements, 1):
 			bosses, spells = left[(owner, level, False)], left[(owner, level, True)] + left[(None, level, True)]
-			parts = [f"{bosses} boss check{'s' * (bosses != 1)}"] * bool(bosses) + [f"{spells} capture{'s' * (spells != 1)}"] * bool(spells)
-			suffix = f" -- left: {', '.join(parts)}" if parts else " -- all checked"
+			slots = min(slot_data.get("captures_per_stage", 0), CAPTURE_CAPS[level - 1]) if slot_data.get("spell_card_keys") and level < 7 else 0
+			parts = [f"{bosses} boss check{'s' * (bosses != 1)} left"] * bool(bosses)
+			parts += [f"captures {slots - spells}/{slots}" if spells else "captures done"] * bool(slots)
+			suffix = f" -- {', '.join(parts)}" if bosses or spells else " -- all checked"
 			if not stage_open(item_names, slot_data, shot, level):
 				lines.append(f"  {stage_name(level)}: LOCKED, needs {missing_stage_item(count, group_of(shot), level, progressive, apart)}{suffix}")
 				continue

@@ -2,7 +2,7 @@
 Spell captures: the live save's per-card capture counts -> capture checks (21's slots). Pure, no memory access.
 """
 from .scoredat import CLEAR_SIZE
-from .Variables import CAPTURE_CAPS, SHOT_TO_CHARACTER, SHOT_TYPE_LIST, SPELL_CARD_COUNT, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
+from .Variables import CAPTURE_CAPS, SHOT_TO_CHARACTER, SHOT_TYPE_LIST, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
 
 
 def count_address(table, shot, card):
@@ -20,20 +20,6 @@ def spell_slot(card):
 	return 41 + card - 162
 
 
-def slot_cards(slot):
-	"""The card IDs of a spell slot."""
-	return [card for card in range(SPELL_CARD_COUNT) if spell_slot(card) == slot]
-
-
-def owner_shots(shot, slot_data):
-	"""Shots whose captures share `shot`'s slots: all six when shared, the shot with shot_type, else its character's."""
-	if slot_data.get("capture_slots"):
-		return SHOT_TYPE_LIST
-	if slot_data.get("shot_type"):
-		return [shot]
-	return [s for s in SHOT_TYPE_LIST if SHOT_TO_CHARACTER[s] == SHOT_TO_CHARACTER[shot]]
-
-
 def owner(shot, slot_data):
 	"""Whose capture slots `shot` fills: "" when shared, the shot with shot_type, else its character."""
 	if slot_data.get("capture_slots"):
@@ -43,7 +29,7 @@ def owner(shot, slot_data):
 
 def capture_location(shot, stage, captured_before, slot_data, sent_names):
 	"""-> the capture location a newly captured card sends, or None.
-	captured_before: whether any of owner_shots had captured this card before. Only a card new to the owner counts
+	captured_before: whether the owner captured this spell before in this seed. Only a card new to the owner counts
 	(21: the k-th *different* card); k = the stage's capture checks already sent + 1, up to its slot count."""
 	if not slot_data.get("spell_card_keys") or stage not in range(1, 7) or captured_before:
 		return None

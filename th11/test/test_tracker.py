@@ -35,9 +35,8 @@ class TestTracker(unittest.TestCase):
 
 	def test_checks_left_drop_when_checked(self):
 		line = lambda missing: stage_line(report(["Marisa C - Nitori"], missing, SLOT), "Marisa", 1)
-		self.assertIn("left: 3 boss checks", line(MARISA))
-		self.assertIn("left: 2 boss checks", line([name for name in MARISA if name != "[Marisa] Kisume - Midboss"]))
-		self.assertIn("left: 3 boss checks, 1 capture", line(MARISA + ["[Marisa] Stage 1 - Capture 1"]))
+		self.assertIn("3 boss checks left", line(MARISA))
+		self.assertIn("2 boss checks left", line([name for name in MARISA if name != "[Marisa] Kisume - Midboss"]))
 		self.assertIn("all checked", line([]))
 
 	def test_one_block_per_character_unless_shots_differ(self):
@@ -49,6 +48,17 @@ class TestTracker(unittest.TestCase):
 		self.assertFalse(any(line.startswith("Reimu A") for line in lines))
 		per_shot = report(items, MARISA, {**SLOT, "stage_unlock": 2})
 		self.assertIn("Reimu A (checks shared with Reimu)", per_shot)
+
+	def test_capture_progress(self):
+		"""69: captures read k/slots per stage, and each owner block says how many spells this seed captured."""
+		slot = {**SLOT, "spell_card_keys": 1, "captures_per_stage": 2}
+		missing = MARISA + ["[Marisa] Stage 1 - Capture 2", "[Marisa] Stage 2 - Capture 1", "[Marisa] Stage 2 - Capture 2"]
+		lines = report(["Marisa C - Nitori"], missing, slot, {"Marisa:0", "Reimu:3"})
+		self.assertIn("captures 1/2", stage_line(lines, "Marisa", 1))
+		self.assertIn("captures 0/2", stage_line(lines, "Marisa", 2))
+		self.assertIn("captures done", stage_line(lines, "Marisa", 3))
+		self.assertTrue(any("Spells captured this seed: 1." in line for line in lines))
+		self.assertNotIn("captures", stage_line(report(["Marisa C - Nitori"], MARISA, SLOT), "Marisa", 1))  # keys off
 
 	def test_goal_line(self):
 		self.assertIn("not yet", report([], [], SLOT)[0])

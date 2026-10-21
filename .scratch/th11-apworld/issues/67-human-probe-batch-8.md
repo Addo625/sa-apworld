@@ -1,6 +1,6 @@
 # 67: [human] Probe batch 8: captures sent mid-stage
 
-Status: ready-for-human
+Status: done
 Blocked by: None
 
 ## Problem
@@ -18,3 +18,4 @@ Setup: the client from the latest `main` (Claude reinstalled it). A seed with `s
 - Play through Stage 1 and 2 including every dialog, twice. Any crash: paste the last 20 client lines, and Wine's crash details if shown.
 
 ## Comments
+- 2026-10-21 human (via Claude): R1 perfect: the check arrives immediately, a failed card sends nothing, a recapture logs 'captured before'. R2: no crashes. A per_character capture finding became 68 and 69.

@@ -55,11 +55,11 @@ Touhou Chireiden ~ Subterranean Animism:
 
   # ---------------------------------------------------------------- Spell Card Keys
   # The client sends a capture check the moment you capture a spell that character (or shot, with
-  # shot_type) never captured before, on any difficulty. Use a fresh save.
+  # shot_type) hasn't captured yet in this seed, on any difficulty.
   spell_card_keys: alongside    # off / alongside (keys gate stages 3-6 together with the gates above) /
                                 #   keys_only (keys are the only gate).
   captures_per_stage: 2         # 0-6: capture checks per stage (the k-th different spell captured; any difficulty).
-  capture_slots: per_character  # per_character / shared (one set per stage for both characters).
+  capture_slots: per_character  # per_character (a character's 3 shots share one set) / shared (one set for both).
   spell_card_keys_in_pool: 50   # 0-100: % of capture checks that add a Spell Card Key; the rest add filler.
   spell_card_keys_required: 75  # 0-100: % of the keys needed by Stage 6 (ramps up from Stage 3).
 
