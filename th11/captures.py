@@ -1,14 +1,13 @@
 """
 Spell captures: the live save's per-card capture counts -> capture checks (21's slots). Pure, no memory access.
 """
-import struct
-
+from .scoredat import CLEAR_SIZE
 from .Variables import CAPTURE_CAPS, SHOT_TO_CHARACTER, SHOT_TYPE_LIST, SPELL_CARD_COUNT, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
 
 
-def clear_counts(block: bytes):
-	"""One shot's card records (SPELL_CARD_COUNT x SPELL_CARD_SIZE bytes) -> capture count per card ID."""
-	return [struct.unpack_from("<i", block, card * SPELL_CARD_SIZE + SPELL_CLEAR_OFFSET)[0] for card in range(SPELL_CARD_COUNT)]
+def count_address(table, shot, card):
+	"""Address of `shot`'s capture count for `card`; table: the resolved ADDR_SPELL_CARDS (Reimu A's first record)."""
+	return table + SHOT_TYPE_LIST.index(shot) * CLEAR_SIZE + card * SPELL_CARD_SIZE + SPELL_CLEAR_OFFSET
 
 
 def spell_slot(card):
@@ -24,11 +23,6 @@ def spell_slot(card):
 def slot_cards(slot):
 	"""The card IDs of a spell slot."""
 	return [card for card in range(SPELL_CARD_COUNT) if spell_slot(card) == slot]
-
-
-def new_captures(before, after):
-	"""Card IDs whose capture count rose."""
-	return [card for card, (old, new) in enumerate(zip(before, after)) if new > old]
 
 
 def owner_shots(shot, slot_data):

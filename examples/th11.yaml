@@ -54,8 +54,8 @@ Touhou Chireiden ~ Subterranean Animism:
                                 #   Anything but none turns the Extra stage on (linear) if it's excluded.
 
   # ---------------------------------------------------------------- Spell Card Keys
-  # The client sends a capture check when you're back on a menu after capturing a spell that character
-  # (or shot, with shot_type) never captured before, on any difficulty. Use a fresh save.
+  # The client sends a capture check the moment you capture a spell that character (or shot, with
+  # shot_type) never captured before, on any difficulty. Use a fresh save.
   spell_card_keys: alongside    # off / alongside (keys gate stages 3-6 together with the gates above) /
                                 #   keys_only (keys are the only gate).
   captures_per_stage: 2         # 0-6: capture checks per stage (the k-th different spell captured; any difficulty).
