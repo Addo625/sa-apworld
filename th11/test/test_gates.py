@@ -20,6 +20,16 @@ class TestStageRequirements(unittest.TestCase):
 	def test_ramp_end_below_mid(self):
 		self.assertEqual(ramp((6, 4, 2), (2, 0, 1))[2:], [(3, 2, 1, 0), (6, 4, 2, 0), (4, 2, 1, 0), (2, 0, 1, 0)])
 
+	def test_luck_rounds_only_difficulty_up(self):
+		"""71: Hard/Normal without Lunatic is 0/1 Lower Difficulty: Stage 5 expects Normal with luck, Hard without;
+		odd lives (mid 3) still round down."""
+		plain = stage_requirements((3, 0, 0), (4, 0, 1), 0, BIG)[0]
+		lucky = stage_requirements((3, 0, 0), (4, 0, 1), 0, BIG, round_up=True)[0]
+		self.assertEqual([req[2] for req in plain], [0, 0, 0, 0, 0, 1])
+		self.assertEqual([req[2] for req in lucky], [0, 0, 0, 0, 1, 1])
+		self.assertEqual([req[0] for req in lucky], [req[0] for req in plain])  # lives 0, 0, 1, 3, 3, 4
+		self.assertEqual(stage_requirements((0, 0, 1), (0, 0, 1), 0, BIG, round_up=True)[0][2][2], 1)  # stage 3: (1+1)//2
+
 	def test_ramp_keys(self):
 		self.assertEqual([req[3] for req in ramp((0, 0, 0), (0, 0, 0), keys=9)], [0, 0, 2, 4, 6, 9])
 

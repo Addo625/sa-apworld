@@ -48,7 +48,7 @@ With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th dif
 
 **Exclude Lunatic:** You can exclude the Lunatic difficulty and therefore start on Hard.
 
-**Resources:** You can set the lives, power packs and difficulty expected for stages 3/4 (Yuugi, Satori) and stages 5/6 (Orin, Utsuho). The requirement ramps up stage by stage. If a gate can't fit in the locations open before its stage, it is lowered and generation logs a warning naming the stage.
+**Resources:** You can set the lives, power packs and difficulty expected for stages 3/4 (Yuugi, Satori) and stages 5/6 (Orin, Utsuho). The requirement ramps up stage by stage: stages 1-6 expect 0, 0, mid/2, mid, (mid+end)/2, end, each rounded down, and a difficulty counts as the Lower Difficulty items it needs. **A Little Bit of Luck** rounds the difficulty's halves up instead, so Stages 3 and 5 expect the easier difficulty when they fall between two (lives, power and keys are unchanged). A gate is a promise about item placement, not a lock: logic expects you to have it before playing the stage, so it may sit anywhere earlier. If a gate can't fit in the locations open before its stage, it is lowered and generation logs a warning naming the stage.
 
 **Extra Stage:** exclude, linear (a 7th stage: one more Next Stage, or an Extra Stage item after Stage 6 without Progressive Stage Unlock) or apart (its own Extra Stage item; logic still expects Stage 6 first). Lives and power packs expected for Koishi are set separately.
 

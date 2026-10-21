@@ -108,6 +108,12 @@ class DifficultyEnd(Choice):
 	default = 0
 
 
+class ALittleBitOfLuck(Toggle):
+	"""The difficulty gate rounds up: Stage 3 (half the mid gate) and Stage 5 (halfway from mid to end) expect the
+	easier difficulty when they fall between two. Lives, power and keys still round down."""
+	display_name = "A Little Bit of Luck"
+
+
 class ExtraStage(Choice):
 	"""Whether the Extra stage (Sanae, Koishi) is included.
 	exclude: no Extra stage.
@@ -342,6 +348,7 @@ class TH11Options(PerGameCommonOptions):
 	number_life_end: NumberLifeEnd
 	power_end: PowerEnd
 	difficulty_end: DifficultyEnd
+	a_little_bit_of_luck: ALittleBitOfLuck
 	extra_stage: ExtraStage
 	number_life_extra: NumberLifeExtra
 	power_extra: PowerExtra

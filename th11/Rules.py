@@ -17,16 +17,18 @@ SLACK_PER_UNLOCK_GROUP = 3
 EXTRA_SLACK = 2
 
 
-def stage_requirements(mid, end, keys_required, rooms, extra=(0, 0, 0)):
+def stage_requirements(mid, end, keys_required, rooms, extra=(0, 0, 0), round_up=False):
 	"""Per-stage (lives, power, difficulty, keys) for stages 1-6, and Extra as stage 7 when rooms has 7 entries,
 	cut to fit each stage's room.
 
-	Each resource ramps 0, 0, mid/2, mid, (mid+end)/2, end; Extra needs `extra` and stage 6's keys. Over room, the largest of
+	Each resource ramps 0, 0, mid/2, mid, (mid+end)/2, end, rounded down; round_up (a_little_bit_of_luck) rounds the
+	difficulty's halves up. Extra needs `extra` and stage 6's keys. Over room, the largest of
 	lives/power/keys loses one (ties: lives, power, keys); difficulty goes only once they're 0.
 	"""
 	requirements, notes = [], []
 	for stage, room in enumerate(rooms, 1):
-		req = [[0, 0, m // 2, m, (m + e) // 2, e, x][stage - 1] for m, e, x in zip(mid, end, extra)]
+		up = [0, 0, round_up]  # lives, power, difficulty: +1 before halving rounds up
+		req = [[0, 0, (m + u) // 2, m, (m + e + u) // 2, e, x][stage - 1] for m, e, x, u in zip(mid, end, extra, up)]
 		req.append(keys_required * min(max(stage - 2, 0), 4) // 4)
 		while sum(req) > room:
 			index = max((0, 1, 3), key=lambda i: req[i])  # max() keeps the first of a tie
@@ -113,7 +115,8 @@ def set_rules(world):
 	if options.spell_card_keys == options.spell_card_keys.option_keys_only:
 		mid = end = extra = (0, 0, 0)
 	keys_required = world.key_count * options.spell_card_keys_required.value // 100
-	world.stage_requirements, notes = stage_requirements(mid, end, keys_required, stage_rooms(world, keys_required), extra)
+	world.stage_requirements, notes = stage_requirements(mid, end, keys_required, stage_rooms(world, keys_required), extra,
+		bool(options.a_little_bit_of_luck))
 	for note in notes:
 		logging.warning(f"{SHORT_NAME} ({world.player_name}): gate doesn't fit, {note}")
 

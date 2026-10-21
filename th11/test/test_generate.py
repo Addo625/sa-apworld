@@ -222,3 +222,14 @@ class TestMaxGates(bases.TH11TestBase):
 		self.assertTrue(any("Stage 3" in line for line in logs.output))
 		# (4, 4, 1) needs 9 slots; stage 3 has room for 6.
 		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][2], (2, 3, 1, 0))
+
+
+class TestLuck(bases.TH11TestBase):
+	"""71: the human's Hard/Normal gates without Lunatic: luck makes Stage 5 expect Normal, and the seed fills."""
+	options = {"exclude_lunatic": True, "difficulty_mid": "hard", "difficulty_end": "normal", "a_little_bit_of_luck": True,
+		"number_life_mid": 2, "number_life_end": 4}
+
+	def test_stage5_expects_normal(self):
+		requirements = self.world.fill_slot_data()["stage_requirements"]
+		self.assertEqual([req[2] for req in requirements], [0, 0, 0, 0, 1, 1])
+		self.assertEqual(requirements[4][0], 3)  # lives still (2+4)//2
