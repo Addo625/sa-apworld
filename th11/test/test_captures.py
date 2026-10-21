@@ -1,8 +1,12 @@
+import struct
+import unittest
+
 from BaseClasses import CollectionState, ItemClassification
 
 from .. import test as bases
 from ..Rules import stage_rooms
-from ..Variables import CHARACTER_TO_ITEM
+from ..Variables import CHARACTER_TO_ITEM, SPELL_CARD_COUNT, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
+from ..captures import capture_location, clear_counts, new_captures, owner_shots, slot_cards, spell_slot
 
 ALL_SHOTS = CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"]
 STAGE3 = "[Reimu] Yuugi Defeated"
@@ -21,8 +25,14 @@ def assert_pool_fills(test, captures, keys):
 	test.assertEqual(len(test.get_items_by_name("Spell Card Key")), keys)
 
 
-class TestDefaultOff(bases.TH11TestBase):
-	def test_spell_card_keys_default_off(self):
+class TestDefaultAlongside(unittest.TestCase):
+	def test_spell_card_keys_default_alongside(self):
+		from ..Options import SpellCardKeys
+		self.assertEqual(SpellCardKeys.default, SpellCardKeys.option_alongside)
+
+
+class TestOff(bases.TH11TestBase):
+	def test_spell_card_keys_off(self):
 		self.assertEqual(self.world.options.spell_card_keys.value, 0)
 		self.assertEqual(capture_locations(self), [])
 		self.assertEqual(self.get_items_by_name("Spell Card Key"), [])
@@ -127,3 +137,56 @@ class TestKeysOnlyZeroKeys(bases.TH11TestBase):
 		self.assertFalse(self.can_reach_location(STAGE3))
 		self.collect_by_name("+1 Life")
 		self.assertTrue(self.can_reach_location(STAGE3))
+
+
+class TestCaptureDetection(unittest.TestCase):
+	"""24: a card new to the owner sends its stage's next capture check, up to the stage's slots."""
+	SLOT = {"spell_card_keys": 1, "captures_per_stage": 2}
+
+	def test_capture_first_sends_slot1(self):
+		self.assertEqual(capture_location("Reimu A", 1, False, self.SLOT, set()), "[Reimu] Stage 1 - Capture 1")
+		self.assertEqual(capture_location("Reimu A", 1, False, self.SLOT, {"[Reimu] Stage 1 - Capture 1"}), "[Reimu] Stage 1 - Capture 2")
+
+	def test_capture_same_card_twice_sends_nothing(self):
+		self.assertIsNone(capture_location("Reimu A", 1, True, self.SLOT, set()))
+
+	def test_capture_beyond_slot_count_sends_nothing(self):
+		sent = {"[Reimu] Stage 1 - Capture 1", "[Reimu] Stage 1 - Capture 2"}
+		self.assertIsNone(capture_location("Reimu A", 1, False, self.SLOT, sent))
+		self.assertIsNone(capture_location("Reimu A", 7, False, self.SLOT, set()))  # Extra has no capture checks
+		self.assertIsNone(capture_location("Reimu A", 1, False, {"spell_card_keys": 0, "captures_per_stage": 2}, set()))
+
+	def test_capture_owners(self):
+		self.assertEqual(capture_location("Marisa C", 2, False, {**self.SLOT, "capture_slots": 1}, set()), "Stage 2 - Capture 1")
+		self.assertEqual(capture_location("Marisa C", 2, False, {**self.SLOT, "shot_type": 1}, set()), "[Marisa C] Stage 2 - Capture 1")
+		self.assertEqual(owner_shots("Marisa C", self.SLOT), ["Marisa A", "Marisa B", "Marisa C"])
+		self.assertEqual(len(owner_shots("Marisa C", {"capture_slots": 1})), 6)
+
+	def test_spell_slots_ignore_difficulty(self):
+		"""63: Kisume's Hard and Lunatic cards are one spell; each 4 IDs from 2 are one attack on E/N/H/L."""
+		self.assertEqual({spell_slot(card) for card in (0, 1)}, {0})
+		self.assertEqual({spell_slot(card) for card in range(2, 6)}, {1})
+		self.assertEqual(spell_slot(6), 2)
+		self.assertEqual(spell_slot(161), 40)
+		self.assertEqual(spell_slot(162), 41)
+		self.assertEqual(slot_cards(1), [2, 3, 4, 5])
+
+	def test_counts_from_records(self):
+		block = bytearray(SPELL_CARD_COUNT * SPELL_CARD_SIZE)
+		struct.pack_into("<i", block, 1 * SPELL_CARD_SIZE + SPELL_CLEAR_OFFSET, 3)
+		counts = clear_counts(bytes(block))
+		self.assertEqual(counts[:3], [0, 3, 0])
+		self.assertEqual(new_captures([0, 2, 0], counts[:3]), [1])
+		self.assertEqual(new_captures(counts, counts), [])
+
+	def test_capture_cards_are_in_the_save(self):
+		"""The decoded save layout the live entry relies on: Marisa C's records, IDs in order, with a Kisume attempt."""
+		from pathlib import Path
+		path = Path(__file__).resolve().parents[2] / ".games/sa/scoreth11.dat"
+		if not path.exists():
+			self.skipTest("no save (.games is gitignored)")
+		from .. import scoredat
+		chunk = [body for signature, _, _, body in scoredat.chunks(scoredat.decode(path.read_bytes())) if signature == "CR"][5]
+		records = chunk[scoredat.PRACTICE_OFFSET + 4 * 6 * scoredat.PRACTICE_SIZE:]
+		self.assertEqual(len(records), SPELL_CARD_COUNT * SPELL_CARD_SIZE)
+		self.assertEqual([struct.unpack_from("<i", records, card * SPELL_CARD_SIZE + 0x88)[0] for card in range(3)], [0, 1, 2])

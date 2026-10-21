@@ -1,6 +1,6 @@
 # 24: The client sends capture checks; Spell Card Keys on by default
 
-Status: deferred
+Status: done
 Blocked by: 08, 21, 23
 
 ## Problem
@@ -31,3 +31,5 @@ With 21's locations and 23's verified addresses, the client must send `Stage N -
 
 ## Deferred
 - An in-game capture smoke run: add a `ready-for-human` ticket when promoting, as 09 does for v1.
+- 2026-10-18 Claude: done, with a different signal than planned. No spell ID or bonus address is needed: the save's CR chunk ends in 175 card records (name, capture count, attempt count, ID, level; 0x664 + 175 x 0x90 = CLEAR_SIZE), live at `[0x4A8EBC] + 0x66C` per shot. `captures.py` compares the counts poll to poll for the last run's shot; a card whose count rises, and which none of the owner's shots had captured before, sends the stage's next `Capture k` (k = sent + 1, up to min(captures_per_stage, the stage's cap)). Locked runs (the stage filter, Start runs in Practice seeds) send nothing. **The default stays `off`** until batch 58 R6 confirms it in game; flipping it then is one line in `Options.SpellCardKeys`.
+- 2026-10-20 Claude: batches 58 and 61 confirmed capture checks in game, and the crash fix held. `spell_card_keys` now defaults to `alongside` (human decision). The core test base sets it to `off`, so the location-count tests keep their numbers.

@@ -180,13 +180,13 @@ class SpellCardKeys(Choice):
 	option_off = 0
 	option_alongside = 1
 	option_keys_only = 2
-	# Off until the client detects captures; ticket 24 flips it to alongside.
-	default = 0
+	# Captures confirmed in game by batches 58/61 (24).
+	default = 1
 
 
 class CapturesPerStage(Range):
-	"""Capture checks per stage: the k-th different spell card you capture in a stage with a character
-	sends that stage's k-th check. Captures count across runs and on any difficulty.
+	"""Capture checks per stage: the k-th different spell you capture in a stage with a character
+	sends that stage's k-th check. Captures count across runs; the same spell on another difficulty counts once.
 	Capped per stage at the fewest cards any difficulty has (stage 1: 2, stages 2-4: 4, stage 5: 5, stage 6: 6)."""
 	display_name = "Captures per stage"
 	range_start = 0

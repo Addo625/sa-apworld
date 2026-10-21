@@ -96,11 +96,14 @@ ADDR_PLAYER_STATE = [ADDR_PLAYER_PTR, 0x928]  # source: static disassembly (36),
 PLAYER_STATE_PLAY = 1  # source: 36, as above
 PLAYER_STATE_HIT = 4  # source: 36, as above
 
-# Spell captures. thprac_th11.cpp has no spell ID, bonus or history code (its spell practice
-# patches ECL), and FearLess and disassembly weren't reachable in 22: each entry has one source at most.
-ADDR_SPELL_ID = None  # source: none yet, current spell card ID (spells.js 0-174) or -1 TODO(23)
-ADDR_SPELL_BONUS = None  # source: none yet, spell bonus flag/value on capture TODO(23)
-ADDR_SPELL_HISTORY = [0x000C343C, 0x6E8]  # source: 06 dumps only: paired u32 counters (attempts/captures?) at a 0x20 stride that rose in play TODO(23)
+# Spell captures: the save's spell history, live in the save struct like ADDR_PRACTICE_UNLOCK. The CR chunk's card
+# records follow its practice table (ThScoreFileConverter Th10.SpellCard: name[0x80], clear count, trial count, ID,
+# level); the 6 CR chunks' sizes (0x664 + 175 x 0x90 = scoredat.CLEAR_SIZE) and the saves' decoded records confirm the
+# layout (IDs 0-174 in order, Kisume's Lunatic card at 1). The next shot's records are scoredat.CLEAR_SIZE further.
+ADDR_SPELL_CARDS = [0x000A8EBC, 0x66C]  # source: save layout (24), chunk + 0x664 at the live offset ADDR_PRACTICE_UNLOCK uses (chunk + 8); live update timing TODO(58 R6)
+SPELL_CARD_COUNT = 175
+SPELL_CARD_SIZE = 0x90
+SPELL_CLEAR_OFFSET = 0x80  # the card's capture count (u32); trial count at 0x84
 
 # Save data (score.dat), live in the save struct the static 0x4A8EBC points to (not the file buffer copy).
 # Reimu A's practice table: scoredat.PRACTICE_SIZE entries, levels outer, stages inner; byte 5 is `unlocked`, which the

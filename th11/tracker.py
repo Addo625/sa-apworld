@@ -21,17 +21,17 @@ def stage_name(level):
 
 
 def location_stage(name):
-	"""Location name -> (owner or None for a shared capture slot, level 1-7), or None if it isn't a stage check."""
+	"""Location name -> (owner or None for a shared capture slot, level 1-7, is a capture), or None if it isn't a stage check."""
 	if name.startswith("[") and name.split("]")[0][1:] in DIFFICULTY_LIST:
 		name = name.split("]", 1)[1]
 	owner = None
 	if name.startswith("["):
 		owner, name = name[1:].split("] ", 1)
 	if name in STAGE_OF_CHECK:
-		return owner, STAGE_OF_CHECK[name]
+		return owner, STAGE_OF_CHECK[name], False
 	if name.startswith("Stage "):
 		level = name.split()[1]
-		return owner, 7 if level == "Extra" else int(level)
+		return owner, 7 if level == "Extra" else int(level), " - Capture " in name
 	return None
 
 
@@ -80,7 +80,7 @@ def report(item_names, missing_names, slot_data):
 		"  " + ", ".join(f"{ending}: " + " / ".join(f"{c} {count[f'[{c}] {ending}']}" for c in CHARACTERS_LIST) for ending in endings),
 		"",
 		f"+1 Life {count['+1 Life']} (Practice starts with {practice_lives(item_names, slot_data, slot_data.get('limit_lives', 9))})"
-		f"  ·  +0.50 Power {count['+0.50 Power']}  ·  Lower Difficulty {count['Lower Difficulty']}"
+		f"  ·  +0.50 Power {count['+0.50 Power']} (Practice starts at {min(count['+0.50 Power'] * 0.5, 4):.2f})  ·  Lower Difficulty {count['Lower Difficulty']}"
 		f" (easiest: {DIFFICULTY_LIST[lowest_unlocked(count['Lower Difficulty'], exclude_lunatic)]})"
 		+ (f"  ·  Spell Card Key {count['Spell Card Key']}" if slot_data.get("spell_card_keys") else ""),
 		"",
@@ -89,12 +89,18 @@ def report(item_names, missing_names, slot_data):
 	shots = [shot for shot in SHOT_TYPE_LIST if CHARACTER_TO_ITEM[shot][0] in count]
 	if not shots:
 		lines.append("No shot type received yet.")
-	for shot in shots:
+	# A character's shots share checks and stage unlocks unless shot_type or by_shot_type splits them: one block each.
+	per_shot = slot_data.get("shot_type") or slot_data.get("stage_unlock") == StageUnlock.option_by_shot_type
+	blocks = [(shot, shot) for shot in shots] if per_shot else [
+		(f"{character} ({', '.join(shot.split()[1] for shot in group)})", group[0])
+		for character in CHARACTERS_LIST if (group := [shot for shot in shots if SHOT_TO_CHARACTER[shot] == character])]
+	for title, shot in blocks:
 		owner = shot if slot_data.get("shot_type") else SHOT_TO_CHARACTER[shot]
-		lines += ["", f"{shot}" + ("" if owner == shot else f" (checks shared with {owner})")]
+		lines += ["", title + ("" if not per_shot or owner == shot else f" (checks shared with {owner})")]
 		for level, requirement in enumerate(requirements, 1):
-			checks = left[(owner, level)] + left[(None, level)]
-			suffix = f" -- {checks} check{'s' * (checks != 1)} left" if checks else " -- all checked"
+			bosses, spells = left[(owner, level, False)], left[(owner, level, True)] + left[(None, level, True)]
+			parts = [f"{bosses} boss check{'s' * (bosses != 1)}"] * bool(bosses) + [f"{spells} capture{'s' * (spells != 1)}"] * bool(spells)
+			suffix = f" -- left: {', '.join(parts)}" if parts else " -- all checked"
 			if not stage_open(item_names, slot_data, shot, level):
 				lines.append(f"  {stage_name(level)}: LOCKED, needs {missing_stage_item(count, group_of(shot), level, progressive, apart)}{suffix}")
 				continue

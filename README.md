@@ -19,12 +19,15 @@ With **Difficulty Check**, midboss and boss checks exist once per difficulty (`[
 
 With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clear` per character or shot type (no difficulty checks).
 
+With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th different spell you capture in stage N, per character (or shot type, or shared). The same spell on another difficulty counts once. The client reads each card's capture count from the game's save data when you're back on a menu, so a spell that character already captured before (even before this seed) doesn't count again: start from a fresh save.
+
 ## Items
 * Shot Types (Reimu A/B/C, Marisa A/B/C)
 * Next Stage (Practice Mode): global, per character or per shot type; `Stage 2` .. `Stage 6` without Progressive Stage Unlock
-* Extra Stage (with **Extra Stage** apart, or linear without Progressive Stage Unlock), grouped like Next Stage. Not written to the game yet: its unlock address is still unknown.
-* +0.50 Power
-* +1 Life
+* Extra Stage (with **Extra Stage** apart, or linear without Progressive Stage Unlock), grouped like Next Stage: with global unlocks the item is `Extra Stage`, per character `[Reimu] Extra Stage`, per shot type `[Reimu A] Extra Stage`.
+* +0.50 Power: every Practice run starts with 0.50 power per pack received (at most 4.00), on every stage
+* +1 Life: every Practice run starts with one spare life per item received (plus **Min Lives**)
+* Spell Card Key (with **Spell Card Keys**): gates stages 3-6
 * Lower Difficulty
 
 **Filler**: +0.05 Power
@@ -63,8 +66,10 @@ With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clea
 3. Launch the Touhou SA client found in the Archipelago launcher.
 4. Connect the client to the server.
 
+**Set the volume (Option screen) before connecting the client.** While connected, the client keeps the menu cursor off locked difficulties, and the Option screen looks like the difficulty select to it, so the cursor jumps off the BGM row.
+
 ### Tracker
-The client's **Tracker** tab (or `/tracker`) shows, for each shot type you have, every stage as:
+The client's **Tracker** tab (or `/tracker`) shows, for each character you have (each shot type with **Shot Type Check** or per-shot stage unlocks), every stage as:
 - **OPEN**: in logic, the stage is unlocked and you have everything its gate expects;
 - **PLAYABLE**: the game lets you play it, but logic expects more first (e.g. `+0.50 Power 0/2, Hard: Lower Difficulty 0/1`);
 - **LOCKED**: it still needs its stage item (`Next Stage 1/2`, `Stage 3`, `Extra Stage`).

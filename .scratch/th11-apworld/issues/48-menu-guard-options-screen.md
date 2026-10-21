@@ -1,7 +1,7 @@
 # 48: The menu guard must leave the Options screen alone
 
-Status: ready-for-agent
-Blocked by: 58
+Status: deferred
+Blocked by: None
 
 ## Problem
 Batch 44 (human): while connected, the guard (16/38) also forces the cursor on the **Options** screen (volume and similar), not only on the difficulty and shot selects. It keys on the menu id alone (difficulty = 1, shot = 3), and the Options screen evidently uses one of those ids.
@@ -21,3 +21,4 @@ Batch 44 (human): while connected, the guard (16/38) also forces the cursor on t
 
 ## Comments
 - 2026-10-18 Claude: batch 50 R1: Options reads `ADDR_MENU = 1`, cursor 3, `ADDR_GAME_FLAGS = 4`. The flag doesn't help: `th11.exe` sets bit 4 when the score passes the high score (`0x41EF9F`: `or eax,4` after `cmp [0x4A56E0],eax`) and clears it at run start (`0x41FAA4`), so it's leftover state, not a screen id (the character select's 4 in probe 06 is the same leftover, or another of its setters). Next: batch 58 R1 dumps the menu object on each screen. Then, in `guard.correct`, return `None` when the distinguishing field says Options, plus `test_guard_ignores_options_screen` built from R1's dump.
+- 2026-10-20 Claude: batch 61 R2 found the field: menu object +0x1C reads title 1, Option 3, the difficulty selects (Start, Practice, Esc back) 5, while +0xB0 is 1 on both. Fix when promoted: `ADDR_MENU_SCREEN = [ADDR_MENU_PTR, 0x1C]`, and `guard.correct` returns `None` when it reads 3; first `/probe` the character and shot selects to make sure they aren't 3. Human decision (2026-10-20): deferred; the README says to set the volume before connecting.

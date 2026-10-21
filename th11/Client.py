@@ -17,20 +17,21 @@ from CommonClient import (
 from NetUtils import ClientStatus
 from settings import get_settings
 
-from . import Variables, deathlink, detect, guard, probe, receive, ringlink, scoredat, tracker, traps
+from . import Variables, captures, deathlink, detect, guard, probe, receive, ringlink, scoredat, tracker, traps
 from .Items import item_table
 from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
 from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, resolve, write_entry, write_int
-from .state import read_state
+from .state import PRACTICE_FLAG, read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 LOCATION_NAMES = {code: name for name, code in location_table.items()}
 POLL_SECONDS = 0.5
 MEMSEARCH_CAP = 50
 DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
+CAPTURE_READ_SECONDS = 2  # menus only (detect_captures)
 KILL_RETRY_SECONDS = 2  # a kill that took no life (deathbomb, player respawning or dying) is retried after this
 
 
@@ -263,6 +264,11 @@ class TouhouContext(CommonContext):
 		self.items_applied = 0  # kept across server reconnects, which replay the list from index 0
 		self.applied_for = None  # (seed, slot) items_applied counts for
 		self.locations_found = set()
+		self.capture_run = None  # the last in-game state: captures land on its shot and stage
+		self.spell_clears = (None, {})  # (controller, {shot: capture count per card}) at the last read
+		self.capture_read_at = 0.0
+		self.captures_seen = set()  # captured_cards entries found this session, before the server stores them
+		self.captures_sent = set()  # capture location names sent this session, before the server echoes them
 		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
@@ -343,6 +349,8 @@ class TouhouContext(CommonContext):
 				asyncio.create_task(self.update_death_link(bool(self.slot_data.get("death_link"))))
 				asyncio.create_task(self.update_ring_link(bool(self.slot_data.get("ring_link"))))
 				self.limit_lives = self.slot_data.get("limit_lives", LimitLives.default)
+			if self.slot_data.get("spell_card_keys"):
+				self.set_notify(self.capture_key())
 		if cmd == "Bounced" and "RingLink" in args.get("tags", []) and "RingLink" in self.tags:
 			data = args.get("data") or {}
 			amount = data.get("amount")
@@ -384,6 +392,7 @@ class TouhouContext(CommonContext):
 				if not detect.locked(found, shots, lower, self.slot_data, received):
 					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower))
 			self.runs_found.clear()
+			await self.detect_captures(controller, state, lower, shots, received)
 		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)
 		if cursor is not None:
 			write_int(controller, Variables.ADDR_MENU_CURSOR, cursor)
@@ -392,7 +401,17 @@ class TouhouContext(CommonContext):
 			self.locations_found.clear()
 		names = self.received_names()
 		applied = self.items_applied
-		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives)
+		# A retry never leaves play, so it starts a run too (detect.restarted, batch 61).
+		started = bool(prev and state.in_game and (state.flags or 0) & PRACTICE_FLAG
+			and (not prev.in_game or detect.restarted(prev, state)))
+		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
+		# Diagnostics for batch 65 (crash ~1 s after a midboss): which write belongs to which item or run start.
+		if started:
+			packs = names.count("+0.50 Power")
+			kind = "retry" if prev.in_game else "new run"
+			logger.info(f"Run start ({kind}, stage {state.stage}, score {state.score}): power set to {min(packs * 0.5, 4):.2f} from {packs} packs")
+		if self.items_applied > applied and receive.in_run(state):
+			logger.info(f"Applied: {', '.join(name for name in names[applied:self.items_applied] if name)}")
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
 			write_int(controller, entry, value)
 		self.play_sound(controller, receive.sound(names[applied:self.items_applied]))  # after the lives write: the cave redraws them
@@ -433,6 +452,63 @@ class TouhouContext(CommonContext):
 		if self.slot is not None and not state.in_game:  # the patched code runs at run start: patch it from a menu
 			self.patch_practice_lives(controller, receive.practice_lives(names, self.slot_data, self.limit_lives))
 		return state, runs
+
+	def captured_cards(self):
+		"""{"<owner>:<spell slot>"} captured in this seed, kept in server data storage: the save forgets a capture when the
+		game crashes before writing it, and the server must not get a second check for that spell (batch 58)."""
+		return set(self.stored_data.get(self.capture_key()) or {}) | self.captures_seen
+
+	def capture_key(self):
+		return f"th11_spells_{self.team}_{self.slot}"  # spell slots (63); th11_captures_ held card IDs
+
+	async def detect_captures(self, controller, state, lower, shots, received):
+		"""Capture checks from the live save's per-card capture counts (24), attributed to the last run's shot and stage.
+		Read only on menus (every CAPTURE_READ_SECONDS) and when a run moves to the next stage, never mid-stage: batch 58
+		R3 crashed at every dialog while this read 25 KB per poll in play (suspected: a cross-process read can pause the
+		game under Wine; batch 61 confirms)."""
+		run = self.capture_run
+		if state.in_game and state.shot is not None:
+			self.capture_run = state
+		if not self.slot_data.get("spell_card_keys") or run is None:
+			return
+		next_stage = state.in_game and state.stage != run.stage
+		if state.in_game and not next_stage:
+			return
+		if not state.in_game and time.monotonic() - self.capture_read_at < CAPTURE_READ_SECONDS:
+			return
+		self.capture_read_at = time.monotonic()
+		size = Variables.SPELL_CARD_COUNT * Variables.SPELL_CARD_SIZE
+		try:
+			table = resolve(controller, Variables.ADDR_SPELL_CARDS)
+			counts = {shot: captures.clear_counts(controller.read_bytes(table + i * scoredat.CLEAR_SIZE, size))
+				for i, shot in enumerate(Variables.SHOT_TYPE_LIST) if not state.in_game or shot == run.shot}
+		except Exception:  # null save pointer before the title loads it: retried later
+			return
+		if self.spell_clears[0] is not controller:  # a new game process: a fresh baseline, nothing counts until it moves
+			self.spell_clears = (controller, {})
+		baseline = self.spell_clears[1]
+		before = baseline.get(run.shot)
+		baseline.update(counts)
+		if before is None or run.shot not in counts or detect.locked(run, shots, lower, self.slot_data, received):
+			return
+		sent = {LOCATION_NAMES.get(location) for location in self.checked_locations | self.locations_found} | self.captures_sent
+		mates = [baseline[shot] for shot in captures.owner_shots(run.shot, self.slot_data) if shot != run.shot and shot in baseline]
+		for card in captures.new_captures(before, counts[run.shot]):
+			slot = captures.spell_slot(card)
+			entry = f"{captures.owner(run.shot, self.slot_data)}:{slot}"
+			had = entry in self.captured_cards() or any(
+				counts_[other] > 0 for counts_ in [before] + mates for other in captures.slot_cards(slot))
+			self.captures_seen.add(entry)
+			await self.send_msgs([{"cmd": "Set", "key": self.capture_key(), "default": {}, "want_reply": False,
+				"operations": [{"operation": "update", "value": {entry: 1}}]}])
+			name = captures.capture_location(run.shot, run.stage, had, self.slot_data, sent)
+			if name:
+				logger.info(f"Spell card {card} captured: {name}")
+				self.locations_found.add(location_table[name])
+				self.captures_sent.add(name)
+				sent.add(name)
+			else:
+				logger.info(f"Spell card {card} captured (this spell was captured before, or no capture check is left in this stage)")
 
 	def stage6_cleared(self):
 		"""Owners (character, or shot with shot_type) whose Stage 6 Clear is checked, for a normal-mode linear Extra."""

@@ -149,6 +149,30 @@ class TestDetectGranularity(unittest.TestCase):
 		self.assertEqual(extra, ids("[Reimu] Koishi Defeated", "[Reimu] Stage Extra Clear"))  # Extra has no difficulty lock
 
 
+class TestRetry(unittest.TestCase):
+	"""62 (batch 61): a retry never leaves play, and its boss drop isn't a kill."""
+	def test_retry_at_game_over_sends_nothing(self):
+		over = play(1, True, ADDR_LIVES=-1, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=20000)
+		retry = play(1, False, ADDR_LIVES=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0)
+		self.assertEqual(step(over, retry, 1), ([], 0))
+
+	def test_pause_retry_during_boss_sends_nothing_and_restarts_the_count(self):
+		fight = play(1, True, ADDR_LIVES=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=20000)
+		retry = play(1, False, ADDR_LIVES=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0)
+		self.assertEqual(step(fight, retry, 1), ([], 0))
+		midboss_up = play(1, True, ADDR_LIVES=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=100)
+		midboss_gone = play(1, False, ADDR_LIVES=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=200)
+		self.assertEqual(step(midboss_up, midboss_gone, 0), (ids("[Reimu] Kisume - Midboss"), 1))  # run 0 again
+
+	def test_normal_continue_keeps_counting(self):
+		"""A continue resets lives with the boss still up; beating it afterwards still counts."""
+		over = play(1, True, ADDR_LIVES=-1, ADDR_GAME_FLAGS=0, ADDR_SCORE=20000)
+		continued = play(1, True, ADDR_LIVES=2, ADDR_GAME_FLAGS=0, ADDR_SCORE=1)
+		self.assertEqual(step(over, continued, 1), ([], 1))
+		beaten = play(1, False, ADDR_LIVES=2, ADDR_GAME_FLAGS=0, ADDR_SCORE=50)
+		self.assertEqual(step(continued, beaten, 1), (ids("[Reimu] Yamame Defeated", "[Reimu] Stage 1 Clear"), 2))
+
+
 class TestStageGate(unittest.TestCase):
 	"""52/45: a run on a stage the received items don't open sends nothing (playing ahead can't skip a gate)."""
 	SHOTS = {"Reimu A"}
