@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Options import Choice, DeathLink, PerGameCommonOptions, Range, Toggle
+from Options import Choice, DeathLink, DefaultOnToggle, PerGameCommonOptions, Range, Toggle
 
 
 class Mode(Choice):
@@ -176,18 +176,9 @@ class KoishiEndings(Choice):
 	default = 0
 
 
-class SpellCardKeys(Choice):
-	"""Capturing spell cards becomes checks, and Spell Card Keys in the pool gate stages 3-6.
-	off: no capture checks or keys.
-	alongside: keys gate stages together with lives, power and difficulty.
-	keys_only: keys are the only gate; lives, power and difficulty are just useful.
-	keys_only with no keys in the pool acts as alongside."""
+class SpellCardKeys(DefaultOnToggle):
+	"""Capturing spell cards becomes checks, and Spell Card Keys open the key locks below (Practice mode)."""
 	display_name = "Spell Card Keys"
-	option_off = 0
-	option_alongside = 1
-	option_keys_only = 2
-	# Captures confirmed in game by batches 58/61 (24).
-	default = 1
 
 
 class CapturesPerStage(Range):
@@ -211,20 +202,63 @@ class CaptureSlots(Choice):
 
 
 class SpellCardKeysInPool(Range):
-	"""Percentage of capture checks that add a Spell Card Key to the pool; the rest add filler."""
-	display_name = "Spell Card Keys in pool (%)"
+	"""Spell Card Keys in the item pool, at most the number of capture checks (lowered with a warning)."""
+	display_name = "Spell Card Keys in pool"
 	range_start = 0
-	range_end = 100
-	default = 50
+	range_end = 50
+	default = 12
 
 
-class SpellCardKeysRequired(Range):
-	"""Percentage of the pool's Spell Card Keys needed for stage 6. Earlier stages need 0, 0, 1/4, 1/2, 3/4 of that.
-	Gates that don't fit in the checks before a stage are lowered, with a warning."""
-	display_name = "Spell Card Keys required (%)"
+class SpellCardKeysLocal(Toggle):
+	"""Spell Card Keys stay in your own world, so no other player can hold one of your locks shut."""
+	display_name = "Spell Card Keys local"
+
+
+class KeyLockToll(Range):
+	"""Spell Card Keys held to open key_lock_toll_stage and every stage after it. 0: no toll.
+	Locks work in Practice mode only. Keys are held, never spent."""
+	display_name = "Key lock: toll"
 	range_start = 0
-	range_end = 100
-	default = 75
+	range_end = 50
+	default = 0
+
+
+class KeyLockTollStage(Choice):
+	"""The first stage the toll closes."""
+	display_name = "Key lock: toll stage"
+	option_stage_3 = 3
+	option_stage_4 = 4
+	option_stage_5 = 5
+	default = 5
+
+
+class KeyLockFinal(Range):
+	"""Spell Card Keys held for key_lock_final_target, at least the toll. 0: no final lock."""
+	display_name = "Key lock: final"
+	range_start = 0
+	range_end = 50
+	default = 6
+
+
+class KeyLockFinalTarget(Choice):
+	"""What the final lock closes.
+	stage_6: Stage 6 (and the Extra stage after it).
+	goal: the goal completes only while you hold the keys; every stage plays freely.
+	extra: only the Extra stage."""
+	display_name = "Key lock: final target"
+	option_stage_6 = 0
+	option_goal = 1
+	option_extra = 2
+	default = 0
+
+
+class KeyLockSlack(Range):
+	"""Spare keys logic places before each lock: the game opens at the lock's count, logic counts on the lock only
+	with this many more reachable, so missing a few captures never leaves you stuck."""
+	display_name = "Key lock: slack"
+	range_start = 0
+	range_end = 10
+	default = 2
 
 
 class Traps(Range):
@@ -359,7 +393,12 @@ class TH11Options(PerGameCommonOptions):
 	captures_per_stage: CapturesPerStage
 	capture_slots: CaptureSlots
 	spell_card_keys_in_pool: SpellCardKeysInPool
-	spell_card_keys_required: SpellCardKeysRequired
+	spell_card_keys_local: SpellCardKeysLocal
+	key_lock_toll: KeyLockToll
+	key_lock_toll_stage: KeyLockTollStage
+	key_lock_final: KeyLockFinal
+	key_lock_final_target: KeyLockFinalTarget
+	key_lock_slack: KeyLockSlack
 	traps: Traps
 	power_trap: PowerTrap
 	life_trap: LifeTrap

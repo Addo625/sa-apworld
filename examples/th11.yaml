@@ -59,12 +59,18 @@ Touhou Chireiden ~ Subterranean Animism:
   # ---------------------------------------------------------------- Spell Card Keys
   # The client sends a capture check the moment you capture a spell that character (or shot, with
   # shot_type) hasn't captured yet in this seed, on any difficulty.
-  spell_card_keys: alongside    # off / alongside (keys gate stages 3-6 together with the gates above) /
-                                #   keys_only (keys are the only gate).
+  spell_card_keys: 'true'       # 'false': no capture checks and no keys.
   captures_per_stage: 2         # 0-6: capture checks per stage (the k-th different spell captured; any difficulty).
   capture_slots: per_character  # per_character (a character's 3 shots share one set) / shared (one set for both).
-  spell_card_keys_in_pool: 50   # 0-100: % of capture checks that add a Spell Card Key; the rest add filler.
-  spell_card_keys_required: 75  # 0-100: % of the keys needed by Stage 6 (ramps up from Stage 3).
+  spell_card_keys_in_pool: 12   # 0-50: Spell Card Keys in the pool (at most the capture checks).
+  spell_card_keys_local: 'false'  # 'true': your keys are only placed in your own game.
+  # Key locks (Practice mode only): hold this many keys, or the stage stays out of the Practice menu.
+  # Keys are held, never spent; 0 turns a lock off. A lock that can't be met is lowered, with a warning.
+  key_lock_toll: 0              # 0-50: keys to open key_lock_toll_stage and every stage after it.
+  key_lock_toll_stage: stage_5  # stage_3 / stage_4 / stage_5.
+  key_lock_final: 6             # 0-50: keys for the final target (at least the toll).
+  key_lock_final_target: stage_6  # stage_6 (and Extra) / goal (the goal needs the keys) / extra (only Extra).
+  key_lock_slack: 2             # 0-10: spare keys logic places before each lock, so missed captures never strand you.
 
   # ---------------------------------------------------------------- Traps
   traps: 0                      # 0-100: % of filler items replaced by traps. The weights below pick which trap.

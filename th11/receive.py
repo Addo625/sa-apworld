@@ -8,7 +8,7 @@ from . import Variables, scoredat
 from .guard import unlocked_difficulties
 from .Items import item_table
 from .Options import ExtraStage, Mode, ProgressiveStage, StageUnlock
-from .Rules import goal_met, stage_unlocked
+from .Rules import goal_key_lock, goal_met, key_locks, stage_unlocked
 
 MAX_LIVES = 9  # probe 06 S3: Practice starts at 9
 MAX_POWER = 80  # 4.00 in units of 0.05 (probe 06)
@@ -54,7 +54,7 @@ def extra_shots(item_names, slot_data, cleared=()):
 	state, group = Received(item_names), SHOT_GROUP[slot_data.get("stage_unlock", StageUnlock.default)]
 	progressive = slot_data.get("progressive_stage", ProgressiveStage.default)
 	return {i for i, shot in enumerate(Variables.SHOT_TYPE_LIST) if state.has(Variables.CHARACTER_TO_ITEM[shot][0], None)
-		and stage_unlocked(state, None, group(shot), 7, progressive, apart, normal)}
+		and stage_unlocked(state, None, group(shot), 7, progressive, apart, normal, key_locks(slot_data)[7])}
 
 
 def stage_open(item_names, slot_data, shot, level):
@@ -64,7 +64,7 @@ def stage_open(item_names, slot_data, shot, level):
 	progressive = slot_data.get("progressive_stage", ProgressiveStage.default)
 	apart = slot_data.get("extra_stage", ExtraStage.default) == ExtraStage.option_apart
 	normal = slot_data.get("mode", Mode.option_practice) != Mode.option_practice
-	return stage_unlocked(Received(list(item_names)), None, group, level, progressive, apart, normal)
+	return stage_unlocked(Received(list(item_names)), None, group, level, progressive, apart, normal, key_locks(slot_data)[level])
 
 
 def extra_unlock(current: bytes, shots):
@@ -80,8 +80,9 @@ def practice_open(item_names, slot_data):
 	progressive = slot_data.get("progressive_stage", ProgressiveStage.default)
 	normal = slot_data.get("mode", Mode.option_practice) != Mode.option_practice
 	difficulties = unlocked_difficulties(item_names.count("Lower Difficulty"), slot_data)
+	keys = key_locks(slot_data)  # the game's lock: no slack, that's only logic's margin (75)
 	return {(i, level, stage) for i, shot in enumerate(Variables.SHOT_TYPE_LIST) if state.has(Variables.CHARACTER_TO_ITEM[shot][0], None)
-		for stage in range(1, 7) if stage_unlocked(state, None, group(shot), stage, progressive, normal=normal)
+		for stage in range(1, 7) if stage_unlocked(state, None, group(shot), stage, progressive, normal=normal, keys=keys[stage])
 		for level in difficulties}
 
 
@@ -192,4 +193,4 @@ def goal_reached(item_names, slot_data):
 	"""Ending items received meet slot_data's goal (missing: Utsuho once, no Koishi)."""
 	item_names = list(item_names)
 	return goal_met(item_names.count, slot_data.get("utsuho_endings", 0), slot_data.get("utsuho_shots", 6),
-		slot_data.get("koishi_endings", 0))
+		slot_data.get("koishi_endings", 0), goal_key_lock(slot_data))

@@ -77,9 +77,10 @@ class TestGenerate(bases.TH11TestBase):
 			"extra_stage", "number_life_extra", "power_extra", "utsuho_endings", "utsuho_shots", "koishi_endings",
 			"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives", "min_lives",
 			"spell_card_keys", "captures_per_stage", "capture_slots",
+			"key_lock_toll", "key_lock_toll_stage", "key_lock_final", "key_lock_final_target",
 			"stage_requirements",
 		})
-		self.assertEqual(slot_data["stage_requirements"], [(0, 0, 0, 0)] * 6)
+		self.assertEqual(slot_data["stage_requirements"], [(0, 0, 0)] * 6)
 
 	def test_rooms(self):
 		self.assertEqual(stage_rooms(self.world), DEFAULT_ROOMS)
@@ -158,13 +159,16 @@ EXTREMES = {
 		"[Reimu] Kisume - Midboss", "[Reimu] Parsee Defeated", "[Marisa] Yamame Defeated", "[Marisa] Stage 2 Clear",
 	]},
 	"defaults": {},
-	# The clamp trims keys too, and that must still fill.
-	"keys max": {
-		**MAX_GATES, "spell_card_keys": "alongside", "captures_per_stage": 6,
-		"spell_card_keys_in_pool": 100, "spell_card_keys_required": 100,
+	# Key locks (75): the defaults, an early toll, and every lock at the most the pool allows (clamped to fit).
+	"keys default locks": {"spell_card_keys": True},
+	"keys toll stage 3": {"spell_card_keys": True, "key_lock_toll": 4, "key_lock_toll_stage": "stage_3", "key_lock_final": 12},
+	"keys max locks": {
+		**MAX_GATES, "spell_card_keys": True, "captures_per_stage": 6, "spell_card_keys_in_pool": 50,
+		"key_lock_toll": 50, "key_lock_toll_stage": "stage_3", "key_lock_final": 50,
 	},
-	"keys no captures": {"spell_card_keys": "alongside", "captures_per_stage": 0},
-	"keys shared keys_only": {"spell_card_keys": "keys_only", "capture_slots": "shared"},
+	"keys goal lock shared": {"spell_card_keys": True, "capture_slots": "shared", "key_lock_final_target": "goal"},
+	"keys extra lock": {"spell_card_keys": True, "extra_stage": "apart", "key_lock_final_target": "extra", "key_lock_final": 10},
+	"keys no captures": {"spell_card_keys": True, "captures_per_stage": 0},
 	# Fewest locations per stage item: by_shot_type falls back to by_character (10 stage items).
 	"max by_shot_type fallback": {**MAX_GATES, "stage_unlock": "by_shot_type"},
 	"max by_character not progressive": {**MAX_GATES, "stage_unlock": "by_character", "progressive_stage": False},
@@ -221,7 +225,7 @@ class TestMaxGates(bases.TH11TestBase):
 			self.world_setup()
 		self.assertTrue(any("Stage 3" in line for line in logs.output))
 		# (4, 4, 1) needs 9 slots; stage 3 has room for 6.
-		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][2], (2, 3, 1, 0))
+		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][2], (2, 3, 1))
 
 
 class TestLuck(bases.TH11TestBase):

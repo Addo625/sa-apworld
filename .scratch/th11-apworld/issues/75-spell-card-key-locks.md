@@ -1,6 +1,6 @@
 # 75: Spell Card Key locks: hold X keys or the stage stays closed
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 
 ## Problem
@@ -60,3 +60,10 @@ Spell Card Keys are a soft gate today: `spell_card_keys_required` (a % of the po
 
 ## Deferred
 - In-game check through the next probe batch: the Practice menu hides the toll stage until X keys (`/send <slot> Spell Card Key`), and the final target behaves.
+
+## Comments
+- 2026-10-22 Claude: done. Two findings from fill:
+  - With every key progression, max gates plus a big final lock failed 15 of 20 fixed seeds. Now only the keys logic counts on (largest lock + slack) are progression; the rest are filler that still open the game's locks.
+  - A lock shares its stage's room with the largest gate of each resource so far, and leaves a third of the room free (`KEY_LOCK_MARGIN`, measured: a 20-key final lock at max gates filled every seed, 26 failed 3 of 20).
+  - `plan_gates` now runs in `create_items` (before `set_rules`) so the key classification knows the fitted locks.
+  - Old YAMLs with `spell_card_keys: alongside` / `spell_card_keys_required` need updating.

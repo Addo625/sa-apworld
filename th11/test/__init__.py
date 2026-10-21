@@ -8,5 +8,5 @@ class TH11TestBase(WorldTestBase):
 
 	def world_setup(self, *args, **kwargs):
 		# Captures default to on since 24; the core tests count locations and fill without them unless they ask.
-		self.options = {"spell_card_keys": "off", **self.options}
+		self.options = {"spell_card_keys": False, **self.options}
 		super().world_setup(*args, **kwargs)

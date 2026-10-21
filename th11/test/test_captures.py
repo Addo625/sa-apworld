@@ -4,13 +4,14 @@ import unittest
 from BaseClasses import CollectionState, ItemClassification
 
 from .. import test as bases
-from ..Rules import stage_rooms
+from ..Rules import key_locks, stage_rooms
 from ..Variables import CHARACTER_TO_ITEM, SPELL_CARD_COUNT, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
 from ..captures import capture_location, count_address, owner, spell_slot
 
 ALL_SHOTS = CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"]
 STAGE3 = "[Reimu] Yuugi Defeated"
-STAGE4 = "[Reimu] Satori Defeated"
+STAGE6 = "[Reimu] Utsuho Defeated"
+EXTRA = "[Reimu] Koishi Defeated"
 
 
 def capture_locations(test):
@@ -25,10 +26,11 @@ def assert_pool_fills(test, captures, keys):
 	test.assertEqual(len(test.get_items_by_name("Spell Card Key")), keys)
 
 
-class TestDefaultAlongside(unittest.TestCase):
-	def test_spell_card_keys_default_alongside(self):
-		from ..Options import SpellCardKeys
-		self.assertEqual(SpellCardKeys.default, SpellCardKeys.option_alongside)
+class TestDefaultOn(unittest.TestCase):
+	def test_spell_card_keys_default_on(self):
+		from ..Options import KeyLockFinal, KeyLockSlack, SpellCardKeys, SpellCardKeysInPool
+		self.assertTrue(SpellCardKeys.default)
+		self.assertEqual((SpellCardKeysInPool.default, KeyLockFinal.default, KeyLockSlack.default), (12, 6, 2))
 
 
 class TestOff(bases.TH11TestBase):
@@ -39,68 +41,129 @@ class TestOff(bases.TH11TestBase):
 
 
 class TestOffCreatesNone(bases.TH11TestBase):
-	options = {"spell_card_keys": "off", "captures_per_stage": 6, "capture_slots": "shared"}
+	options = {"spell_card_keys": False, "captures_per_stage": 6, "capture_slots": "shared"}
 
 	def test_off_creates_none(self):
 		self.assertEqual(capture_locations(self), [])
 		self.assertEqual(len(self.multiworld.get_locations(self.player)), 38)
 
 
-class TestAlongside(bases.TH11TestBase):
-	options = {"spell_card_keys": "alongside"}
+class TestDefaults(bases.TH11TestBase):
+	"""Captures on with the default locks (75): 12 keys, the final lock at 6 on Stage 6, slack 2."""
+	options = {"spell_card_keys": True}
 
-	def test_capture_count_default_alongside(self):
+	def test_capture_count(self):
 		self.assertEqual(len(capture_locations(self)), 24)
 		region = self.multiworld.get_location("[Marisa] Stage 6 - Capture 2", self.player).parent_region
 		self.assertEqual(region.name, "[Marisa] Stage 6")
 
 	def test_item_count_matches_locations(self):
 		assert_pool_fills(self, 24, 12)
+		self.assertEqual(self.get_items_by_name("Spell Card Key")[0].classification, ItemClassification.progression)
 
 	def test_rooms_count_captures_and_key_slack(self):
 		# Stages hold 10, 10, 10, 12, 10 locations with 2 captures per character.
 		self.assertEqual(stage_rooms(self.world), [-4, 5, 14, 23, 34, 43])
-		self.assertEqual(stage_rooms(self.world, keys_required=20), [-6, 3, 12, 21, 32, 41])
+		self.assertEqual(stage_rooms(self.world, keys=20), [-6, 3, 12, 21, 32, 41])
 
-	def test_key_gate_stage3(self):
-		# 12 keys at 75 % -> 9 required by stage 6, floor(9/4) = 2 at stage 3.
-		self.assertEqual([req[3] for req in self.world.stage_requirements], [0, 0, 2, 4, 6, 9])
+	def test_final_lock_needs_lock_plus_slack_in_logic(self):
+		"""The game opens Stage 6 at 6 keys; logic counts on it at 8, so 2 missed captures never strand a player."""
 		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
 		keys = self.get_items_by_name("Spell Card Key")
-		self.collect(keys[0])
+		self.assertTrue(self.can_reach_location("[Reimu] Orin Defeated"))  # Stage 5: no lock
+		self.collect(keys[:7])
+		self.assertFalse(self.can_reach_location(STAGE6))
+		self.collect(keys[7])
+		self.assertTrue(self.can_reach_location(STAGE6))
+
+
+class TestTollStage3(bases.TH11TestBase):
+	options = {"spell_card_keys": True, "key_lock_toll": 4, "key_lock_toll_stage": "stage_3", "key_lock_final": 12}
+
+	def test_toll_and_clamped_final(self):
+		slot = self.world.fill_slot_data()
+		self.assertEqual((slot["key_lock_toll"], slot["key_lock_final"]), (4, 10))  # 12 keys, 2 kept as slack
+		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
+		keys = self.get_items_by_name("Spell Card Key")
+		self.collect(keys[:5])
 		self.assertFalse(self.can_reach_location(STAGE3))
-		self.collect(keys[1])
+		self.collect(keys[5])
 		self.assertTrue(self.can_reach_location(STAGE3))
-		self.assertFalse(self.can_reach_location(STAGE4))
+		self.assertFalse(self.can_reach_location(STAGE6))  # 10 + 2
+
+
+class TestGoalLock(bases.TH11TestBase):
+	options = {"spell_card_keys": True, "key_lock_final_target": "goal"}
+
+	def test_goal_needs_keys_not_stage_6(self):
+		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
+		self.assertTrue(self.can_reach_location(STAGE6))
+		state = self.multiworld.state
+		state.collect(self.multiworld.get_location("[Reimu] Stage 6 Clear", self.player).item, prevent_sweep=True)
+		self.assertFalse(self.multiworld.has_beaten_game(state, self.player))
+		self.collect(self.get_items_by_name("Spell Card Key")[:8])
+		self.assertTrue(self.multiworld.has_beaten_game(self.multiworld.state, self.player))
+
+
+class TestExtraLock(bases.TH11TestBase):
+	options = {"spell_card_keys": True, "extra_stage": "apart", "key_lock_final_target": "extra", "key_lock_final": 10}
+
+	def test_extra_needs_keys_stage_6_doesnt(self):
+		self.collect_by_name(ALL_SHOTS + ["Next Stage", "Extra Stage"])
+		self.assertTrue(self.can_reach_location(STAGE6))
+		self.assertFalse(self.can_reach_location(EXTRA))
+		self.collect_by_name("Spell Card Key")
+		self.assertTrue(self.can_reach_location(EXTRA))
+
+
+class TestNoLocks(bases.TH11TestBase):
+	options = {"spell_card_keys": True, "key_lock_final": 0}
+
+	def test_keys_are_filler(self):
+		self.assertEqual(self.get_items_by_name("Spell Card Key")[0].classification, ItemClassification.filler)
+		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
+		self.assertTrue(self.can_reach_location(STAGE6))
+
+
+class TestNormalModeIgnoresLocks(bases.TH11TestBase):
+	options = {"spell_card_keys": True, "mode": "normal_static", "key_lock_toll": 3}
+
+	def test_warns_and_keys_are_filler(self):
+		with self.assertLogs(level="WARNING") as logs:
+			self.world_setup()
+		self.assertTrue(any("Practice mode only" in line for line in logs.output))
+		self.assertEqual(self.get_items_by_name("Spell Card Key")[0].classification, ItemClassification.filler)
+
+
+class TestPoolCapped(bases.TH11TestBase):
+	# Shared, 1 per stage = 6 capture checks: the 12-key pool drops to 6, the final lock to 6 - 2 slack.
+	options = {"spell_card_keys": True, "capture_slots": "shared", "captures_per_stage": 1, "spell_card_keys_local": True}
+
+	def test_pool_and_lock_lowered(self):
+		with self.assertLogs(level="WARNING") as logs:
+			self.world_setup()
+		self.assertTrue(any("spell_card_keys_in_pool lowered to 6" in line for line in logs.output))
+		self.assertEqual(len(self.get_items_by_name("Spell Card Key")), 6)
+		self.assertEqual(self.world.fill_slot_data()["key_lock_final"], 4)
+		self.assertIn("Spell Card Key", self.world.options.local_items.value)
 
 
 class TestStage1Cap(bases.TH11TestBase):
-	options = {"spell_card_keys": "alongside", "captures_per_stage": 6}
+	options = {"spell_card_keys": True, "captures_per_stage": 6}
 
 	def test_stage1_capped_at_2(self):
 		names = {loc.name for loc in capture_locations(self)}
 		self.assertIn("[Reimu] Stage 1 - Capture 2", names)
 		self.assertNotIn("[Reimu] Stage 1 - Capture 3", names)
 		self.assertEqual(len(names), 2 * (2 + 4 + 4 + 4 + 5 + 6))
-		assert_pool_fills(self, 50, 25)
-
-
-class TestKeyCountRounding(bases.TH11TestBase):
-	# Shared, 1 per stage = 6 slots; 25 % = 1.5 keys rounds up to 2.
-	options = {"spell_card_keys": "alongside", "capture_slots": "shared", "captures_per_stage": 1, "spell_card_keys_in_pool": 25}
-
-	def test_key_count_rounding(self):
-		self.assertEqual(len(capture_locations(self)), 6)
-		self.assertEqual(len(self.get_items_by_name("Spell Card Key")), 2)
-		# Required: floor(75 % of 2) = 1, reached only at stage 6.
-		self.assertEqual([req[3] for req in self.world.stage_requirements], [0, 0, 0, 0, 0, 1])
+		assert_pool_fills(self, 50, 12)
 
 
 class TestShared(bases.TH11TestBase):
-	options = {"spell_card_keys": "alongside", "capture_slots": "shared"}
+	options = {"spell_card_keys": True, "capture_slots": "shared"}
 
 	def test_capture_count_shared(self):
-		assert_pool_fills(self, 12, 6)
+		assert_pool_fills(self, 12, 12)
 		self.assertEqual(self.multiworld.get_location("Stage 2 - Capture 1", self.player).parent_region.name, "Stage 2 Captures")
 
 	def test_shared_slot_opens_from_either_character(self):
@@ -111,32 +174,6 @@ class TestShared(bases.TH11TestBase):
 			self.assertFalse(self.multiworld.get_location("Stage 1 - Capture 1", self.player).can_reach(state))
 			state.collect(self.world.create_item(CHARACTER_TO_ITEM[character][0]), prevent_sweep=True)
 			self.assertTrue(self.multiworld.get_location("Stage 1 - Capture 1", self.player).can_reach(state), character)
-
-
-class TestKeysOnly(bases.TH11TestBase):
-	options = {"spell_card_keys": "keys_only", "number_life_mid": 8, "power_end": 8}
-
-	def test_keys_only_ignores_lives(self):
-		assert_pool_fills(self, 24, 12)
-		self.assertEqual(self.get_items_by_name("+1 Life")[0].classification, ItemClassification.useful)
-		self.assertEqual([req[:3] for req in self.world.stage_requirements], [(0, 0, 0)] * 6)
-		self.collect_by_name(ALL_SHOTS + ["Next Stage", "Spell Card Key"])
-		self.assertTrue(self.can_reach_location("[Reimu] Utsuho Defeated"))
-
-
-class TestKeysOnlyZeroKeys(bases.TH11TestBase):
-	options = {"spell_card_keys": "keys_only", "spell_card_keys_in_pool": 0, "number_life_mid": 8}
-
-	def test_keys_only_zero_keys_falls_back(self):
-		with self.assertLogs(level="WARNING") as logs:
-			self.world_setup()
-		self.assertTrue(any("keys_only" in line for line in logs.output))
-		self.assertEqual(self.world.fill_slot_data()["spell_card_keys"], 1)
-		self.assertEqual(self.get_items_by_name("+1 Life")[0].classification, ItemClassification.progression)
-		self.collect_by_name(ALL_SHOTS + ["Next Stage"])
-		self.assertFalse(self.can_reach_location(STAGE3))
-		self.collect_by_name("+1 Life")
-		self.assertTrue(self.can_reach_location(STAGE3))
 
 
 class TestCaptureDetection(unittest.TestCase):
