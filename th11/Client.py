@@ -302,7 +302,7 @@ class TouhouContext(CommonContext):
 		if not self.slot_data:
 			return ["Connect to see the tracker."]
 		missing = [LOCATION_NAMES.get(location) for location in self.missing_locations - self.locations_found]
-		return tracker.report(self.received_names(), filter(None, missing), self.slot_data)
+		return tracker.report(self.received_names(), filter(None, missing), self.slot_data, self.captured_cards())
 
 	def make_gui(self):
 		manager, ctx = super().make_gui(), self

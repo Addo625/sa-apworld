@@ -74,7 +74,7 @@ The client's **Tracker** tab (or `/tracker`) shows, for each character you have 
 - **PLAYABLE**: the game lets you play it, but logic expects more first (e.g. `+0.50 Power 0/2, Hard: Lower Difficulty 0/1`);
 - **LOCKED**: it still needs its stage item (`Next Stage 1/2`, `Stage 3`, `Extra Stage`).
 
-Each line also counts the checks left on that stage. The top shows the goal's progress and your `+1 Life`, power and Lower Difficulty counts.
+Each line also counts the boss checks left on that stage and the capture checks sent (`captures 1/2`); each block says how many spells you've captured in this seed, since a capture check needs a spell not captured yet. The top shows the goal's progress and your `+1 Life`, power and Lower Difficulty counts.
 
 ## Linux / macOS (Wine) Notes
 
