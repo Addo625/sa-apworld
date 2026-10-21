@@ -6,7 +6,7 @@ from BaseClasses import CollectionState, ItemClassification
 from .. import test as bases
 from ..Rules import stage_rooms
 from ..Variables import CHARACTER_TO_ITEM, SPELL_CARD_COUNT, SPELL_CARD_SIZE, SPELL_CLEAR_OFFSET
-from ..captures import capture_location, clear_counts, new_captures, owner_shots, slot_cards, spell_slot
+from ..captures import capture_location, count_address, owner_shots, slot_cards, spell_slot
 
 ALL_SHOTS = CHARACTER_TO_ITEM["Reimu"] + CHARACTER_TO_ITEM["Marisa"]
 STAGE3 = "[Reimu] Yuugi Defeated"
@@ -171,13 +171,10 @@ class TestCaptureDetection(unittest.TestCase):
 		self.assertEqual(spell_slot(162), 41)
 		self.assertEqual(slot_cards(1), [2, 3, 4, 5])
 
-	def test_counts_from_records(self):
-		block = bytearray(SPELL_CARD_COUNT * SPELL_CARD_SIZE)
-		struct.pack_into("<i", block, 1 * SPELL_CARD_SIZE + SPELL_CLEAR_OFFSET, 3)
-		counts = clear_counts(bytes(block))
-		self.assertEqual(counts[:3], [0, 3, 0])
-		self.assertEqual(new_captures([0, 2, 0], counts[:3]), [1])
-		self.assertEqual(new_captures(counts, counts), [])
+	def test_count_address(self):
+		"""Each shot's records are a save chunk apart; a card's capture count is at + id * 0x90 + 0x80 (0x40CE4C)."""
+		self.assertEqual(count_address(0x1000, "Reimu A", 0), 0x1000 + SPELL_CLEAR_OFFSET)
+		self.assertEqual(count_address(0x1000, "Reimu B", 2), 0x1000 + 0x68D4 + 2 * SPELL_CARD_SIZE + SPELL_CLEAR_OFFSET)
 
 	def test_capture_cards_are_in_the_save(self):
 		"""The decoded save layout the live entry relies on: Marisa C's records, IDs in order, with a Kisume attempt."""

@@ -100,7 +100,13 @@ PLAYER_STATE_HIT = 4  # source: 36, as above
 # records follow its practice table (ThScoreFileConverter Th10.SpellCard: name[0x80], clear count, trial count, ID,
 # level); the 6 CR chunks' sizes (0x664 + 175 x 0x90 = scoredat.CLEAR_SIZE) and the saves' decoded records confirm the
 # layout (IDs 0-174 in order, Kisume's Lunatic card at 1). The next shot's records are scoredat.CLEAR_SIZE further.
-ADDR_SPELL_CARDS = [0x000A8EBC, 0x66C]  # source: save layout (24), chunk + 0x664 at the live offset ADDR_PRACTICE_UNLOCK uses (chunk + 8); live update timing TODO(58 R6)
+ADDR_SPELL_CARDS = [0x000A8EBC, 0x66C]  # source: save layout (24), chunk + 0x664 at the live offset ADDR_PRACTICE_UNLOCK uses (chunk + 8); static 0x40CE4C: the capture handler adds 1 at + id * 0x90 + 0x80 the moment a card ends captured
+# The running spell card (66): the spell-card object [0x4A8D6C]. Declaring a card (0x40C650, from the ECL handler at
+# 0x415BF1) stores its ID at +0x8DC (0x40C6B8) and sets +0x8E0 |= 3 (1 active, 2 capture still possible); the card's
+# end (0x40CD60) clears bit 1, and with bit 2 still set adds the bonus and the capture count (not in replays).
+ADDR_SPELL_ID = [0x000A8D6C, 0x8DC]  # source: static disassembly (66), as above
+ADDR_SPELL_FLAGS = [0x000A8D6C, 0x8E0]  # source: static disassembly (66), as above
+SPELL_ACTIVE = 1
 SPELL_CARD_COUNT = 175
 SPELL_CARD_SIZE = 0x90
 SPELL_CLEAR_OFFSET = 0x80  # the card's capture count (u32); trial count at 0x84

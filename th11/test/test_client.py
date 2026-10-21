@@ -324,46 +324,44 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertEqual(midboss_gone.writes, [])
 
-	async def test_poll_sends_capture_once(self):
-		"""24: a card's capture count rising in the live save sends the last run's stage's next capture check, once. The
-		save is read on menus only; the first read is the baseline; a card the character captured before (with any shot,
-		or as stored on the server after a crash lost it from the save) sends nothing."""
-		import struct
-		from unittest import mock
+	async def test_capture_sends_its_check_during_the_run(self):
+		"""66: a card that ends with its capture count up sends the stage's next capture check right away. A card that
+		ends without a rise, or a spell the character captured before (another shot, another difficulty's card, or as
+		stored on the server after a crash lost it from the save), sends nothing."""
 		from ..Locations import location_table
-		from .. import Client, scoredat
-		save, size = 0x5000000, Variables.SPELL_CARD_COUNT * Variables.SPELL_CARD_SIZE
+		from .. import scoredat
+		save, spell = 0x5000000, 0x5800000
 
-		def set_counts(memory, kisume=0, other_shot=0, hard=0):
-			for shot, count in enumerate([kisume, other_shot, 0, 0, 0, 0]):
-				block = bytearray(size)
-				struct.pack_into("<i", block, 1 * Variables.SPELL_CARD_SIZE + Variables.SPELL_CLEAR_OFFSET, count)
-				struct.pack_into("<i", block, Variables.SPELL_CLEAR_OFFSET, hard)  # Kisume's Hard card: the same spell (63)
-				memory.set(save + Variables.ADDR_SPELL_CARDS[1] + shot * scoredat.CLEAR_SIZE, bytes(block))
-
-		async def run(*counts, stored=None):
-			"""A run, then a menu, per (Reimu A, Reimu B) Kisume capture counts -> the LocationChecks sent."""
-			play, menu = game_memory(lives=2), menu_memory(0, 0)
-			for memory in (play, menu):
-				memory.set(BASE + Variables.ADDR_SPELL_CARDS[0], save.to_bytes(4, "little"))
+		async def run(start, end, card=1, stored=None, reimu_b=0, hard=0):
+			"""Card `card` runs with Reimu A's count `start`, then ends at `end` -> the LocationChecks sent."""
+			memory = game_memory(lives=2)
+			memory.set(BASE + Variables.ADDR_SPELL_CARDS[0], save.to_bytes(4, "little"))
+			memory.set(BASE + Variables.ADDR_SPELL_ID[0], spell.to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_ID[1], card.to_bytes(4, "little"))
+			table = save + Variables.ADDR_SPELL_CARDS[1]
+			for shot in Variables.SHOT_TYPE_LIST[:3]:
+				for other in range(6):
+					memory.set(captures_address(table, shot, other), bytes(4))
+			memory.set(captures_address(table, "Reimu A", 0), hard.to_bytes(4, "little"))
+			memory.set(captures_address(table, "Reimu B", 1), reimu_b.to_bytes(4, "little"))
 			ctx = self.context(*UNLOCKED)
 			ctx.slot_data = {"spell_card_keys": 1, "captures_per_stage": 2}
 			ctx.stored_data[ctx.capture_key()] = stored
 			state, runs = None, 0
-			for kisume, other_shot, *hard in counts:  # only the menu reads the save, so `menu` is the one game process
-				for memory in (play, menu):
-					set_counts(memory, kisume, other_shot, *hard)
-					state, runs = await ctx.poll(memory, state, runs)
+			for active, count in [(1, start), (0, end)]:
+				memory.set(spell + Variables.ADDR_SPELL_FLAGS[1], active.to_bytes(4, "little"))
+				memory.set(captures_address(table, "Reimu A", card), count.to_bytes(4, "little"))
+				state, runs = await ctx.poll(memory, state, runs)
 			return [msg for msg in ctx.sent if msg["cmd"] == "LocationChecks"]
 
+		from ..captures import count_address as captures_address
 		capture = [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Stage 1 - Capture 1"],)}]
-		with mock.patch.object(Client, "CAPTURE_READ_SECONDS", 0):
-			self.assertEqual(await run((0, 0), (1, 0)), capture)
-			self.assertEqual(await run((0, 0), (1, 0), (2, 0)), capture)  # the same card again
-			self.assertEqual(await run((1, 0)), [])  # the first read is the baseline
-			self.assertEqual(await run((0, 1), (1, 1)), [])  # Reimu B had it: not a new card for Reimu
-			self.assertEqual(await run((0, 0, 1), (1, 0, 1)), [])  # Kisume on Hard before: Lunatic is the same spell
-			self.assertEqual(await run((0, 0), (1, 0), stored={"Reimu:0": 1}), [])  # captured before a crash lost it
+		self.assertEqual(await run(0, 1), capture)
+		self.assertEqual(await run(0, 0), [])  # failed: the count didn't move
+		self.assertEqual(await run(1, 2), [])  # this card captured before
+		self.assertEqual(await run(0, 1, reimu_b=1), [])  # Reimu B had it: not a new spell for Reimu
+		self.assertEqual(await run(0, 1, hard=1), [])  # Kisume on Hard (card 0) before: Lunatic is the same spell
+		self.assertEqual(await run(0, 1, stored={"Reimu:0": 1}), [])  # captured before a crash lost it
 
 	async def test_retry_restarts_practice_power(self):
 		"""62: Give up and Retry never leaves play; the restarted run still starts at the packs' power, not the game's 4.00."""
