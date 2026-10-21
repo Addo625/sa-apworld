@@ -1,6 +1,6 @@
 # 64: [human] Probe batch 6
 
-Status: ready-for-human
+Status: done
 Blocked by: None
 
 ## Problem
@@ -19,3 +19,15 @@ Setup: the client from the latest `main` (Claude reinstalled it). Any Practice s
 - Capture the same spell on another difficulty: the client logs "this spell was captured before", and nothing is sent.
 
 ## Comments
+
+### R1
+
+No checks for the first two runs
+
+Third run gave the checks
+
+### R2
+
+Both bullets happened just as expected!
+
+- 2026-10-21 Claude: both passed. Retries send nothing and the real kill counts (62); the same spell on another difficulty sends nothing (63).

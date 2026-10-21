@@ -1,6 +1,6 @@
 # 65: [human] Probe batch 7: the crash ~1 s after a midboss
 
-Status: ready-for-human
+Status: done
 Blocked by: None
 
 ## Problem
@@ -32,3 +32,4 @@ If a stage freezes while loading, paste the client lines just before it.
 - Crashes in R3 too, elsewhere: Wine itself; look at the Wine setup.
 
 ## Comments
+- 2026-10-21 Claude: no crash in this session, and no client write or log line tied to the earlier ones. The crashes are inconsistent; revisit on Windows (17) or when one comes with Wine's fault address.
