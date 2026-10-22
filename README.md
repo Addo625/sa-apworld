@@ -86,4 +86,4 @@ The Windows version of Archipelago must be installed in the same Wine prefix as 
 
 ## Building
 
-`tools/build_apworld.sh` writes `dist/th11.apworld`. `tools/check_apworld.sh` builds it, generates a seed from the zip with the dev Archipelago checkout (`tools/setup_dev.sh`), and checks that AP loaded the zip, not the dev symlink.
+`tools/build_apworld.sh` writes `dist/th11.apworld`. On Windows: `tools\build_apworld.bat` builds it, and `tools\install_apworld.bat [Archipelago folder]` builds and copies it into Archipelago's `custom_worlds` (default `C:\ProgramData\Archipelago`); `tools\setup_dev.bat` and `tools\check_apworld.bat` are the dev setup and check below. `tools/check_apworld.sh` builds it, generates a seed from the zip with the dev Archipelago checkout (`tools/setup_dev.sh`), and checks that AP loaded the zip, not the dev symlink.

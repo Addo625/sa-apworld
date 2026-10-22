@@ -1,0 +1,2 @@
+# cmd mis-reads labels and goto in LF-only batch files.
+*.bat text eol=crlf
