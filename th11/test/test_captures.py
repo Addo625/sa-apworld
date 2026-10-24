@@ -59,7 +59,10 @@ class TestDefaults(bases.TH11TestBase):
 
 	def test_item_count_matches_locations(self):
 		assert_pool_fills(self, 24, 12)
-		self.assertEqual(self.get_items_by_name("Spell Card Key")[0].classification, ItemClassification.progression)
+		classes = [key.classification for key in self.get_items_by_name("Spell Card Key")]
+		# The final lock's 6 + slack 2 are progression; the other 4 still open the game's lock, so they're useful.
+		self.assertEqual(classes.count(ItemClassification.progression), 8)
+		self.assertEqual(classes.count(ItemClassification.useful), 4)
 
 	def test_rooms_count_captures_and_key_slack(self):
 		# Stages hold 10, 10, 10, 12, 10 locations with 2 captures per character.
@@ -183,6 +186,12 @@ class TestCaptureDetection(unittest.TestCase):
 	def test_capture_first_sends_slot1(self):
 		self.assertEqual(capture_location("Reimu A", 1, False, self.SLOT, set()), "[Reimu] Stage 1 - Capture 1")
 		self.assertEqual(capture_location("Reimu A", 1, False, self.SLOT, {"[Reimu] Stage 1 - Capture 1"}), "[Reimu] Stage 1 - Capture 2")
+
+	def test_capture_fills_the_lowest_unchecked_after_a_collect(self):
+		"""A collect checked Capture 2 out of order: the next spell sends Capture 1, not a checked Capture 2 again."""
+		self.assertEqual(capture_location("Reimu A", 5, False, self.SLOT, {"[Reimu] Stage 5 - Capture 2"}), "[Reimu] Stage 5 - Capture 1")
+		both = {"[Reimu] Stage 5 - Capture 1", "[Reimu] Stage 5 - Capture 2"}
+		self.assertIsNone(capture_location("Reimu A", 5, False, self.SLOT, both))
 
 	def test_capture_same_card_twice_sends_nothing(self):
 		self.assertIsNone(capture_location("Reimu A", 1, True, self.SLOT, set()))

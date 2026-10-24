@@ -23,6 +23,14 @@ class gameController:
 			raise RuntimeError(f"{GAME_NAME} image not mapped yet (base {base!r})")  # game_loop retries next tick
 		self.base_address = base
 
+	def exe_path(self):
+		"""The running th11.exe's file path (QueryFullProcessImageNameW; also works under Wine), or None."""
+		import ctypes
+		buffer, size = ctypes.create_unicode_buffer(1024), ctypes.c_ulong(1024)
+		if ctypes.windll.kernel32.QueryFullProcessImageNameW(self.pm.process_handle, 0, buffer, ctypes.byref(size)):
+			return buffer.value
+		return None
+
 	def read_bytes(self, address, size) -> bytes:
 		return self.pm.read_bytes(address, size)
 

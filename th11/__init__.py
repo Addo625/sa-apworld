@@ -170,11 +170,13 @@ class TWorld(World):
 			early[self.random.choice([shot for shot in shots if shot != start])] = 1
 			if not self.normal:
 				early[f"{prefix}Next Stage" if self.options.progressive_stage else f"{prefix}Stage 2"] = 1
-		# Only the keys logic counts on are progression; the rest still open the game's locks, but as filler they leave
-		# fill room (all 50 as progression with max gates failed 15 of 20 fixed seeds).
+		# Only the keys logic counts on are progression (all 50 as progression with max gates failed 15 of 20 fixed seeds).
+		# The rest still open the game's locks, so they're useful, not filler: they show as worth having in the client
+		# and hints, and fill treats useful like filler. Without locks every key is filler (create_item).
 		keys = [self.create_item("Spell Card Key") for _ in range(self.key_count)]
-		for key in keys[self.keys_needed():]:
-			key.classification = ItemClassification.filler
+		if self.keys_needed():
+			for key in keys[self.keys_needed():]:
+				key.classification = ItemClassification.useful
 		pool += keys
 
 		filler = total_locations - len(self.owners) * len(endings) - len(pool)

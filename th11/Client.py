@@ -1,255 +1,31 @@
 import asyncio
 from contextlib import nullcontext
-import os
 import random
-import subprocess
 import time
 
-from MultiServer import mark_raw
 from CommonClient import (
 	CommonContext,
-	ClientCommandProcessor,
 	get_base_parser,
 	logger,
 	server_loop,
 	gui_enabled,
 )
 from NetUtils import ClientStatus
-from settings import get_settings
 
 from . import Variables, captures, deathlink, detect, guard, probe, receive, ringlink, scoredat, tracker, traps
+from .commands import TouhouClientProcessor, log_build
 from .Items import item_table
 from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
-from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
+from .Variables import DISPLAY_NAME, GAME_NAME, SHORT_NAME
 from .patching import PatchMismatch, patch_value, safe_patch
-from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_int, resolve, write_entry, write_int
-from .state import PRACTICE_FLAG, read_state
+from .probe import read_entry, read_int, resolve, write_entry, write_int
+from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 LOCATION_NAMES = {code: name for name, code in location_table.items()}
 POLL_SECONDS = 0.5
-MEMSEARCH_CAP = 50
-DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
 KILL_RETRY_SECONDS = 2  # a kill that took no life (deathbomb, player respawning or dying) is retried after this
-
-
-def named_patterns() -> dict:
-	"""name -> hex from memsearch_patterns.json next to the AP install (written by tools/scoredat.py --patterns); {} if absent."""
-	import json
-	from Utils import user_path
-	try:
-		with open(user_path("memsearch_patterns.json")) as f:
-			return json.load(f)
-	except (OSError, ValueError):
-		return {}
-
-
-class TouhouClientProcessor(ClientCommandProcessor):
-	def _cmd_probe(self):
-		"""Attach to th11.exe and print every address table entry"""
-		from .gameController import gameController
-		try:
-			controller = gameController()
-		except Exception as e:
-			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
-			return False
-		logger.info(format_probe(controller, PROBE_TABLE))
-		return True
-
-	@mark_raw
-	def _cmd_memsearch(self, pattern_text: str = ""):
-		"""Search th11.exe's memory for hex bytes (spaces ok; `00*12` repeats a byte), or a pattern name from memsearch_patterns.json (tools/scoredat.py --patterns)"""
-		from .gameController import gameController
-		name = pattern_text.strip()
-		try:
-			named = named_patterns()
-			pattern = bytes.fromhex(named[name]) if name in named else parse_pattern(pattern_text)
-		except ValueError:
-			pattern = b""
-		if not pattern:
-			names = ", ".join(sorted(named_patterns())) or "none yet"
-			logger.error(f"Usage: /memsearch <hex bytes, e.g. 00*4 0101 00*6> or a pattern name ({names})")
-			return False
-		try:
-			controller = gameController()
-			regions = controller.readable_regions()
-		except Exception as e:
-			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
-			return False
-		found = memsearch(controller, regions, pattern, MEMSEARCH_CAP)
-		logger.info(f"{len(found)} match(es) in {len(regions)} regions" + (f" (capped at {MEMSEARCH_CAP})" if len(found) >= MEMSEARCH_CAP else ""))
-		for address in found:
-			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X})")
-		return True
-
-	def _cmd_peek(self, hex_address: str = "", count: str = "16"):
-		"""Print count bytes at a hex address; offsets allowed, e.g. 029605CC-5A4 (count is decimal)"""
-		from .gameController import gameController
-		try:
-			address, count = parse_address(hex_address), int(count)
-		except ValueError:
-			logger.error("Usage: /peek <hex address> [count]")
-			return False
-		try:
-			data = gameController().read_bytes(address, count)
-		except Exception as e:
-			logger.error(f"Cannot read {GAME_NAME} at 0x{address:08X}: {e}")
-			return False
-		logger.info(f"0x{address:08X}: {data.hex(' ')}")
-		return True
-
-	def _cmd_poke(self, hex_address: str = "", hex_bytes: str = ""):
-		"""Debug: write hex bytes at a hex address (offsets allowed: 029605CC+45), only as a probe request says"""
-		from .gameController import gameController
-		try:
-			address, data = parse_address(hex_address), bytes.fromhex(hex_bytes)
-		except ValueError:
-			data = b""
-		if not data:
-			logger.error("Usage: /poke <hex address> <hex bytes>")
-			return False
-		try:
-			controller = gameController()
-			before = controller.read_bytes(address, len(data))
-			controller.write_bytes(address, data)
-		except Exception as e:
-			logger.error(f"Cannot write {GAME_NAME} at 0x{address:08X}: {e}")
-			return False
-		logger.info(f"0x{address:08X}: {before.hex(' ')} -> {data.hex(' ')}")
-		return True
-
-	def _cmd_ptrscan(self, hex_address: str = "", hex_range: str = "1000"):
-		"""List static pointers in th11.exe's .data into [address - range, address] (find a heap struct's owner)"""
-		from .gameController import gameController
-		try:
-			target, window = parse_address(hex_address), int(hex_range, 16)
-		except ValueError:
-			logger.error("Usage: /ptrscan <hex address> [hex range]")
-			return False
-		try:
-			controller = gameController()
-			start, end = (controller.base_address + offset for offset in DATA_SECTION)
-			found = ptrscan(controller, start, end, target, window)
-		except Exception as e:
-			logger.error(f"Cannot scan {GAME_NAME}'s .data: {e}")
-			return False
-		logger.info(f"{len(found)} pointer(s) into [0x{target - window:08X}, 0x{target:08X}]")
-		for address, value in found:
-			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X}) -> 0x{value:08X} (target - 0x{target - value:X})")
-		return True
-
-	def _cmd_playerfloats(self, count: str = "1000"):
-		"""Print speed-like floats in the first count (hex) bytes of the player object, to find its speed fields"""
-		from .gameController import gameController
-		try:
-			controller = gameController()
-			player = read_entry(controller, Variables.ADDR_PLAYER_PTR)
-			data = controller.read_bytes(player, int(count, 16))  # player None or 0 raises
-		except Exception as e:
-			logger.error(f"Cannot read the player object (in a stage?): {e}")
-			return False
-		lines = [f"Player object at 0x{player:08X}"]
-		lines += [f"  +0x{offset:X} = {value:g} (addr 0x{player + offset:08X})" for offset, value in float_candidates(data)]
-		logger.info("\n".join(lines))  # one message, like /probe: copies in one go
-		return True
-
-	def _cmd_deathlink(self, active: str = ""):
-		"""Turn DeathLink on or off, or show it"""
-		active = active.lower()
-		if active not in ("", "on", "off"):
-			logger.error("Usage: /deathlink [on|off]")
-			return False
-		if active:
-			asyncio.create_task(self.ctx.update_death_link(active == "on"))
-			self.ctx.link.incoming = False  # a death received before turning it off doesn't wait
-		logger.info(f"DeathLink: {active or ('on' if 'DeathLink' in self.ctx.tags else 'off')}")
-		return True
-
-	def _cmd_receivedeath(self):
-		"""Kill the player as a received DeathLink would, without another player's death"""
-		if "DeathLink" not in self.ctx.tags:
-			logger.error("DeathLink is off: /deathlink on first")
-			return False
-		self.ctx.link.incoming = True
-		logger.info("DeathLink: test death received")
-		return True
-
-	def _cmd_ringlink(self, active: str = ""):
-		"""Turn RingLink on or off, or show it"""
-		active = active.lower()
-		if active not in ("", "on", "off"):
-			logger.error("Usage: /ringlink [on|off]")
-			return False
-		if active:
-			asyncio.create_task(self.ctx.update_ring_link(active == "on"))
-		logger.info(f"RingLink: {active or ('on' if 'RingLink' in self.ctx.tags else 'off')}")
-		return True
-
-	def _cmd_deathlink_trigger(self, value: str = ""):
-		"""Send a death on every life lost (life) or only on a game over (game_over), or show the setting"""
-		if value:
-			if value.lower() not in DeathLinkTrigger.options:  # from_text would also take "random"
-				logger.error("Usage: /deathlink_trigger [life|game_over]")
-				return False
-			self.ctx.link.trigger = DeathLinkTrigger.options[value.lower()]
-		logger.info(f"DeathLink trigger: {DeathLinkTrigger.get_option_name(self.ctx.link.trigger)}")
-		return True
-
-	def _cmd_deathlink_amnesty(self, value: str = ""):
-		"""Set how many deaths are forgiven before one is sent (0-10), or show it"""
-		if value:
-			if not value.isdigit() or not DeathLinkAmnesty.range_start <= int(value) <= DeathLinkAmnesty.range_end:
-				logger.error("Usage: /deathlink_amnesty [0-10]")
-				return False
-			self.ctx.link.amnesty, self.ctx.link.deaths = int(value), 0
-		logger.info(f"DeathLink amnesty: {self.ctx.link.amnesty}")
-		return True
-
-	def _cmd_limits(self, lives: str = ""):
-		"""Set the most lives a +1 Life can give (0-9), or show it"""
-		if lives:
-			if not lives.isdigit() or not LimitLives.range_start <= int(lives) <= LimitLives.range_end:
-				logger.error("Usage: /limits [0-9]")
-				return False
-			self.ctx.limit_lives = int(lives)
-		logger.info(f"Lives limit: {self.ctx.limit_lives}")
-		return True
-
-	def _cmd_itemsound(self, state: str = ""):
-		"""Item sounds on/off (on by default)"""
-		if state not in ("on", "off"):
-			logger.info(f"Item sounds are {'on' if self.ctx.item_sound else 'off'}. Usage: /itemsound on|off")
-			return False
-		self.ctx.item_sound = state == "on"
-		logger.info(f"Item sounds {state}")
-		return True
-
-	def _cmd_writelog(self, state: str = ""):
-		"""Debug: log every client write to the game on/off (off by default), only as a probe request says"""
-		if state not in ("on", "off"):
-			logger.info(f"Write log is {'on' if probe.write_log else 'off'}. Usage: /writelog on|off")
-			return False
-		probe.write_log = state == "on"
-		logger.info(f"Write log {state}")
-		return True
-
-	def _cmd_tracker(self):
-		"""Show each stage's gate, what you have toward it, and the checks left (also in the Tracker tab)"""
-		for line in self.ctx.tracker_lines():
-			logger.info(line)
-		return True
-
-	def _cmd_launch(self):
-		"""Launch Touhou SA"""
-		game_exe = get_settings().touhou_sa_settings.game_exe
-		try:
-			# The game finds th11.dat relative to its working directory.
-			subprocess.Popen([game_exe], cwd=os.path.dirname(os.path.abspath(game_exe)), close_fds=True)
-		except OSError as e:
-			logger.error(f"Failed to launch Touhou: {e.strerror}")
-			return False
-		return True
 
 
 class TouhouContext(CommonContext):
@@ -270,7 +46,9 @@ class TouhouContext(CommonContext):
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.practice_lives = None  # the same for Practice's starting lives (49)
+		self.practice_power = None  # and its starting power (80)
 		self.item_sound = True  # /itemsound off: no cave or hook is written
+		self.all_messages = False  # /messages all: also other players' item finds (the server sends the whole team's)
 		self.sound_cave = None  # controller the sound cave is installed in
 		self.practice_ours = (None, set())  # (controller, practice entries this client unlocked in that game process)
 		self.traps = traps.TrapState()
@@ -356,6 +134,12 @@ class TouhouContext(CommonContext):
 		if cmd == "ReceivedItems":
 			asyncio.create_task(self.check_goal())
 
+	def on_print_json(self, args: dict):
+		# The server sends every player's item events to the whole team; AP's own helper names the ones not about us.
+		if not self.all_messages and self.is_uninteresting_item_send(args):
+			return
+		super().on_print_json(args)
+
 	def on_deathlink(self, data: dict):
 		super().on_deathlink(data)
 		self.link.incoming = True  # kills at the next poll in a run; waits outside one
@@ -398,15 +182,12 @@ class TouhouContext(CommonContext):
 			self.locations_found.clear()
 		names = self.received_names()
 		applied = self.items_applied
-		# A retry never leaves play, so it starts a run too (detect.restarted, batch 61).
-		started = bool(prev and state.in_game and (state.flags or 0) & PRACTICE_FLAG
-			and (not prev.in_game or detect.restarted(prev, state)))
+		# In a Practice seed the game's run init gives every run (Practice or Extra) the item lives and power (49, 80), so
+		# the items waiting since the menu are already in. A retry needs nothing: items received in play apply at once.
+		started = bool(prev and not prev.in_game and state.in_game and self.practice_seed())
 		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
-		# Diagnostics for batch 65 (crash ~1 s after a midboss): which write belongs to which item or run start.
-		if started:
-			packs = names.count("+0.50 Power")
-			kind = "retry" if prev.in_game else "new run"
-			logger.info(f"Run start ({kind}, stage {state.stage}, score {state.score}): power set to {min(packs * 0.5, 4):.2f} from {packs} packs")
+		if started and probe.write_log:
+			logger.info(f"Run start (stage {state.stage}): {state.lives} lives, power {(state.power or 0) / 20:.2f} from the run init")
 		if self.items_applied > applied and receive.in_run(state):
 			logger.info(f"Applied: {', '.join(name for name in names[applied:self.items_applied] if name)}")
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
@@ -447,8 +228,17 @@ class TouhouContext(CommonContext):
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		if self.slot is not None and not state.in_game:  # the patched code runs at run start: patch it from a menu
-			self.patch_practice_lives(controller, receive.practice_lives(names, self.slot_data, self.limit_lives))
+			lives = receive.practice_lives(names, self.slot_data, self.limit_lives)
+			self.patch_practice_lives(controller, lives)
+			if self.practice_seed():
+				# Extra takes the init's non-Practice lives branch: it gets the same lives (80). Start runs use it too,
+				# but they send nothing in a Practice seed.
+				self.patch_continue_lives(controller, lives)
+				self.patch_practice_power(controller, receive.practice_power(names))
 		return state, runs
+
+	def practice_seed(self):
+		return self.slot is not None and self.slot_data.get("mode", 0) == 0
 
 	def captured_cards(self):
 		"""{"<owner>:<spell slot>"} captured in this seed, kept in server data storage: the save forgets a capture when the
@@ -594,6 +384,18 @@ class TouhouContext(CommonContext):
 		except PatchMismatch as e:
 			logger.error(f"Practice lives not patched, unexpected game code: {e}")
 
+	def patch_practice_power(self, controller, power):
+		"""Every Practice run, retry and Extra starts with the packs' power, set in the game's run init (80) so the shot
+		level matches from the first frame. Once per value and game process."""
+		if self.practice_power == (controller, power):
+			return
+		self.practice_power = (controller, power)
+		try:
+			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
+				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_POWER, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"], Variables.PRACTICE_STARTING_POWER_CODE, power)
+		except PatchMismatch as e:
+			logger.error(f"Practice power not patched, unexpected game code: {e}")
+
 
 async def game_loop(ctx: TouhouContext):
 	"""Attach to th11.exe, poll it every POLL_SECONDS, reattach when the process restarts."""
@@ -607,6 +409,7 @@ async def game_loop(ctx: TouhouContext):
 			except Exception:
 				continue
 			logger.info(f"Attached to {GAME_NAME} (base 0x{controller.base_address:08X})")
+			log_build(controller)
 			logger.info("Demo Play: replays send no checks")
 		try:
 			controller.read_bytes(controller.base_address, 1)  # read_state hides read errors; this one means the process is gone
