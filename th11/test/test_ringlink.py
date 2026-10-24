@@ -57,6 +57,8 @@ class TestClientRingLink(unittest.IsolatedAsyncioTestCase):
 		from ..Client import TouhouContext
 		ctx = TouhouContext()
 		ctx.patch_practice_lives = lambda controller, lives: None  # tested on its own (49)
+		ctx.patch_practice_power = lambda controller, power: None  # tested on its own (80)
+		ctx.patch_continue_lives = lambda controller, lives: None  # tested on its own (34, 80)
 		ctx.slot = 1
 		ctx.items_received = received(*items)
 		ctx.tags.add("RingLink")

@@ -13,6 +13,7 @@ class PatchMismatch(Exception):
 PATCHED = {
 	"ADDR_PRACTICE_STARTING_LIVES": lambda code: code in {Variables.PRACTICE_STARTING_LIVES_CODE(v) for v in range(256)},
 	"ADDR_NORMAL_CONTINUE_LIVES": lambda code: code in {Variables.NORMAL_CONTINUE_LIVES_CODE(v) for v in range(256)},
+	"ADDR_PRACTICE_STARTING_POWER": lambda code: code in {Variables.PRACTICE_STARTING_POWER_CODE(v) for v in range(256)},
 	"ADDR_SOUND_HACK_1": lambda code: code == Variables.SOUND_HOOK,
 	"ADDR_SOUND_HACK_2": lambda code: code == Variables.SOUND_CAVE,
 }

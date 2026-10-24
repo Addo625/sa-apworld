@@ -129,3 +129,19 @@ class TestPracticeStartingLives(unittest.TestCase):
 		self.assertEqual(exe[offset:offset + len(original)], original)
 		self.assertEqual(Variables.PRACTICE_STARTING_LIVES_CODE(9), original)  # 9 restores vanilla
 		self.assertEqual(len(Variables.PRACTICE_STARTING_LIVES_CODE(3)), len(original))
+
+	@unittest.skipUnless(GAME.exists(), "no th11.exe (.games is gitignored)")
+	def test_practice_starting_power_site_bytes(self):
+		"""80: th11.exe v1.00a's run-init power block starts with these bytes, and the patch replaces just them."""
+		exe = GAME.read_bytes()
+		offset = Variables.ADDR_PRACTICE_STARTING_POWER - 0x1000 + 0x400
+		original = Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"]
+		self.assertEqual(exe[offset:offset + len(original)], original)
+
+	def test_practice_starting_power_code(self):
+		"""mov dword [0x4A56E8], power; jmp 0x41FA99: 12 bytes over the block's first 12, the jump landing past the block."""
+		code = Variables.PRACTICE_STARTING_POWER_CODE(80)
+		self.assertEqual(len(code), len(Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"]))
+		self.assertEqual(code[6:10], (80).to_bytes(4, "little"))
+		jump_end = 0x400000 + Variables.ADDR_PRACTICE_STARTING_POWER + len(code)
+		self.assertEqual(jump_end + code[11], 0x41FA99)
