@@ -1,277 +1,31 @@
 import asyncio
 from contextlib import nullcontext
-import os
 import random
-import subprocess
 import time
 
-from MultiServer import mark_raw
 from CommonClient import (
 	CommonContext,
-	ClientCommandProcessor,
 	get_base_parser,
 	logger,
 	server_loop,
 	gui_enabled,
 )
 from NetUtils import ClientStatus
-from settings import get_settings
 
 from . import Variables, captures, deathlink, detect, guard, probe, receive, ringlink, scoredat, tracker, traps
+from .commands import TouhouClientProcessor, log_build
 from .Items import item_table
 from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
-from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
-from .patching import PatchMismatch, build_name, patch_value, safe_patch, selftest
-from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_int, resolve, write_entry, write_int
+from .Variables import DISPLAY_NAME, GAME_NAME, SHORT_NAME
+from .patching import PatchMismatch, patch_value, safe_patch
+from .probe import read_entry, read_int, resolve, write_entry, write_int
 from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 LOCATION_NAMES = {code: name for name, code in location_table.items()}
 POLL_SECONDS = 0.5
-MEMSEARCH_CAP = 50
-DATA_SECTION = (0xA2000, 0xCAE40)  # th11.exe .data, base-relative (0x4A2000-0x4CAE40, ticket 28)
 KILL_RETRY_SECONDS = 2  # a kill that took no life (deathbomb, player respawning or dying) is retried after this
-
-
-def named_patterns() -> dict:
-	"""name -> hex from memsearch_patterns.json next to the AP install (written by tools/scoredat.py --patterns); {} if absent."""
-	import json
-	from Utils import user_path
-	try:
-		with open(user_path("memsearch_patterns.json")) as f:
-			return json.load(f)
-	except (OSError, ValueError):
-		return {}
-
-
-class TouhouClientProcessor(ClientCommandProcessor):
-	def _cmd_probe(self):
-		"""Attach to th11.exe and print every address table entry"""
-		from .gameController import gameController
-		try:
-			controller = gameController()
-		except Exception as e:
-			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
-			return False
-		logger.info(format_probe(controller, PROBE_TABLE))
-		return True
-
-	@mark_raw
-	def _cmd_memsearch(self, pattern_text: str = ""):
-		"""Search th11.exe's memory for hex bytes (spaces ok; `00*12` repeats a byte), or a pattern name from memsearch_patterns.json (tools/scoredat.py --patterns)"""
-		from .gameController import gameController
-		name = pattern_text.strip()
-		try:
-			named = named_patterns()
-			pattern = bytes.fromhex(named[name]) if name in named else parse_pattern(pattern_text)
-		except ValueError:
-			pattern = b""
-		if not pattern:
-			names = ", ".join(sorted(named_patterns())) or "none yet"
-			logger.error(f"Usage: /memsearch <hex bytes, e.g. 00*4 0101 00*6> or a pattern name ({names})")
-			return False
-		try:
-			controller = gameController()
-			regions = controller.readable_regions()
-		except Exception as e:
-			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
-			return False
-		found = memsearch(controller, regions, pattern, MEMSEARCH_CAP)
-		logger.info(f"{len(found)} match(es) in {len(regions)} regions" + (f" (capped at {MEMSEARCH_CAP})" if len(found) >= MEMSEARCH_CAP else ""))
-		for address in found:
-			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X})")
-		return True
-
-	def _cmd_peek(self, hex_address: str = "", count: str = "16"):
-		"""Print count bytes at a hex address; offsets allowed, e.g. 029605CC-5A4 (count is decimal)"""
-		from .gameController import gameController
-		try:
-			address, count = parse_address(hex_address), int(count)
-		except ValueError:
-			logger.error("Usage: /peek <hex address> [count]")
-			return False
-		try:
-			data = gameController().read_bytes(address, count)
-		except Exception as e:
-			logger.error(f"Cannot read {GAME_NAME} at 0x{address:08X}: {e}")
-			return False
-		logger.info(f"0x{address:08X}: {data.hex(' ')}")
-		return True
-
-	def _cmd_poke(self, hex_address: str = "", hex_bytes: str = ""):
-		"""Debug: write hex bytes at a hex address (offsets allowed: 029605CC+45), only as a probe request says"""
-		from .gameController import gameController
-		try:
-			address, data = parse_address(hex_address), bytes.fromhex(hex_bytes)
-		except ValueError:
-			data = b""
-		if not data:
-			logger.error("Usage: /poke <hex address> <hex bytes>")
-			return False
-		try:
-			controller = gameController()
-			before = controller.read_bytes(address, len(data))
-			controller.write_bytes(address, data)
-		except Exception as e:
-			logger.error(f"Cannot write {GAME_NAME} at 0x{address:08X}: {e}")
-			return False
-		logger.info(f"0x{address:08X}: {before.hex(' ')} -> {data.hex(' ')}")
-		return True
-
-	def _cmd_ptrscan(self, hex_address: str = "", hex_range: str = "1000"):
-		"""List static pointers in th11.exe's .data into [address - range, address] (find a heap struct's owner)"""
-		from .gameController import gameController
-		try:
-			target, window = parse_address(hex_address), int(hex_range, 16)
-		except ValueError:
-			logger.error("Usage: /ptrscan <hex address> [hex range]")
-			return False
-		try:
-			controller = gameController()
-			start, end = (controller.base_address + offset for offset in DATA_SECTION)
-			found = ptrscan(controller, start, end, target, window)
-		except Exception as e:
-			logger.error(f"Cannot scan {GAME_NAME}'s .data: {e}")
-			return False
-		logger.info(f"{len(found)} pointer(s) into [0x{target - window:08X}, 0x{target:08X}]")
-		for address, value in found:
-			logger.info(f"  0x{address:08X} (base + 0x{address - controller.base_address:X}) -> 0x{value:08X} (target - 0x{target - value:X})")
-		return True
-
-	def _cmd_playerfloats(self, count: str = "1000"):
-		"""Print speed-like floats in the first count (hex) bytes of the player object, to find its speed fields"""
-		from .gameController import gameController
-		try:
-			controller = gameController()
-			player = read_entry(controller, Variables.ADDR_PLAYER_PTR)
-			data = controller.read_bytes(player, int(count, 16))  # player None or 0 raises
-		except Exception as e:
-			logger.error(f"Cannot read the player object (in a stage?): {e}")
-			return False
-		lines = [f"Player object at 0x{player:08X}"]
-		lines += [f"  +0x{offset:X} = {value:g} (addr 0x{player + offset:08X})" for offset, value in float_candidates(data)]
-		logger.info("\n".join(lines))  # one message, like /probe: copies in one go
-		return True
-
-	def _cmd_deathlink(self, active: str = ""):
-		"""Turn DeathLink on or off, or show it"""
-		active = active.lower()
-		if active not in ("", "on", "off"):
-			logger.error("Usage: /deathlink [on|off]")
-			return False
-		if active:
-			asyncio.create_task(self.ctx.update_death_link(active == "on"))
-			self.ctx.link.incoming = False  # a death received before turning it off doesn't wait
-		logger.info(f"DeathLink: {active or ('on' if 'DeathLink' in self.ctx.tags else 'off')}")
-		return True
-
-	def _cmd_receivedeath(self):
-		"""Kill the player as a received DeathLink would, without another player's death"""
-		if "DeathLink" not in self.ctx.tags:
-			logger.error("DeathLink is off: /deathlink on first")
-			return False
-		self.ctx.link.incoming = True
-		logger.info("DeathLink: test death received")
-		return True
-
-	def _cmd_ringlink(self, active: str = ""):
-		"""Turn RingLink on or off, or show it"""
-		active = active.lower()
-		if active not in ("", "on", "off"):
-			logger.error("Usage: /ringlink [on|off]")
-			return False
-		if active:
-			asyncio.create_task(self.ctx.update_ring_link(active == "on"))
-		logger.info(f"RingLink: {active or ('on' if 'RingLink' in self.ctx.tags else 'off')}")
-		return True
-
-	def _cmd_deathlink_trigger(self, value: str = ""):
-		"""Send a death on every life lost (life) or only on a game over (game_over), or show the setting"""
-		if value:
-			if value.lower() not in DeathLinkTrigger.options:  # from_text would also take "random"
-				logger.error("Usage: /deathlink_trigger [life|game_over]")
-				return False
-			self.ctx.link.trigger = DeathLinkTrigger.options[value.lower()]
-		logger.info(f"DeathLink trigger: {DeathLinkTrigger.get_option_name(self.ctx.link.trigger)}")
-		return True
-
-	def _cmd_deathlink_amnesty(self, value: str = ""):
-		"""Set how many deaths are forgiven before one is sent (0-10), or show it"""
-		if value:
-			if not value.isdigit() or not DeathLinkAmnesty.range_start <= int(value) <= DeathLinkAmnesty.range_end:
-				logger.error("Usage: /deathlink_amnesty [0-10]")
-				return False
-			self.ctx.link.amnesty, self.ctx.link.deaths = int(value), 0
-		logger.info(f"DeathLink amnesty: {self.ctx.link.amnesty}")
-		return True
-
-	def _cmd_limits(self, lives: str = ""):
-		"""Set the most lives a +1 Life can give (0-9), or show it"""
-		if lives:
-			if not lives.isdigit() or not LimitLives.range_start <= int(lives) <= LimitLives.range_end:
-				logger.error("Usage: /limits [0-9]")
-				return False
-			self.ctx.limit_lives = int(lives)
-		logger.info(f"Lives limit: {self.ctx.limit_lives}")
-		return True
-
-	def _cmd_selftest(self):
-		"""Check th11.exe: its build, and every code site the client patches (original, patched by the client, or changed)"""
-		from .gameController import gameController
-		try:
-			controller = gameController()
-		except Exception as e:
-			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
-			return False
-		log_build(controller)
-		for line in selftest(controller):
-			logger.info(line)
-		return True
-
-	def _cmd_messages(self, which: str = ""):
-		"""Item messages: mine (only items you send or receive, the default) or all (everyone's finds)"""
-		if which not in ("mine", "all"):
-			logger.info(f"Showing {'all item messages' if self.ctx.all_messages else 'only your items'}. Usage: /messages mine|all")
-			return False
-		self.ctx.all_messages = which == "all"
-		logger.info(f"Item messages: {which}")
-		return True
-
-	def _cmd_itemsound(self, state: str = ""):
-		"""Item sounds on/off (on by default)"""
-		if state not in ("on", "off"):
-			logger.info(f"Item sounds are {'on' if self.ctx.item_sound else 'off'}. Usage: /itemsound on|off")
-			return False
-		self.ctx.item_sound = state == "on"
-		logger.info(f"Item sounds {state}")
-		return True
-
-	def _cmd_writelog(self, state: str = ""):
-		"""Debug: log every client write to the game on/off (off by default), only as a probe request says"""
-		if state not in ("on", "off"):
-			logger.info(f"Write log is {'on' if probe.write_log else 'off'}. Usage: /writelog on|off")
-			return False
-		probe.write_log = state == "on"
-		logger.info(f"Write log {state}")
-		return True
-
-	def _cmd_tracker(self):
-		"""Show each stage's gate, what you have toward it, and the checks left (also in the Tracker tab)"""
-		for line in self.ctx.tracker_lines():
-			logger.info(line)
-		return True
-
-	def _cmd_launch(self):
-		"""Launch Touhou SA"""
-		game_exe = get_settings().touhou_sa_settings.game_exe
-		try:
-			# The game finds th11.dat relative to its working directory.
-			subprocess.Popen([game_exe], cwd=os.path.dirname(os.path.abspath(game_exe)), close_fds=True)
-		except OSError as e:
-			logger.error(f"Failed to launch Touhou: {e.strerror}")
-			return False
-		return True
 
 
 class TouhouContext(CommonContext):
@@ -641,25 +395,6 @@ class TouhouContext(CommonContext):
 				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_POWER, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"], Variables.PRACTICE_STARTING_POWER_CODE, power)
 		except PatchMismatch as e:
 			logger.error(f"Practice power not patched, unexpected game code: {e}")
-
-
-def log_build(controller):
-	"""Name the running th11.exe's build, so players can tell at a glance whether their copy is the one the addresses
-	were sourced on (all copies from one zip match; Steam's wrapper is a different file)."""
-	import hashlib
-	path = controller.exe_path()
-	try:
-		with open(path, "rb") as f:
-			digest = hashlib.sha256(f.read()).hexdigest()
-	except (OSError, TypeError) as e:
-		logger.info(f"{GAME_NAME}: build not checked ({e})")
-		return
-	name = build_name(digest)
-	if name:
-		logger.info(f"{GAME_NAME}: {name}")
-	else:
-		logger.warning(f"{GAME_NAME}: unknown build (SHA-256 {digest}). The client's addresses come from v1.00a (original): "
-			f"run /selftest, and report the result with this line")
 
 
 async def game_loop(ctx: TouhouContext):
