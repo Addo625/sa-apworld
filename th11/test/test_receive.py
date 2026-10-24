@@ -26,14 +26,17 @@ class TestApply(unittest.TestCase):
 		self.assertEqual(apply_new(["+1 Life"] * 3, 0, play(lives=2), 3)[0], [(LIVES, 3), (LIVES, 3), (LIVES, 3)])
 
 	def test_practice_start_holds_lives_and_packs(self):
-		"""A Practice run starts with the packs' power (49's patch gives the lives): waiting items aren't added again."""
+		"""80: the game's run init gives a Practice run the item lives (49) and power (80); waiting ones aren't added
+		again, and the client writes no power of its own. Other waiting items still apply."""
 		names = ["+1 Life", "+0.50 Power", "+0.50 Power", "+0.05 Power"]
-		self.assertEqual(apply_new(names, 0, play(lives=1, power=0), started=True), ([(POWER, 20), (POWER, 21)], 4))
-		self.assertEqual(apply_new(names, 4, play(lives=1, power=0), started=True), ([(POWER, 20)], 4))  # a later run
-		self.assertEqual(apply_new(names, 0, play(lives=1, power=80), started=True)[0][0], (POWER, 20))  # not the game's 4.00
-		self.assertEqual(apply_new([], 0, play(power=80), started=True)[0], [(POWER, 0)])  # no packs: no power
-		self.assertEqual(apply_new(["+0.50 Power"] * 9, 0, play(power=0), started=True)[0], [(POWER, 80)])
+		self.assertEqual(apply_new(names, 0, play(lives=1, power=20), started=True), ([(POWER, 21)], 4))
 		self.assertEqual(apply_new(["+1 Life"], 0, play(lives=1))[0], [(LIVES, 2)])  # mid-run: applied as before
+
+	def test_practice_power(self):
+		from ..receive import practice_power
+		self.assertEqual(practice_power([]), 0)
+		self.assertEqual(practice_power(["+0.50 Power", "+0.50 Power", "+0.05 Power"]), 20)
+		self.assertEqual(practice_power(["+0.50 Power"] * 9), 80)  # 4.00 at most
 
 	def test_apply_power(self):
 		self.assertEqual(apply("+0.50 Power", play(power=33)), [(POWER, 43)])

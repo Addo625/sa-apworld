@@ -24,7 +24,7 @@ from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
 from .patching import PatchMismatch, build_name, patch_value, safe_patch, selftest
 from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_int, resolve, write_entry, write_int
-from .state import PRACTICE_FLAG, read_state
+from .state import read_state
 
 ITEM_NAMES = {data.code: name for name, data in item_table.items()}
 LOCATION_NAMES = {code: name for name, code in location_table.items()}
@@ -292,6 +292,7 @@ class TouhouContext(CommonContext):
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.practice_lives = None  # the same for Practice's starting lives (49)
+		self.practice_power = None  # and its starting power (80)
 		self.item_sound = True  # /itemsound off: no cave or hook is written
 		self.all_messages = False  # /messages all: also other players' item finds (the server sends the whole team's)
 		self.sound_cave = None  # controller the sound cave is installed in
@@ -427,15 +428,12 @@ class TouhouContext(CommonContext):
 			self.locations_found.clear()
 		names = self.received_names()
 		applied = self.items_applied
-		# A retry never leaves play, so it starts a run too (detect.restarted, batch 61).
-		started = bool(prev and state.in_game and (state.flags or 0) & PRACTICE_FLAG
-			and (not prev.in_game or detect.restarted(prev, state)))
+		# In a Practice seed the game's run init gives every run (Practice or Extra) the item lives and power (49, 80), so
+		# the items waiting since the menu are already in. A retry needs nothing: items received in play apply at once.
+		started = bool(prev and not prev.in_game and state.in_game and self.practice_seed())
 		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
-		# Diagnostics for batch 65 (crash ~1 s after a midboss): which write belongs to which item or run start.
-		if started:
-			packs = names.count("+0.50 Power")
-			kind = "retry" if prev.in_game else "new run"
-			logger.info(f"Run start ({kind}, stage {state.stage}, score {state.score}): power set to {min(packs * 0.5, 4):.2f} from {packs} packs")
+		if started and probe.write_log:
+			logger.info(f"Run start (stage {state.stage}): {state.lives} lives, power {(state.power or 0) / 20:.2f} from the run init")
 		if self.items_applied > applied and receive.in_run(state):
 			logger.info(f"Applied: {', '.join(name for name in names[applied:self.items_applied] if name)}")
 		for entry, value in writes + receive.difficulty_writes(state, lower, self.slot_data):
@@ -476,8 +474,17 @@ class TouhouContext(CommonContext):
 		if self.slot_data.get("mode"):
 			self.patch_continue_lives(controller, receive.continue_lives(names, self.limit_lives))
 		if self.slot is not None and not state.in_game:  # the patched code runs at run start: patch it from a menu
-			self.patch_practice_lives(controller, receive.practice_lives(names, self.slot_data, self.limit_lives))
+			lives = receive.practice_lives(names, self.slot_data, self.limit_lives)
+			self.patch_practice_lives(controller, lives)
+			if self.practice_seed():
+				# Extra takes the init's non-Practice lives branch: it gets the same lives (80). Start runs use it too,
+				# but they send nothing in a Practice seed.
+				self.patch_continue_lives(controller, lives)
+				self.patch_practice_power(controller, receive.practice_power(names))
 		return state, runs
+
+	def practice_seed(self):
+		return self.slot is not None and self.slot_data.get("mode", 0) == 0
 
 	def captured_cards(self):
 		"""{"<owner>:<spell slot>"} captured in this seed, kept in server data storage: the save forgets a capture when the
@@ -622,6 +629,18 @@ class TouhouContext(CommonContext):
 				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"], Variables.PRACTICE_STARTING_LIVES_CODE, lives)
 		except PatchMismatch as e:
 			logger.error(f"Practice lives not patched, unexpected game code: {e}")
+
+	def patch_practice_power(self, controller, power):
+		"""Every Practice run, retry and Extra starts with the packs' power, set in the game's run init (80) so the shot
+		level matches from the first frame. Once per value and game process."""
+		if self.practice_power == (controller, power):
+			return
+		self.practice_power = (controller, power)
+		try:
+			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
+				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_POWER, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"], Variables.PRACTICE_STARTING_POWER_CODE, power)
+		except PatchMismatch as e:
+			logger.error(f"Practice power not patched, unexpected game code: {e}")
 
 
 def log_build(controller):

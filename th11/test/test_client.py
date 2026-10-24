@@ -294,7 +294,8 @@ def menu_memory(menu, cursor):
 	memory, menu_object = FakeMemory(), 0x3100000
 	memory.set(BASE + Variables.ADDR_MENU_PTR, menu_object.to_bytes(4, "little"))
 	memory.set(BASE + Variables.ADDR_ENEMY_MANAGER, bytes(4))
-	memory.set(BASE + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"])  # vanilla code (49)
+	for site in ("ADDR_PRACTICE_STARTING_LIVES", "ADDR_NORMAL_CONTINUE_LIVES", "ADDR_PRACTICE_STARTING_POWER"):  # vanilla code
+		memory.set(BASE + getattr(Variables, site), Variables.EXPECTED_BYTES[site])
 	memory.set(menu_object + Variables.ADDR_MENU[1], menu.to_bytes(4, "little"))
 	memory.set(menu_object + Variables.ADDR_MENU_CURSOR[1], cursor.to_bytes(4, "little"))
 	return memory
@@ -311,6 +312,8 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		from ..Client import TouhouContext
 		ctx = TouhouContext()  # needs the running loop
 		ctx.patch_practice_lives = lambda controller, lives: None  # tested on its own (49)
+		ctx.patch_practice_power = lambda controller, power: None  # tested on its own (80)
+		ctx.patch_continue_lives = lambda controller, lives: None  # tested on its own (34, 80)
 		ctx.item_sound = sound
 		ctx.slot = 1
 		ctx.missing_locations = set(range(Variables.STARTING_ID, Variables.STARTING_ID + 1000))
@@ -405,14 +408,14 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		shot_capture = [{"cmd": "LocationChecks", "locations": (location_table["[Reimu A] Stage 1 - Capture 1"],)}]
 		self.assertEqual(await run(0, 1, stored={"Reimu B:0": 1}, shot_type=1), shot_capture)  # shot_type: per shot
 
-	async def test_retry_restarts_practice_power(self):
-		"""62: Give up and Retry never leaves play; the restarted run still starts at the packs' power, not the game's 4.00."""
+	async def test_retry_writes_no_power(self):
+		"""80: the game's run init sets a retry's power (patched from a menu), so the client writes none of its own."""
 		ctx = self.context(*UNLOCKED, "+0.50 Power")
 		fight = game_memory(lives=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=20000, ADDR_POWER=40)
 		state, runs = await ctx.poll(fight, None, 0)
-		retry = game_memory(lives=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0, ADDR_POWER=80)
+		retry = game_memory(lives=2, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0, ADDR_POWER=10)
 		await ctx.poll(retry, state, runs)
-		self.assertIn((BASE + Variables.ADDR_POWER, (10).to_bytes(4, "little")), retry.writes)
+		self.assertNotIn(BASE + Variables.ADDR_POWER, [address for address, _ in retry.writes])
 
 	async def test_poll_plays_item_sound_once(self):
 		from unittest import mock
@@ -697,3 +700,22 @@ class TestPracticeLivesPatch(unittest.IsolatedAsyncioTestCase):
 		memory.writes.clear()
 		await ctx.poll(memory, None, 0)
 		self.assertNotIn(site, [address for address, _ in memory.writes])
+
+	async def test_practice_seed_patches_power_and_extra_lives(self):
+		"""80: in a Practice seed, the run init's power becomes the packs' and its non-Practice lives (Extra's) the
+		Practice lives; a normal seed keeps the game's power and patches continue lives as before."""
+		from ..Client import TouhouContext
+		ctx = TouhouContext()
+		ctx.slot, ctx.items_received = 1, received("Reimu A - Yukari", "+1 Life", "+0.50 Power", "+0.50 Power")
+		memory = menu_memory(0, 0)
+		await ctx.poll(memory, None, 0)
+		self.assertIn((BASE + Variables.ADDR_PRACTICE_STARTING_POWER, Variables.PRACTICE_STARTING_POWER_CODE(20)), memory.writes)
+		self.assertIn((BASE + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.NORMAL_CONTINUE_LIVES_CODE(1)), memory.writes)
+
+		ctx = TouhouContext()
+		ctx.slot, ctx.slot_data = 1, {"mode": 2}  # normal_static
+		ctx.items_received = received("Reimu A - Yukari", "+1 Life", "+0.50 Power")
+		memory = menu_memory(0, 0)
+		await ctx.poll(memory, None, 0)
+		self.assertNotIn(BASE + Variables.ADDR_PRACTICE_STARTING_POWER, [address for address, _ in memory.writes])
+		self.assertIn((BASE + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.NORMAL_CONTINUE_LIVES_CODE(1)), memory.writes)

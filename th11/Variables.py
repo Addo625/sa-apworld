@@ -132,8 +132,10 @@ EXTRA_UNLOCK_BIT = 0x10  # source: 33, as above
 # Code patch sites; each carries its original bytes in EXPECTED_BYTES.
 ADDR_PRACTICE_STARTING_LIVES = 0x0001FA49  # source: static (49): the game init's Practice branch, `mov dword [0x4A5718], 9`; rewritten by PRACTICE_STARTING_LIVES_CODE so a Practice run starts with the lives from items
 PRACTICE_STARTING_LIVES_CODE = lambda lives: bytes([0xC7, 0x05, 0x18, 0x57, 0x4A, 0x00, lives, 0, 0, 0])  # source: 49; mov dword [lives], lives
-ADDR_NORMAL_CONTINUE_LIVES = 0x0001FA38  # source: static disassembly (34): a continue re-runs the game init, whose non-Practice branch stores esi (mov esi, 2 at 0x41F947, shared with an ANM interrupt) into lives; rewritten by NORMAL_CONTINUE_LIVES_CODE TODO(32 R2)
+ADDR_NORMAL_CONTINUE_LIVES = 0x0001FA38  # source: static disassembly (34): the run init's non-Practice branch stores esi (mov esi, 2 at 0x41F947, shared with an ANM interrupt) into lives; Cheat Engine (80) saw it write lives on an Extra start. A continue re-runs the init too. Rewritten by NORMAL_CONTINUE_LIVES_CODE
 NORMAL_CONTINUE_LIVES_CODE = lambda lives: bytes([0xB8, lives, 0, 0, 0, 0xEB, 0x17, 0x90])  # source: 34; mov eax, lives; jmp 0x41FA56 (the Practice branch's mov [lives], eax); nop
+ADDR_PRACTICE_STARTING_POWER = 0x0001FA68  # source: Cheat Engine (80): 0x41FA7D, in the run init's power block 0x41FA68-0x41FA98, wrote power on every run start and retry (stage 1 and Extra set 0 at 0x41FA8C/0x41FA94); the block's start is rewritten by PRACTICE_STARTING_POWER_CODE
+PRACTICE_STARTING_POWER_CODE = lambda power: bytes([0xC7, 0x05, 0xE8, 0x56, 0x4A, 0x00, power, 0, 0, 0, 0xEB, 0x25])  # source: 80; mov dword [power], power; jmp 0x41FA99 (past the block; its own branches only target 0x41FA85 and 0x41FA99)
 
 # Item sounds (MoF initSoundHack): a code cave plays the sound ID the client writes to a spare dword, then zeroes it.
 # Static disassembly (40); relocations are stripped, so the absolute addresses in the cave are fixed. TODO(32 R9)
@@ -153,6 +155,7 @@ SOUND_CAVE = (  # source: 40
 EXPECTED_BYTES = {
 	"ADDR_PRACTICE_STARTING_LIVES": bytes.fromhex("c7 05 18 57 4a 00 09 00 00 00"),  # mov dword [lives], 9
 	"ADDR_NORMAL_CONTINUE_LIVES": bytes.fromhex("89 35 18 57 4a 00 eb 1b"),  # mov [lives], esi; jmp 0x41FA5B
+	"ADDR_PRACTICE_STARTING_POWER": bytes.fromhex("a1 28 57 4a 00 83 f8 01 7e 13 83 f8"),  # mov eax, [stage]; cmp eax, 1; jle; cmp eax, 7 (start)
 	"ADDR_SOUND_HACK_1": bytes.fromhex("e8 e3 12 02 00"),  # call 0x44A340
 	"ADDR_SOUND_HACK_2": bytes(len(SOUND_CAVE)),
 }
