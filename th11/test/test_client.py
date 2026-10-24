@@ -300,6 +300,26 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		ctx.send_msgs = send_msgs
 		return ctx
 
+	async def test_other_players_item_events_hidden_by_default(self):
+		"""Windows playtest: "Janania found their +1 Life" showed in Addo's client. Others' item events are dropped
+		unless /messages all; ours (sent or received), chat and the rest always show."""
+		from unittest import mock
+		from CommonClient import CommonContext
+		from NetUtils import NetworkItem
+		ctx = self.context()
+		event = lambda finder, receiver: {"cmd": "PrintJSON", "type": "ItemSend", "data": [], "receiving": receiver,
+			"item": NetworkItem(1, 1, finder)}
+		with mock.patch.object(CommonContext, "on_print_json") as shown:
+			ctx.on_print_json(event(2, 2))  # another player's find
+			self.assertEqual(shown.call_count, 0)
+			ctx.on_print_json(event(2, 1))  # sent to us
+			ctx.on_print_json(event(1, 2))  # we sent it
+			ctx.on_print_json({"cmd": "PrintJSON", "type": "Chat", "data": []})
+			self.assertEqual(shown.call_count, 3)
+			ctx.all_messages = True
+			ctx.on_print_json(event(2, 2))
+			self.assertEqual(shown.call_count, 4)
+
 	async def test_goal_sent_on_ending_item(self):
 		from NetUtils import ClientStatus
 		ctx = self.context("+1 Life")

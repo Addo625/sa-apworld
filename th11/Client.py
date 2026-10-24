@@ -216,6 +216,15 @@ class TouhouClientProcessor(ClientCommandProcessor):
 		logger.info(f"Lives limit: {self.ctx.limit_lives}")
 		return True
 
+	def _cmd_messages(self, which: str = ""):
+		"""Item messages: mine (only items you send or receive, the default) or all (everyone's finds)"""
+		if which not in ("mine", "all"):
+			logger.info(f"Showing {'all item messages' if self.ctx.all_messages else 'only your items'}. Usage: /messages mine|all")
+			return False
+		self.ctx.all_messages = which == "all"
+		logger.info(f"Item messages: {which}")
+		return True
+
 	def _cmd_itemsound(self, state: str = ""):
 		"""Item sounds on/off (on by default)"""
 		if state not in ("on", "off"):
@@ -271,6 +280,7 @@ class TouhouContext(CommonContext):
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.practice_lives = None  # the same for Practice's starting lives (49)
 		self.item_sound = True  # /itemsound off: no cave or hook is written
+		self.all_messages = False  # /messages all: also other players' item finds (the server sends the whole team's)
 		self.sound_cave = None  # controller the sound cave is installed in
 		self.practice_ours = (None, set())  # (controller, practice entries this client unlocked in that game process)
 		self.traps = traps.TrapState()
@@ -355,6 +365,12 @@ class TouhouContext(CommonContext):
 				self.rings += amount
 		if cmd == "ReceivedItems":
 			asyncio.create_task(self.check_goal())
+
+	def on_print_json(self, args: dict):
+		# The server sends every player's item events to the whole team; AP's own helper names the ones not about us.
+		if not self.all_messages and self.is_uninteresting_item_send(args):
+			return
+		super().on_print_json(args)
 
 	def on_deathlink(self, data: dict):
 		super().on_deathlink(data)
