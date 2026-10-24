@@ -69,6 +69,8 @@ With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th dif
 3. Launch the Touhou SA client found in the Archipelago launcher.
 4. Connect the client to the server.
 
+The client shows only items you send or receive; `/messages all` adds every other player's finds (Archipelago sends the whole multiworld's), `/messages mine` hides them again.
+
 **Set the volume (Option screen) before connecting the client.** While connected, the client keeps the menu cursor off locked difficulties, and the Option screen looks like the difficulty select to it, so the cursor jumps off the BGM row.
 
 ### Tracker
