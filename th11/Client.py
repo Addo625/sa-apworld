@@ -22,7 +22,7 @@ from .Items import item_table
 from .Locations import location_table
 from .Options import DeathLinkAmnesty, DeathLinkTrigger, LimitLives
 from .Variables import DISPLAY_NAME, GAME_NAME, PROBE_TABLE, SHORT_NAME
-from .patching import PatchMismatch, patch_value, safe_patch
+from .patching import PatchMismatch, build_name, patch_value, safe_patch, selftest
 from .probe import float_candidates, format_probe, memsearch, parse_address, parse_pattern, ptrscan, read_entry, read_int, resolve, write_entry, write_int
 from .state import PRACTICE_FLAG, read_state
 
@@ -214,6 +214,19 @@ class TouhouClientProcessor(ClientCommandProcessor):
 				return False
 			self.ctx.limit_lives = int(lives)
 		logger.info(f"Lives limit: {self.ctx.limit_lives}")
+		return True
+
+	def _cmd_selftest(self):
+		"""Check th11.exe: its build, and every code site the client patches (original, patched by the client, or changed)"""
+		from .gameController import gameController
+		try:
+			controller = gameController()
+		except Exception as e:
+			logger.error(f"Cannot attach to {GAME_NAME}: {e}")
+			return False
+		log_build(controller)
+		for line in selftest(controller):
+			logger.info(line)
 		return True
 
 	def _cmd_messages(self, which: str = ""):
@@ -611,6 +624,25 @@ class TouhouContext(CommonContext):
 			logger.error(f"Practice lives not patched, unexpected game code: {e}")
 
 
+def log_build(controller):
+	"""Name the running th11.exe's build, so players can tell at a glance whether their copy is the one the addresses
+	were sourced on (all copies from one zip match; Steam's wrapper is a different file)."""
+	import hashlib
+	path = controller.exe_path()
+	try:
+		with open(path, "rb") as f:
+			digest = hashlib.sha256(f.read()).hexdigest()
+	except (OSError, TypeError) as e:
+		logger.info(f"{GAME_NAME}: build not checked ({e})")
+		return
+	name = build_name(digest)
+	if name:
+		logger.info(f"{GAME_NAME}: {name}")
+	else:
+		logger.warning(f"{GAME_NAME}: unknown build (SHA-256 {digest}). The client's addresses come from v1.00a (original): "
+			f"run /selftest, and report the result with this line")
+
+
 async def game_loop(ctx: TouhouContext):
 	"""Attach to th11.exe, poll it every POLL_SECONDS, reattach when the process restarts."""
 	from .gameController import gameController
@@ -623,6 +655,7 @@ async def game_loop(ctx: TouhouContext):
 			except Exception:
 				continue
 			logger.info(f"Attached to {GAME_NAME} (base 0x{controller.base_address:08X})")
+			log_build(controller)
 			logger.info("Demo Play: replays send no checks")
 		try:
 			controller.read_bytes(controller.base_address, 1)  # read_state hides read errors; this one means the process is gone

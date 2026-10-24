@@ -58,6 +58,15 @@ thprac = touhouworldcup/thprac thprac_th11.cpp; Globals struct at 0x4A56E0.
 """
 
 GAME_NAME = "th11.exe"
+# th11.exe builds by SHA-256, from thcrap's own table (thcrap/repos/nmlgc/base_tsa/versions.js). Every address below
+# was sourced on the original v1.00a. The Steam builds wrap the same game in Steam's DRM stub, which normally keeps
+# its code in place, but nobody has checked them yet: /selftest does.
+KNOWN_BUILDS = {
+	"2978b17f6184d100d249d4311348dd30c5c32ec75c014b667a525b797d3d8813": "v1.00a (original)",
+	"47cbcfdba984e32ba2887bc0a8c35e21aa8a039c1d87675da8493544d86e2a42": "v1.00a (Steam release, not verified yet: run /selftest)",
+	"e42c8df5ba2d704fb6bd5c50d9fb35c49ebf3122dab75b19b7ed17b6bc84166d": "v1.00a (older Steam release, not verified yet: run /selftest)",
+	"399e05c82912890501e644d0e1113d63db1a0e9bdb50080c2c456f9d66f548d2": "v1.00a (Steam, unpacked by Steamless, not verified yet: run /selftest)",
+}
 
 # General
 ADDR_MENU_PTR = 0x000A8ECC  # source: probe 06 S0-S2, S9: menu object ptr, 0 in play but also 0 on some menus (S8b); not a game mode
