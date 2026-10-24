@@ -74,6 +74,28 @@ class TestProbe(unittest.TestCase):
 		self.assertIn("ADDR_SPELL_CARDS = 5 (addr 0x014B0004)", lines)
 
 
+class TestSelftest(unittest.TestCase):
+	"""/selftest and the attach line: which th11.exe this is, and whether each patch site holds what the client expects."""
+	def test_build_names(self):
+		from ..patching import build_name
+		self.assertEqual(build_name("2978B17F6184D100D249D4311348DD30C5C32EC75C014B667A525B797D3D8813"), "v1.00a (original)")
+		self.assertIn("Steam", build_name("47cbcfdba984e32ba2887bc0a8c35e21aa8a039c1d87675da8493544d86e2a42"))
+		self.assertIsNone(build_name("00" * 32))
+
+	def test_sites_original_patched_or_changed(self):
+		from ..patching import selftest
+		memory = FakeMemory()
+		for name, original in Variables.EXPECTED_BYTES.items():
+			memory.set(BASE + getattr(Variables, name), original)
+		self.assertTrue(all("OK (original game code)" in line for line in selftest(memory)))
+		memory.set(BASE + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.PRACTICE_STARTING_LIVES_CODE(3))
+		memory.set(BASE + Variables.ADDR_SOUND_HACK_1, b"\x90" * 5)  # someone else's patch
+		lines = {line.split(" ")[0]: line for line in selftest(memory)}
+		self.assertIn("already patched by this client", lines["ADDR_PRACTICE_STARTING_LIVES"])
+		self.assertIn("CHANGED by something else", lines["ADDR_SOUND_HACK_1"])
+		self.assertIn("found 90 90 90 90 90", lines["ADDR_SOUND_HACK_1"])
+
+
 class TestMemsearch(unittest.TestCase):
 	def test_memsearch_finds_pattern(self):
 		memory = FakeMemory()
