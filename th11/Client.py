@@ -116,7 +116,7 @@ class TouhouContext(CommonContext):
 			self.slot_data = args.get("slot_data") or {}
 			if self.applied_for != (self.seed_name, self.slot):
 				self.applied_for, self.items_applied, self.traps_seen = (self.seed_name, self.slot), 0, 0
-				self.traps = traps.TrapState()
+				self.traps = traps.TrapState(self.slot_data.get("trap_duration", traps.DEFAULT_DURATION))
 				# A new seed starts from its options; a reconnect keeps what the commands changed.
 				self.link = deathlink.LinkState(
 					self.slot_data.get("death_link_trigger", DeathLinkTrigger.default),

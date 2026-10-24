@@ -203,6 +203,7 @@ class TWorld(World):
 				# The goal (both parts must hold); shot_type/extra_stage above already include what it turned on.
 				"utsuho_endings", "utsuho_shots", "koishi_endings",
 				"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives", "min_lives",
+				"trap_duration",
 				"spell_card_keys", "captures_per_stage", "capture_slots",
 				# Key locks as the game applies them (after clamping), without the logic slack.
 				"key_lock_toll", "key_lock_toll_stage", "key_lock_final", "key_lock_final_target",

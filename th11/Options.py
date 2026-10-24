@@ -325,6 +325,14 @@ class PowerDrainTrap(Range):
 	default = 15
 
 
+class TrapDuration(Range):
+	"""Seconds the No Focus, Reverse Movement, Aya Speed and Power Drain traps last. Freeze always lasts 3 seconds."""
+	display_name = "Trap duration"
+	range_start = 5
+	range_end = 60
+	default = 20
+
+
 class DeathLinkTrigger(Choice):
 	"""When your death is sent to the others with DeathLink. Can be changed in the client with /deathlink_trigger.
 	life: every life lost.
@@ -407,6 +415,7 @@ class TH11Options(PerGameCommonOptions):
 	aya_speed_trap: AyaSpeedTrap
 	freeze_trap: FreezeTrap
 	power_drain_trap: PowerDrainTrap
+	trap_duration: TrapDuration
 	death_link: DeathLink
 	death_link_trigger: DeathLinkTrigger
 	death_link_amnesty: DeathLinkAmnesty
