@@ -34,6 +34,7 @@ def trapped_speeds(name, saved):
 class TrapState:
 	def __init__(self, duration=DEFAULT_DURATION):
 		self.duration = duration  # trap_duration: seconds the timed traps (all but Freeze) last
+		self.fired = None  # the trap the last tick fired, for its sound
 		self.queue = []  # received, not fired yet; waits outside a run
 		self.entered = None  # time the current run was first seen
 		self.speed = None  # (name, ends at, saved speeds) of the active speed trap
@@ -47,7 +48,8 @@ def speeds_sourced():
 
 def tick(traps, now, state, speeds):
 	"""One poll: fire the first queued trap that can fire, run timers. speeds: the 4 speed ints, None if unreadable.
-	-> (int writes [(entry, value)], speed writes (4 ints) or None)."""
+	-> (int writes [(entry, value)], speed writes (4 ints) or None). traps.fired names the trap fired, or None."""
+	traps.fired = None
 	if not in_run(state):
 		# ponytail: like EoSD, nothing is written outside a run (the player object may be gone) and an active
 		# speed trap is forgotten; this assumes each stage rebuilds the player's speeds (probe batch 44 R4 checks
@@ -66,6 +68,7 @@ def tick(traps, now, state, speeds):
 		if name in TIMED and speeds_sourced() and (traps.speed or speeds is None):
 			continue  # one speed trap at a time, and only with the speeds readable
 		traps.queue.remove(name)  # one trap per tick, so a backlog doesn't land at once (EoSD)
+		traps.fired = name
 		logger.info(f"Trap: {name}")
 		if name == "-50% Power" and power is not None:
 			power //= 2

@@ -471,7 +471,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		from unittest import mock
 		from .. import traps
 		lives = (BASE + Variables.ADDR_LIVES, (2).to_bytes(4, "little"))
-		sound = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (Variables.SOUND_IDS["life_lost"]).to_bytes(4, "little"))
+		sound = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (Variables.SOUND_IDS["trap"]).to_bytes(4, "little"))
 		with mock.patch.object(traps, "ENTER_DELAY", 0):
 			memory = game_memory(lives=3)
 			await self.context("-1 Life", sound=True).poll(memory, None, 0)
@@ -485,8 +485,25 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		from .. import traps
 		with mock.patch.object(traps, "ENTER_DELAY", 0):
 			memory = game_memory(lives=0)
-			await self.context("-1 Life", sound=True).poll(memory, None, 0)
-		self.assertEqual(memory.writes, [])  # no write, no redraw
+			await self.context("-1 Life").poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])  # no lives write (and no sound with /itemsound off)
+
+	async def test_every_trap_buzzes_when_it_begins(self):
+		"""84: a speed trap buzzes the moment it starts; while it waits (speeds unreadable, or another trap on), silence."""
+		from unittest import mock
+		from .. import traps
+		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))
+		with mock.patch.object(traps, "ENTER_DELAY", 0):
+			memory = game_memory(lives=3)
+			ctx = self.context("No Focus", sound=True)
+			await ctx.poll(memory, None, 0)  # no player object: the speeds are unreadable, so it waits
+			self.assertNotIn(buzz, memory.writes)
+			player = 0x3200000
+			memory.set(BASE + Variables.ADDR_PLAYER_PTR, player.to_bytes(4, "little"))
+			for entry, speed in zip(traps.SPEED_ENTRIES, (576, 256, 407, 181)):
+				memory.set(player + getattr(Variables, entry)[1], speed.to_bytes(4, "little"))
+			await ctx.poll(memory, None, 0)
+			self.assertIn(buzz, memory.writes)
 
 	async def test_poll_trap_sees_item_written_same_tick(self):
 		from unittest import mock
