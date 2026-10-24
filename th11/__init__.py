@@ -10,13 +10,11 @@ from .Items import TItem, item_table
 from .Locations import location_table
 from .Options import TH11Options
 from .Regions import create_regions
-from .Rules import goal_endings, set_rules
+from .Rules import goal_endings, plan_gates, set_rules
 from .Variables import *
 
 # Pooled at max_quantity (one fewer Lower Difficulty without Lunatic). Shot types and stages are added separately.
 CORE_ITEMS = ["+1 Life", "+0.50 Power", "Lower Difficulty"]
-# With spell_card_keys: keys_only these gate nothing.
-KEYS_ONLY_USEFUL = CORE_ITEMS
 # Trap item -> its weight option; `traps` % of filler is drawn from these.
 TRAP_OPTIONS = {
 	"-50% Power": "power_trap",
@@ -80,13 +78,39 @@ class TWorld(World):
 			options.stage_unlock.option_by_character: CHARACTERS_LIST,
 			options.stage_unlock.option_by_shot_type: SHOT_TYPE_LIST,
 		}[options.stage_unlock.value]
-		# Capture slots per stage 1-6, and the keys they put in the pool (rounded half up).
+		# Capture slots per stage 1-6, and the Spell Card Keys in the pool (at most one per capture check).
 		self.captures = [min(options.captures_per_stage.value, cap) if options.spell_card_keys else 0 for cap in CAPTURE_CAPS]
 		slots = sum(self.captures) * (1 if options.capture_slots == options.capture_slots.option_shared else len(self.owners))
-		self.key_count = (slots * options.spell_card_keys_in_pool.value + 50) // 100
-		if options.spell_card_keys == options.spell_card_keys.option_keys_only and not self.key_count:
-			logging.warning(f"{SHORT_NAME} ({self.player_name}): keys_only with no Spell Card Keys in the pool, using alongside")
-			options.spell_card_keys.value = options.spell_card_keys.option_alongside
+		self.key_count = min(options.spell_card_keys_in_pool.value, slots)
+		if self.key_count < options.spell_card_keys_in_pool.value:
+			self.warn(f"spell_card_keys_in_pool lowered to {self.key_count}, the number of capture checks")
+		self.clamp_key_locks()
+		if options.spell_card_keys_local and self.key_count:
+			options.local_items.value.add("Spell Card Key")
+
+	def warn(self, message):
+		logging.warning(f"{SHORT_NAME} ({self.player_name}): {message}")
+
+	def clamp_key_locks(self):
+		"""Key locks (75) the pool can satisfy: each at most the keys in the pool with the slack, the final at least the
+		toll; inert (with a warning) in normal modes and for an Extra target without Extra. Kept in self.key_lock."""
+		options = self.options
+		toll, final = options.key_lock_toll, options.key_lock_final
+		if options.key_lock_final_target == options.key_lock_final_target.option_extra and not options.extra_stage and final:
+			self.warn("key_lock_final targets the Extra stage, which is excluded; no final lock")
+			final.value = 0
+		for lock, name in [(toll, "key_lock_toll"), (final, "key_lock_final")]:
+			most = max(self.key_count - options.key_lock_slack.value, 0)
+			if lock.value > most:
+				self.warn(f"{name} lowered to {most}: {self.key_count} keys in the pool, {options.key_lock_slack.value} kept as slack")
+				lock.value = most
+		if final.value and final.value < toll.value:
+			self.warn(f"key_lock_final raised to the toll, {toll.value}")
+			final.value = toll.value
+		if self.normal and (toll.value or final.value):
+			self.warn("key locks work in Practice mode only; this seed has none")
+		self.key_lock = options.as_dict("spell_card_keys", "mode", "key_lock_toll", "key_lock_toll_stage", "key_lock_final",
+			"key_lock_final_target")
 
 	def create_regions(self):
 		create_regions(self)
@@ -97,11 +121,16 @@ class TWorld(World):
 	def create_item(self, name: str) -> TItem:
 		data = item_table[name]
 		classification = data.classification
-		if name in KEYS_ONLY_USEFUL and self.options.spell_card_keys == self.options.spell_card_keys.option_keys_only:
-			classification = ItemClassification.useful
+		if name == "Spell Card Key" and not self.keys_needed():
+			classification = ItemClassification.filler  # no lock asks for keys
 		return TItem(name, classification, data.code, self.player)
 
+	def keys_needed(self):
+		"""Spell Card Keys logic counts on: the largest lock with its slack (75)."""
+		return max(self.logic_keys + [self.goal_keys])
+
 	def create_items(self):
+		plan_gates(self)
 		total_locations = len(self.multiworld.get_unfilled_locations(self.player))
 
 		endings = goal_endings(self.options.koishi_endings.value)
@@ -141,7 +170,12 @@ class TWorld(World):
 			early[self.random.choice([shot for shot in shots if shot != start])] = 1
 			if not self.normal:
 				early[f"{prefix}Next Stage" if self.options.progressive_stage else f"{prefix}Stage 2"] = 1
-		pool += [self.create_item("Spell Card Key") for _ in range(self.key_count)]
+		# Only the keys logic counts on are progression; the rest still open the game's locks, but as filler they leave
+		# fill room (all 50 as progression with max gates failed 15 of 20 fixed seeds).
+		keys = [self.create_item("Spell Card Key") for _ in range(self.key_count)]
+		for key in keys[self.keys_needed():]:
+			key.classification = ItemClassification.filler
+		pool += keys
 
 		filler = total_locations - len(self.owners) * len(endings) - len(pool)
 		weights = [getattr(self.options, option).value for option in TRAP_OPTIONS.values()]
@@ -167,9 +201,10 @@ class TWorld(World):
 				# The goal (both parts must hold); shot_type/extra_stage above already include what it turned on.
 				"utsuho_endings", "utsuho_shots", "koishi_endings",
 				"death_link", "death_link_trigger", "death_link_amnesty", "ring_link", "limit_lives", "min_lives",
-				# spell_card_keys is the mode in effect (keys_only without keys reads alongside).
 				"spell_card_keys", "captures_per_stage", "capture_slots",
+				# Key locks as the game applies them (after clamping), without the logic slack.
+				"key_lock_toll", "key_lock_toll_stage", "key_lock_final", "key_lock_final_target",
 			),
-			# Per stage 1-6 and Extra: (lives, power, lower difficulty, keys), after any fit cuts.
+			# Per stage 1-6 and Extra: (lives, power, lower difficulty), after any fit cuts.
 			"stage_requirements": self.stage_requirements,
 		}

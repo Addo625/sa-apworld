@@ -1,13 +1,16 @@
 @echo off
-rem Prove AP generates from dist\th11.apworld, not the dev junction (as tools/check_apworld.sh).
-rem Needs tools\setup_dev.bat first. Python runs by a relative path: for /f mangles quoted paths.
+rem Prove AP generates from dist\th11.apworld, not the dev junction (as tools/mac/check_apworld.sh).
+rem Needs tools\windows\setup_dev.bat first. Python runs by a relative path: for /f mangles quoted paths.
 setlocal
-cd /d "%~dp0.."
-set "root=%CD%"
+rem Keep a double-clicked window open; skipped when another script calls this one (TH11_NESTED).
+if defined TH11_NESTED (set "pause_at_end=") else (set "pause_at_end=1")
 set "rc=1"
+cd /d "%~dp0..\.."
+set "root=%CD%"
 if not exist .venv\Scripts\python.exe goto no_venv
 for /f "usebackq delims=" %%i in (`.venv\Scripts\python -c "import json; print(json.load(open('th11/archipelago.json'))['game'])"`) do set "game=%%i"
-call "%~dp0build_apworld.bat" || exit /b 1
+set "TH11_NESTED=1"
+call "%~dp0build_apworld.bat" || goto end
 set "tmp_dir=%TEMP%\th11_check_%RANDOM%"
 mkdir "%tmp_dir%"
 
@@ -38,8 +41,8 @@ set "rc=0"
 goto restore
 
 :no_venv
-echo No .venv: run tools\setup_dev.bat first 1>&2
-exit /b 1
+echo No .venv: run tools\windows\setup_dev.bat first 1>&2
+goto end
 
 :generate_failed
 echo Generate.py failed 1>&2
@@ -59,4 +62,12 @@ if exist .ap\worlds\th11 rmdir .ap\worlds\th11
 mklink /j .ap\worlds\th11 "%root%\th11" >nul
 if exist .ap\custom_worlds\th11.apworld del /f /q .ap\custom_worlds\th11.apworld
 if exist "%tmp_dir%" rmdir /s /q "%tmp_dir%"
+goto end
+
+:end
+if defined pause_at_end (
+    echo.
+    echo Press any key to close...
+    pause >nul
+)
 exit /b %rc%

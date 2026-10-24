@@ -215,3 +215,30 @@ class TestLinearExtraInNormalMode(unittest.TestCase):
 		self.assertEqual(extra_shots(received, slot), set())
 		self.assertEqual(extra_shots(received, slot, {"Reimu"}), {0, 2})  # Reimu's received shots
 		self.assertEqual(extra_shots(received, slot, {"Marisa B"}), {4})  # shot_type owner
+
+
+class TestKeyLocks(unittest.TestCase):
+	"""75: the game's key locks, with the counts the YAML set (the logic slack never reaches the client)."""
+	SLOT = {"spell_card_keys": 1, "mode": 0, "key_lock_toll": 3, "key_lock_toll_stage": 5, "key_lock_final": 6,
+		"key_lock_final_target": 0}
+
+	def test_key_locks_per_target(self):
+		from ..Rules import key_locks
+		self.assertEqual(key_locks(self.SLOT), [0, 0, 0, 0, 0, 3, 6, 6])
+		self.assertEqual(key_locks({**self.SLOT, "key_lock_final_target": 2}), [0, 0, 0, 0, 0, 3, 3, 6])
+		self.assertEqual(key_locks({**self.SLOT, "key_lock_final_target": 1}), [0, 0, 0, 0, 0, 3, 3, 3])
+		self.assertEqual(key_locks({**self.SLOT, "mode": 2}), [0] * 8)  # normal mode: no locks
+		self.assertEqual(key_locks({**self.SLOT, "spell_card_keys": 0}), [0] * 8)
+
+	def test_practice_hides_key_locked_stages(self):
+		shots = ["Reimu A - Yukari"] + ["Next Stage"] * 5
+		stages = lambda keys: {stage for _, _, stage in practice_open(shots + ["Spell Card Key"] * keys, self.SLOT)}
+		self.assertEqual(stages(2), {1, 2, 3, 4})
+		self.assertEqual(stages(3), {1, 2, 3, 4, 5})  # the toll's 3, not 3 + slack
+		self.assertEqual(stages(6), set(range(1, 7)))
+
+	def test_goal_needs_keys_when_targeted(self):
+		slot = {**self.SLOT, "key_lock_final_target": 1}
+		self.assertFalse(goal_reached(["[Reimu] Ending - Utsuho"] + ["Spell Card Key"] * 5, slot))
+		self.assertTrue(goal_reached(["[Reimu] Ending - Utsuho"] + ["Spell Card Key"] * 6, slot))
+		self.assertTrue(goal_reached(["[Reimu] Ending - Utsuho"], self.SLOT))  # stage_6 target: the goal itself is free

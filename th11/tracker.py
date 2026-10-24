@@ -6,6 +6,7 @@ from collections import Counter
 from . import captures
 from .Options import ExtraStage, ProgressiveStage, StageUnlock
 from .receive import SHOT_GROUP, goal_reached, practice_lives, stage_open
+from .Rules import goal_key_lock, key_locks
 from .Variables import (
 	CAPTURE_CAPS, CHARACTER_TO_ITEM, CHARACTERS_LIST, DIFFICULTY_LIST, ENDING_EXTRA_ITEM, ENDING_NORMAL_ITEM, SHOT_TO_CHARACTER,
 	SHOT_TYPE_LIST, STAGE4_APPEARANCES, STAGES_LIST, lower_difficulty_needed, lowest_unlocked,
@@ -47,8 +48,8 @@ def missing_stage_item(count, group, level, progressive, apart):
 
 
 def gate_missing(count, requirement, exclude_lunatic):
-	"""What the received items lack for a stage's gate (lives, power, Lower Difficulty, keys), as text parts."""
-	lives, power, lower, keys = requirement
+	"""What the received items lack for a stage's gate (lives, power, Lower Difficulty), as text parts."""
+	lives, power, lower = requirement[:3]  # seeds from before 75 carried keys as a 4th
 	parts = []
 	if count["+1 Life"] < lives:
 		parts.append(f"+1 Life {count['+1 Life']}/{lives}")
@@ -57,9 +58,25 @@ def gate_missing(count, requirement, exclude_lunatic):
 	if count["Lower Difficulty"] < lower:
 		difficulty = next(d for i, d in enumerate(DIFFICULTY_LIST) if lower_difficulty_needed(i, exclude_lunatic) <= lower)
 		parts.append(f"{difficulty}: Lower Difficulty {count['Lower Difficulty']}/{lower}")
-	if count["Spell Card Key"] < keys:
-		parts.append(f"Spell Card Key {count['Spell Card Key']}/{keys}")
 	return parts
+
+
+def key_row(held, slot_data):
+	"""The key locks (75) in one line, or None when the seed has none: what each lock opens at, and how many more."""
+	locks = []
+	if key_locks(slot_data)[slot_data.get("key_lock_toll_stage", 5)]:
+		locks.append((f"Stage {slot_data['key_lock_toll_stage']} opens at", slot_data["key_lock_toll"]))
+	final = slot_data.get("key_lock_final", 0)
+	if goal_key_lock(slot_data):
+		locks.append(("Goal needs", final))
+	elif any(key_locks(slot_data)[6:]) and final:
+		locks.append((f"{'Stage 6' if slot_data.get('key_lock_final_target', 0) == 0 else 'Extra'} opens at", final))
+	if not locks:
+		return None
+	if all(held >= keys for _, keys in locks):
+		return f"Keys {held} held (all locks open)"
+	return f"Keys {held} held  ·  " + "  ·  ".join(
+		f"{name} {keys} ({'open' if held >= keys else f'{keys - held} more'})" for name, keys in locks)
 
 
 def report(item_names, missing_names, slot_data, captured=()):
@@ -67,7 +84,7 @@ def report(item_names, missing_names, slot_data, captured=()):
 	seed recorded (68), "" as owner when capture slots are shared."""
 	item_names = [name for name in item_names if name]
 	count = Counter(item_names)
-	requirements = [tuple(r) for r in slot_data.get("stage_requirements") or [(0, 0, 0, 0)] * 6]
+	requirements = [tuple(r)[:3] for r in slot_data.get("stage_requirements") or [(0, 0, 0)] * 6]
 	exclude_lunatic = slot_data.get("exclude_lunatic")
 	group_of = SHOT_GROUP[slot_data.get("stage_unlock", StageUnlock.default)]
 	progressive = slot_data.get("progressive_stage", ProgressiveStage.default)
@@ -80,13 +97,13 @@ def report(item_names, missing_names, slot_data, captured=()):
 	lines = [
 		f"Goal: {goal} -- {'DONE' if goal_reached(item_names, slot_data) else 'not yet'}",
 		"  " + ", ".join(f"{ending}: " + " / ".join(f"{c} {count[f'[{c}] {ending}']}" for c in CHARACTERS_LIST) for ending in endings),
+	] + [row for row in [key_row(count["Spell Card Key"], slot_data)] if row] + [
 		"",
 		f"+1 Life {count['+1 Life']} (Practice starts with {practice_lives(item_names, slot_data, slot_data.get('limit_lives', 9))})"
 		f"  ·  +0.50 Power {count['+0.50 Power']} (Practice starts at {min(count['+0.50 Power'] * 0.5, 4):.2f})  ·  Lower Difficulty {count['Lower Difficulty']}"
-		f" (easiest: {DIFFICULTY_LIST[lowest_unlocked(count['Lower Difficulty'], exclude_lunatic)]})"
-		+ (f"  ·  Spell Card Key {count['Spell Card Key']}" if slot_data.get("spell_card_keys") else ""),
+		f" (easiest: {DIFFICULTY_LIST[lowest_unlocked(count['Lower Difficulty'], exclude_lunatic)]})",
 		"",
-		"OPEN = in logic · PLAYABLE = the game opens it, logic expects more · LOCKED = needs its stage item",
+		"OPEN = in logic · PLAYABLE = the game opens it, logic expects more · LOCKED = needs its stage item or keys",
 	]
 	shots = [shot for shot in SHOT_TYPE_LIST if CHARACTER_TO_ITEM[shot][0] in count]
 	if not shots:
@@ -111,7 +128,12 @@ def report(item_names, missing_names, slot_data, captured=()):
 			parts += [f"captures {slots - spells}/{slots}" if spells else "captures done"] * bool(slots)
 			suffix = f" -- {', '.join(parts)}" if bosses or spells else " -- all checked"
 			if not stage_open(item_names, slot_data, shot, level):
-				lines.append(f"  {stage_name(level)}: LOCKED, needs {missing_stage_item(count, group_of(shot), level, progressive, apart)}{suffix}")
+				# Name only what blocks: the stage item, the keys, or both (open ignoring keys = only keys block).
+				needs = [] if stage_open(item_names, {**slot_data, "spell_card_keys": 0}, shot, level) else [
+					missing_stage_item(count, group_of(shot), level, progressive, apart)]
+				keys = key_locks(slot_data)[level]
+				needs += [f"Spell Card Key {count['Spell Card Key']}/{keys}"] * (count["Spell Card Key"] < keys)
+				lines.append(f"  {stage_name(level)}: LOCKED, needs {', '.join(needs)}{suffix}")
 				continue
 			missing = gate_missing(count, requirement, exclude_lunatic)
 			lines.append(f"  {stage_name(level)}: " + (f"PLAYABLE, logic expects {', '.join(missing)}" if missing else "OPEN") + suffix)

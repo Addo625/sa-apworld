@@ -125,7 +125,7 @@ class TestExtraLifeGate(bases.TH11TestBase):
 	options = {"extra_stage": "apart", "number_life_extra": 8}
 
 	def test_extra_life_gate(self):
-		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][6], (8, 0, 0, 0))
+		self.assertEqual(self.world.fill_slot_data()["stage_requirements"][6], (8, 0, 0))
 		self.collect_by_name(ALL_SHOTS + ["Next Stage", "Extra Stage"])
 		lives = self.get_items_by_name("+1 Life")
 		self.collect(lives[:7])

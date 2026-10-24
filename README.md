@@ -22,13 +22,15 @@ With **Extra Stage**: `Sanae - Midboss`, `Koishi Defeated` and `Stage Extra Clea
 
 With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th different spell you capture in stage N, per character (or shot type, or shared). The same spell on another difficulty counts once. The check is sent as soon as the card ends captured. A spell counts once per character in a seed: with **Capture Slots** per_character, a character's three shots share one set of capture checks (use **Shot Type Check** for a set per shot). Captures made before the seed don't matter.
 
+**Key locks** (Practice mode): Spell Card Keys open stages. `key_lock_final` (default 6) closes Stage 6 and Extra until you hold that many keys (or, with `key_lock_final_target`, only the goal or only Extra); `key_lock_toll` optionally closes an earlier stage too (`key_lock_toll_stage`, 3-5). A locked stage needs its Next Stage *and* the keys, and stays out of the Practice menu until then. Keys are held, never spent. Logic places `key_lock_slack` (default 2) extra keys before each lock, so a few missed captures never leave you stuck. `spell_card_keys_in_pool` (default 12) is how many keys exist; `spell_card_keys_local` keeps them in your own game. The tracker shows one key row under the goal: keys held, and what each lock opens at.
+
 ## Items
 * Shot Types (Reimu A/B/C, Marisa A/B/C)
 * Next Stage (Practice Mode): global, per character or per shot type; `Stage 2` .. `Stage 6` without Progressive Stage Unlock
 * Extra Stage (with **Extra Stage** apart, or linear without Progressive Stage Unlock), grouped like Next Stage: with global unlocks the item is `Extra Stage`, per character `[Reimu] Extra Stage`, per shot type `[Reimu A] Extra Stage`.
 * +0.50 Power: every Practice run starts with 0.50 power per pack received (at most 4.00), on every stage
 * +1 Life: every Practice run starts with one spare life per item received (plus **Min Lives**)
-* Spell Card Key (with **Spell Card Keys**): gates stages 3-6
+* Spell Card Key (with **Spell Card Keys**): opens the key locks
 * Lower Difficulty
 
 **Filler**: +0.05 Power
@@ -48,7 +50,7 @@ With **Spell Card Keys** (on by default): `Stage N - Capture k` for the k-th dif
 
 **Exclude Lunatic:** You can exclude the Lunatic difficulty and therefore start on Hard.
 
-**Resources:** You can set the lives, power packs and difficulty expected for stages 3/4 (Yuugi, Satori) and stages 5/6 (Orin, Utsuho). The requirement ramps up stage by stage. If a gate can't fit in the locations open before its stage, it is lowered and generation logs a warning naming the stage.
+**Resources:** You can set the lives, power packs and difficulty expected for stages 3/4 (Yuugi, Satori) and stages 5/6 (Orin, Utsuho). The requirement ramps up stage by stage: stages 1-6 expect 0, 0, mid/2, mid, (mid+end)/2, end, each rounded down, and a difficulty counts as the Lower Difficulty items it needs. **A Little Bit of Luck** rounds the difficulty's halves up instead, so Stages 3 and 5 expect the easier difficulty when they fall between two (lives, power and keys are unchanged). A gate is a promise about item placement, not a lock: logic expects you to have it before playing the stage, so it may sit anywhere earlier. If a gate can't fit in the locations open before its stage, it is lowered and generation logs a warning naming the stage.
 
 **Extra Stage:** exclude, linear (a 7th stage: one more Next Stage, or an Extra Stage item after Stage 6 without Progressive Stage Unlock) or apart (its own Extra Stage item; logic still expects Stage 6 first). Lives and power packs expected for Koishi are set separately.
 
@@ -86,4 +88,4 @@ The Windows version of Archipelago must be installed in the same Wine prefix as 
 
 ## Building
 
-`tools/build_apworld.sh` writes `dist/th11.apworld`. On Windows: `tools\build_apworld.bat` builds it, and `tools\install_apworld.bat [Archipelago folder]` builds and copies it into Archipelago's `custom_worlds` (default `C:\ProgramData\Archipelago`); `tools\setup_dev.bat` and `tools\check_apworld.bat` are the dev setup and check below. `tools/check_apworld.sh` builds it, generates a seed from the zip with the dev Archipelago checkout (`tools/setup_dev.sh`), and checks that AP loaded the zip, not the dev symlink.
+Scripts for each platform live in `tools/mac/` (`.sh`) and `tools/windows/` (`.bat`); each waits for a key before closing, so a double-clicked window stays readable. `tools/mac/build_apworld.sh` (Windows: `tools\windows\build_apworld.bat`) writes `dist/th11.apworld`. On Windows, `tools\windows\install_apworld.bat [Archipelago folder]` also copies it into Archipelago's `custom_worlds` (default `C:\ProgramData\Archipelago`). `tools/mac/check_apworld.sh` (or `check_apworld.bat`) builds it, generates a seed from the zip with the dev Archipelago checkout (`tools/mac/setup_dev.sh` or `setup_dev.bat`), and checks that AP loaded the zip, not the dev symlink.

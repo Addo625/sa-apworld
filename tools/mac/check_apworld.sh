@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 # Prove AP generates from dist/th11.apworld, not the dev symlink.
 set -euo pipefail
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 root=$PWD
 game=$(.venv/bin/python -c 'import json; print(json.load(open("th11/archipelago.json"))["game"])')
+# Keep a double-clicked window open; skipped when another script calls this one, or with no terminal.
+pause_at_end() {
+	if [ -z "${TH11_NESTED:-}" ] && [ -t 0 ]; then
+		read -r -n 1 -s -p "Press any key to close..." </dev/tty || true
+		echo
+	fi
+}
 
-tools/build_apworld.sh
+TH11_NESTED=1 tools/mac/build_apworld.sh
 tmp=$(mktemp -d)
 restore() {
 	ln -sfn ../../th11 "$root/.ap/worlds/th11"
 	rm -f "$root/.ap/custom_worlds/th11.apworld"
 	rm -rf "$tmp"
 }
-trap restore EXIT
+trap 'restore; pause_at_end' EXIT
 
 # AP refuses a game registered twice, so the symlink must go.
 rm .ap/worlds/th11

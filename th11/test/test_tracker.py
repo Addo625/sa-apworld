@@ -60,6 +60,19 @@ class TestTracker(unittest.TestCase):
 		self.assertTrue(any("Spells captured this seed: 1." in line for line in lines))
 		self.assertNotIn("captures", stage_line(report(["Marisa C - Nitori"], MARISA, SLOT), "Marisa", 1))  # keys off
 
+	def test_key_row_only_with_locks(self):
+		"""75: one key row under the goal line, only when the YAML set a lock; it says what each lock opens at."""
+		locks = {**SLOT, "spell_card_keys": 1, "key_lock_toll": 3, "key_lock_toll_stage": 5, "key_lock_final": 6}
+		items = ["Marisa C - Nitori"] + ["Next Stage"] * 5
+		lines = report(items + ["Spell Card Key"] * 4, MARISA, locks)
+		self.assertEqual(lines[2], "Keys 4 held  ·  Stage 5 opens at 3 (open)  ·  Stage 6 opens at 6 (2 more)")
+		self.assertIn("LOCKED, needs Spell Card Key 4/6", stage_line(lines, "Marisa", 6))  # Next Stage is there: keys only
+		self.assertNotIn("Spell Card Key", stage_line(lines, "Marisa", 5))
+		self.assertIn("Keys 7 held (all locks open)", report(items + ["Spell Card Key"] * 7, MARISA, locks))
+		self.assertFalse(any("Keys" in line for line in report(items, MARISA, {**locks, "key_lock_toll": 0, "key_lock_final": 0})))
+		goal = report(items, MARISA, {**locks, "key_lock_toll": 0, "key_lock_final_target": 1})
+		self.assertEqual(goal[2], "Keys 0 held  ·  Goal needs 6 (6 more)")
+
 	def test_goal_line(self):
 		self.assertIn("not yet", report([], [], SLOT)[0])
 		self.assertIn("DONE", report(["[Marisa] Ending - Utsuho"], [], SLOT)[0])
