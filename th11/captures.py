@@ -30,11 +30,12 @@ def owner(shot, slot_data):
 def capture_location(shot, stage, captured_before, slot_data, sent_names):
 	"""-> the capture location a newly captured card sends, or None.
 	captured_before: whether the owner captured this spell before in this seed. Only a card new to the owner counts
-	(21: the k-th *different* card); k = the stage's capture checks already sent + 1, up to its slot count."""
+	(21: the k-th *different* card); it fills the stage's lowest capture check not checked yet. Not "sent + 1": a
+	collect or release marks capture checks found out of order, and the next spell then re-sent a checked one forever
+	while a lower one (holding a Next Stage) was never sent (Windows playtest, 2026-10-22)."""
 	if not slot_data.get("spell_card_keys") or stage not in range(1, 7) or captured_before:
 		return None
 	slots = min(slot_data.get("captures_per_stage", 0), CAPTURE_CAPS[stage - 1])
 	prefix = f"[{owner(shot, slot_data)}] " if owner(shot, slot_data) else ""
-	name = f"{prefix}Stage {stage} - Capture "
-	k = 1 + sum(1 for sent in sent_names if sent and sent.startswith(name))
-	return f"{name}{k}" if k <= slots else None
+	sent = set(sent_names)
+	return next((name for k in range(1, slots + 1) if (name := f"{prefix}Stage {stage} - Capture {k}") not in sent), None)
