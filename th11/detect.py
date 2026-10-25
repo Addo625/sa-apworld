@@ -56,6 +56,15 @@ def locked(state, shots, lower, slot_data, received=None):
 	return None
 
 
+def voided(state, stage_continues, slot_data):
+	"""A continue used in this stage of a Practice seed's Start run (87): the stage's checks wait for a clear without
+	one, as a Practice retry restarts the stage. stage_continues: the continues count when the stage began; None (or
+	an unreadable count) voids nothing. Normal-mode seeds keep unlimited continues (18-20 deferred)."""
+	return (slot_data.get("mode", Mode.option_practice) == Mode.option_practice and state.stage in range(1, 7)
+		and state.flags is not None and not state.flags & PRACTICE_FLAG
+		and None not in (state.continues, stage_continues) and state.continues > stage_continues)
+
+
 def restarted(prev, state):
 	"""A Practice run restarted without leaving play (batch 61): Retry at a game over (lives come back from -1) or
 	Give up and Retry (the score drops). Practice only: a normal-mode continue also restores lives, but play goes on."""
@@ -66,9 +75,10 @@ def restarted(prev, state):
 	return prev.score is not None and state.score is not None and state.score < prev.score
 
 
-def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None):
+def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None, stage_continues=None):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
-	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected)."""
+	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected).
+	stage_continues: the continues count when this stage began (see voided)."""
 	restart = restarted(prev, state)
 	if not prev.in_game or prev.stage != state.stage or restart:
 		runs = 0
@@ -80,6 +90,8 @@ def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None
 	if state.stage not in range(1, 8) or state.character is None:
 		return [], runs + 1
 	if shots is not None and locked(state, shots, lower, slot_data or {}, received):
+		return [], runs + 1
+	if voided(state, stage_continues, slot_data or {}):
 		return [], runs + 1
 	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
 	return run_locations(state, runs, slot_data or {}, lower), runs + 1

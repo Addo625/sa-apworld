@@ -1,6 +1,6 @@
 # 87: A continue in a Practice seed's Start run voids that stage's checks
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 
 ## Problem
@@ -38,3 +38,6 @@ Design C (from 19, as in the IN apworld) keeps Start as fair as Practice: once a
 
 ## Deferred
 - Normal-mode seeds' continue designs stay 18–20 (deferred).
+
+## Comments
+- 2026-10-25 Claude: done. ADDR_CONTINUES stays thprac-sourced until batch 74 R3. Runs found before the first connect are never voided (a ponytail in Client.poll).

@@ -582,6 +582,33 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		await ctx.poll(memory, prev, 0)
 		self.assertNotIn(buzz, memory.writes)
 
+	async def test_continue_in_start_run_voids_the_stage(self):
+		"""87: a Start run in a Practice seed (flags 0): a continue mid-stage logs once and the boss sends nothing; the
+		next stage, entered with the counter already up, counts."""
+		from unittest import mock
+		from ..Locations import location_table
+		from .. import detect
+		ctx = self.context(*UNLOCKED)
+		ctx.slot_data = {"mode": 0}
+		start = {"ADDR_GAME_FLAGS": 0, "ADDR_STAGE": 2}
+		with mock.patch.object(detect, "locked", return_value=None):  # Start stays locked until 88
+			prev, runs = await ctx.poll(menu_memory(menu=0, cursor=0), None, 0)
+			prev, runs = await ctx.poll(game_memory(ADDR_CONTINUES=0, **start), prev, runs)
+			self.assertEqual(ctx.stage_continues, 0)
+			with self.assertLogs("Client", "INFO") as logs:
+				prev, runs = await ctx.poll(game_memory(boss=0x3100000, ADDR_CONTINUES=1, **start), prev, runs)
+				prev, runs = await ctx.poll(game_memory(ADDR_CONTINUES=1, **start), prev, runs)
+			self.assertEqual([line for line in logs.output if "continue" in line],
+				["INFO:Client:A continue in Stage 2: its checks wait for a clear without one"])
+			self.assertEqual(ctx.sent, [])
+			start["ADDR_STAGE"] = 3
+			prev, runs = await ctx.poll(game_memory(ADDR_CONTINUES=1, **start), prev, runs)
+			self.assertEqual(ctx.stage_continues, 1)
+			prev, runs = await ctx.poll(game_memory(boss=0x3100000, ADDR_CONTINUES=1, **start), prev, runs)
+			await ctx.poll(game_memory(ADDR_CONTINUES=1, **start), prev, runs)
+		self.assertEqual(len(ctx.sent), 1)
+		self.assertIn(location_table["[Reimu] Yuugi - Midboss"], ctx.sent[0]["locations"])
+
 	async def test_poll_moves_cursor_off_locked_difficulty(self):
 		ctx = self.context("Reimu A - Yukari", "Lower Difficulty")  # Hard and Lunatic open
 		memory = menu_memory(menu=1, cursor=0)

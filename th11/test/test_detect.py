@@ -206,3 +206,27 @@ class TestStageGate(unittest.TestCase):
 		received = ["Reimu A - Yukari"] + ["Next Stage"] * 5
 		self.assertEqual(locked(play(7, ADDR_DIFFICULTY=4), self.SHOTS, 0, slot, received), "Reimu A Stage Extra")
 		self.assertIsNone(locked(play(7, ADDR_DIFFICULTY=4), self.SHOTS, 0, slot, received + ["Extra Stage"]))
+
+
+class TestContinueVoids(unittest.TestCase):
+	"""87: a continue in a Practice seed's Start run voids the rest of that stage's checks."""
+	PRACTICE_SEED = {"mode": 0}
+
+	def boss_drop(self, stage_continues, slot_data=None, **values):
+		values = {"ADDR_GAME_FLAGS": 0, "ADDR_CONTINUES": 1, **values}
+		return step(play(2, True, **values), play(2, **values), 1, slot_data or self.PRACTICE_SEED,
+			stage_continues=stage_continues)
+
+	def test_continue_in_stage_voids(self):
+		self.assertEqual(self.boss_drop(0), ([], 2))
+
+	def test_no_continue_counts(self):
+		self.assertEqual(self.boss_drop(1)[0], ids("[Reimu] Parsee Defeated", "[Reimu] Stage 2 Clear"))
+
+	def test_practice_run_and_normal_seed_ignore_continues(self):
+		self.assertNotEqual(self.boss_drop(0, ADDR_GAME_FLAGS=0x10)[0], [])
+		self.assertNotEqual(self.boss_drop(0, {"mode": 2})[0], [])
+
+	def test_unreadable_continues_void_nothing(self):
+		self.assertNotEqual(self.boss_drop(None)[0], [])
+		self.assertNotEqual(self.boss_drop(0, ADDR_CONTINUES=None)[0], [])

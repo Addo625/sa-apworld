@@ -4,7 +4,7 @@ Status: ready-for-human
 Blocked by: None
 
 ## Problem
-73 splits Yuugi's midboss from the boss by counting spell cards. This batch checks it in game. 71 (A Little Bit of Luck) needs a glance in game.
+73 splits Yuugi's midboss from the boss by counting spell cards. This batch checks it in game. 71 (A Little Bit of Luck) needs a glance in game. 87 and 88 (Start runs in Practice seeds, continues) need one Start run.
 
 ## Test plan
 Setup: the client with 73, 87 and 88 installed.

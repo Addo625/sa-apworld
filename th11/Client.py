@@ -43,6 +43,8 @@ class TouhouContext(CommonContext):
 		self.captures_seen = set()  # captured_cards entries found this session, before the server stores them
 		self.captures_sent = set()  # capture location names sent this session, before the server echoes them
 		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
+		self.stage_continues = None  # continues used when the current stage began (87); None outside play
+		self.void_logged = None  # the stage whose voided checks were last logged
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.practice_lives = None  # the same for Practice's starting lives (49)
@@ -156,7 +158,17 @@ class TouhouContext(CommonContext):
 		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
 		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
 		received = self.received_names() if shots is not None else None
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received) if prev else ([], 0)
+		if not state.in_game:
+			self.stage_continues = self.void_logged = None
+		elif not (prev and prev.in_game) or prev.stage != state.stage:
+			self.stage_continues, self.void_logged = state.continues, None
+		# ponytail: before the first connect slot_data can't say the seed is Practice, so nothing is voided and a
+		# continued stage's runs found then still count; keep a voided flag with runs_found if that matters.
+		stage_continues = self.stage_continues if shots is not None else None
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received, stage_continues) if prev else ([], 0)
+		if state.in_game and self.void_logged != state.stage and detect.voided(state, stage_continues, self.slot_data):
+			self.void_logged = state.stage
+			logger.info(f"A continue in Stage {state.stage}: its checks wait for a clear without one")
 		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
 			locked = detect.locked(state, shots, lower, self.slot_data, received)
 			if locked:  # the game itself doesn't say so (probe 32 R6 M3): the buzzer does (86)
