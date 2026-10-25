@@ -1,6 +1,6 @@
 # 73: Beating Yuugi's midboss sends only the midboss check
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 
 ## Problem
@@ -48,3 +48,4 @@ This covers both shapes:
 
 ## Comments
 - 2026-10-25 Claude: redesigned from the field-shape split to the card count, so this ticket no longer waits for batch 74. Batch 74 R1 is now the in-game check, done with Cheat Engine.
+- 2026-10-25 Claude: done. In-game check: batch 74 R1.

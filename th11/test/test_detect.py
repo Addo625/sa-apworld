@@ -52,8 +52,18 @@ class TestDetect(unittest.TestCase):
 	def test_detect_negative_game_over(self):
 		self.assertEqual(step(play(boss=True), play(ADDR_LIVES=-1), 1), ([], 1))
 
+	def test_detect_stage3_midboss_alone(self):
+		"""73: Yuugi leaves after her midboss (one card): only the midboss check; the boss run (three cards) the rest."""
+		midboss, runs = step(play(3, True), play(3), 0, cards=1)
+		self.assertEqual(midboss, ids("[Reimu] Yuugi - Midboss"))
+		self.assertEqual(step(play(3, True), play(3), runs, cards=3)[0],
+			ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
+		self.assertEqual(step(play(3, True), play(3), 0)[0], ids("[Reimu] Yuugi - Midboss"))  # timed out, no card seen
+
 	def test_detect_stage3_single_run(self):
-		self.assertEqual(run_stage(3, 1), ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
+		"""Yuugi stays from midboss into boss (22): one run, four cards, every check."""
+		self.assertEqual(step(play(3, True), play(3), 0, cards=4)[0],
+			ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
 
 	def test_detect_stage4_first_appearance(self):
 		self.assertEqual(run_stage(4, 1), ids("[Reimu] Cat Orin - First Appearance"))

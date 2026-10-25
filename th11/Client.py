@@ -42,7 +42,8 @@ class TouhouContext(CommonContext):
 		self.spell_running = None  # detect_captures: (controller, card, its capture count at the start, run state)
 		self.captures_seen = set()  # captured_cards entries found this session, before the server stores them
 		self.captures_sent = set()  # capture location names sent this session, before the server echoes them
-		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
+		self.runs_found = []  # (state, run index, cards) of runs ended before the first connect, mapped once slot_data is in
+		self.run_cards = set()  # spell card IDs declared during the current boss-field run (73)
 		self.stage_continues = None  # continues used when the current stage began (87); None outside play
 		self.void_logged = None  # the stage whose voided checks were last logged
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
@@ -165,7 +166,14 @@ class TouhouContext(CommonContext):
 		# ponytail: before the first connect slot_data can't say the seed is Practice, so nothing is voided and a
 		# continued stage's runs found then still count; keep a voided flag with runs_found if that matters.
 		stage_continues = self.stage_continues if shots is not None else None
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received, stage_continues) if prev else ([], 0)
+		if state.boss_present and (read_entry(controller, Variables.ADDR_SPELL_FLAGS) or 0) & Variables.SPELL_ACTIVE:
+			card = read_entry(controller, Variables.ADDR_SPELL_ID)
+			if card in range(Variables.SPELL_CARD_COUNT):
+				self.run_cards.add(card)
+		cards = len(self.run_cards)
+		if not state.boss_present:  # the field run ended: a kill, a quit, a retry or a stage change
+			self.run_cards.clear()
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received, stage_continues, cards) if prev else ([], 0)
 		if state.in_game and self.void_logged != state.stage and detect.voided(state, stage_continues, self.slot_data):
 			self.void_logged = state.stage
 			logger.info(f"A continue in Stage {state.stage}: its checks wait for a clear without one")
@@ -180,13 +188,13 @@ class TouhouContext(CommonContext):
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:
 			if locations:  # mapping needs slot_data (shot_type, difficulty_check): keep the raw run until connected
-				self.runs_found.append((state, runs - 1))
+				self.runs_found.append((state, runs - 1, cards))
 			return state, runs
 		self.locations_found.update(locations)
 		if shots is not None:  # with the items in, for the lock filter and check_multiple_difficulty
-			for found, run in self.runs_found:
+			for found, run, found_cards in self.runs_found:
 				if not detect.locked(found, shots, lower, self.slot_data, received):
-					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower))
+					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower, found_cards))
 			self.runs_found.clear()
 			await self.detect_captures(controller, state, lower, shots, received)
 		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)

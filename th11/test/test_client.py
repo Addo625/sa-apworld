@@ -606,6 +606,30 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertIn(location_table["[Reimu] Yuugi - Midboss"], ctx.sent[0]["locations"])
 
+	async def test_stage3_counts_cards_per_boss_run(self):
+		"""73: the distinct cards declared while the boss is up reach detect, without spell_card_keys; a field drop
+		clears them, so Yuugi's midboss (one card) sends only its check and her boss run (three) the rest."""
+		from ..Locations import location_table
+		ctx = self.context(*UNLOCKED, "Next Stage", "Next Stage")
+		ctx.slot_data = {"progressive_stage": 1}
+		spell = 0x3300000
+
+		def stage3(boss=0, card=None):
+			memory = game_memory(boss=boss, ADDR_STAGE=3)
+			memory.set(BASE + Variables.ADDR_SPELL_ID[0], spell.to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_ID[1], (card or 0).to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_FLAGS[1], (Variables.SPELL_ACTIVE if card is not None else 0).to_bytes(4, "little"))
+			return memory
+
+		prev, runs = await ctx.poll(stage3(), None, 0)
+		for memory in (stage3(0x3100000, 40), stage3(0x3100000, 40), stage3()):  # midboss: one card, twice read
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertEqual(ctx.sent[-1]["locations"], (location_table["[Reimu] Yuugi - Midboss"],))
+		for memory in (stage3(0x3100000, 41), stage3(0x3100000), stage3(0x3100000, 42), stage3(0x3100000, 43), stage3()):
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertIn(location_table["[Reimu] Yuugi Defeated"], ctx.sent[-1]["locations"])
+		self.assertEqual(ctx.run_cards, set())
+
 	async def test_start_run_announces_a_locked_stage_on_entry(self):
 		"""88: a Start run moves on by itself; entering a stage that isn't open logs and buzzes once, an open one doesn't."""
 		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))

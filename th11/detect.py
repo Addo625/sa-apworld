@@ -9,12 +9,15 @@ from .state import PRACTICE_FLAG
 from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lowest_unlocked
 
 
-def run_checks(stage):
-	"""Checks sent when each boss-field run of a stage ends, the last one with the clear."""
+def run_checks(stage, cards=0):
+	"""Checks sent when each boss-field run of a stage ends, the last one with the clear.
+	cards: distinct spell cards seen during the run (Stage 3 only)."""
 	checks = STAGES_LIST[stage - 1]
-	if stage == 3:  # Yuugi stays from midboss into boss: one run. Ticket 22 splits it by spell ID.
-		runs = [checks]
-	elif stage == 4:  # Two cat-Orin runs (ticket 25), then Satori.
+	if stage == 3:
+		# Yuugi sometimes stays from midboss into boss (22), sometimes leaves between them (73), so any run may be
+		# the last. The midboss declares one card, Yuugi three before she falls: 2+ cards seen means she fell.
+		return [checks + ["Stage 3 Clear"]] if cards >= 2 else [checks[:1]]
+	if stage == 4:  # Two cat-Orin runs (ticket 25), then Satori.
 		runs = [[check] for check in STAGE4_APPEARANCES] + [checks]
 	else:
 		runs = [[check] for check in checks]
@@ -72,10 +75,10 @@ def restarted(prev, state):
 	return prev.score is not None and state.score is not None and state.score < prev.score
 
 
-def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None, stage_continues=None):
+def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None, stage_continues=None, cards=0):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
 	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected).
-	stage_continues: the continues count when this stage began (see voided)."""
+	stage_continues: the continues count when this stage began (see voided). cards: see run_checks."""
 	restart = restarted(prev, state)
 	if not prev.in_game or prev.stage != state.stage or restart:
 		runs = 0
@@ -91,11 +94,11 @@ def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None
 	if voided(state, stage_continues, slot_data or {}):
 		return [], runs + 1
 	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
-	return run_locations(state, runs, slot_data or {}, lower), runs + 1
+	return run_locations(state, runs, slot_data or {}, lower, cards), runs + 1
 
 
-def run_locations(state, run, slot_data, lower):
-	"""Location IDs for the run-th boss-field run of state's stage ending."""
-	checks = run_checks(state.stage)
-	names = checks[run] if run < len(checks) else []
+def run_locations(state, run, slot_data, lower, cards=0):
+	"""Location IDs for the run-th boss-field run of state's stage ending (Stage 3 goes by cards, not the index)."""
+	checks = run_checks(state.stage, cards)
+	names = checks[0] if state.stage == 3 else checks[run] if run < len(checks) else []
 	return [location_table[name] for name in location_names(state, names, slot_data, lower)]
