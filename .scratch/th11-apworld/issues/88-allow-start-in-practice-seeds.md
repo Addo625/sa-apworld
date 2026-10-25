@@ -1,6 +1,6 @@
 # 88: Start runs in a Practice seed send checks
 
-Status: ready-for-agent
+Status: done
 Blocked by: 87
 
 ## Problem
@@ -27,3 +27,6 @@ Blocked by: 87
 
 ## Deferred
 - None.
+
+## Comments
+- 2026-10-25 Claude: done. A locked stage entered mid-run logs "this stage sends no checks" and buzzes. Power at each stage start in a Start run goes to batch 74 R3.

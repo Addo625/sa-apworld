@@ -5,7 +5,8 @@ from Options import Choice, DeathLink, DefaultOnToggle, PerGameCommonOptions, Ra
 
 class Mode(Choice):
 	"""Which mode you play.
-	practice: stages unlock with Next Stage items, played from Practice.
+	practice: stages unlock with Next Stage items, played from Practice. A Start run counts too, but a continue voids
+	the rest of that stage's checks.
 	normal_dynamic: full runs from stage 1; gates are lives, power, difficulty and character. The difficulty is
 	always the lowest unlocked one, never Easy. With difficulty_check this acts as normal_static.
 	normal_static: same, but the difficulty is the one you pick.

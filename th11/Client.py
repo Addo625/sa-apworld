@@ -169,10 +169,12 @@ class TouhouContext(CommonContext):
 		if state.in_game and self.void_logged != state.stage and detect.voided(state, stage_continues, self.slot_data):
 			self.void_logged = state.stage
 			logger.info(f"A continue in Stage {state.stage}: its checks wait for a clear without one")
-		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
+		# A run start, or a Start run moving on to its next stage by itself (88).
+		entered = prev and state.in_game and (not prev.in_game or prev.stage != state.stage)
+		if shots is not None and entered and state.character is not None:
 			locked = detect.locked(state, shots, lower, self.slot_data, received)
 			if locked:  # the game itself doesn't say so (probe 32 R6 M3): the buzzer does (86)
-				logger.info(f"{locked} isn't unlocked: this run sends no checks")
+				logger.info(f"{locked} isn't unlocked: this {'run' if not prev.in_game else 'stage'} sends no checks")
 				self.play_sound(controller, "trap")
 		if self.slot is None or prev is None:
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
@@ -246,8 +248,7 @@ class TouhouContext(CommonContext):
 			lives = receive.practice_lives(names, self.slot_data, self.limit_lives)
 			self.patch_practice_lives(controller, lives)
 			if self.practice_seed():
-				# Extra takes the init's non-Practice lives branch: it gets the same lives (80). Start runs use it too,
-				# but they send nothing in a Practice seed.
+				# Extra and Start runs take the init's non-Practice lives branch: they get the same lives (80, 88).
 				self.patch_continue_lives(controller, lives)
 				self.patch_practice_power(controller, receive.practice_power(names))
 		return state, runs

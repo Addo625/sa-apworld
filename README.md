@@ -7,7 +7,7 @@ Logic and main ideas ported from Nepley's Randomizers for Touhou 6,7 and 8
 ## How does this randomizer work ?
 At the start, you have only one shot type, zero resources and only the Lunatic difficulty.<br />
 You play stage by stage in Practice Mode and unlock the stages progressively. Each item makes the stages easier to clear.<br />
-In Practice mode, runs started from **Start** (the normal game) send no checks: play from the Practice menu (the Extra stage is played as usual).<br />
+In Practice mode, runs started from **Start** (the normal game) also count, for every stage open to your shot type, but a continue voids the rest of that stage's checks until you clear it without one.<br />
 **Goal:** clear Stage 6 (Utsuho) once, with both characters, or with N shot types, plus optionally the Extra stage (Koishi) once or with both characters (see **Utsuho Endings** and **Koishi Endings**).
 
 ## Locations

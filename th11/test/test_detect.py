@@ -185,16 +185,12 @@ class TestStageGate(unittest.TestCase):
 		self.assertIsNone(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot, received + ["Next Stage"]))
 		self.assertIsNone(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot))  # no received list: no stage check
 
-	def test_practice_seed_ignores_start_runs(self):
-		"""55: a normal Start run (no Practice flag) in a Practice seed sends nothing; Extra and normal seeds are unaffected."""
+	def test_practice_seed_start_runs_follow_stage_locks(self):
+		"""88: a Start run (no Practice flag) in a Practice seed counts for open stages, as a Practice run would."""
 		from ..detect import locked
-		received, slot = ["Reimu A - Yukari", "Next Stage"], {"mode": 0}
-		start = locked(play(1, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, slot, received)
-		self.assertTrue(start.startswith("Start"))
-		self.assertIsNone(locked(play(1, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0x10), self.SHOTS, 0, slot, received))
-		self.assertIsNone(locked(play(1, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, {"mode": 2}, received))
-		extra = {"mode": 0, "extra_stage": 2}
-		self.assertIsNone(locked(play(7, ADDR_DIFFICULTY=4, ADDR_GAME_FLAGS=0), self.SHOTS, 0, extra, received + ["Extra Stage"]))
+		received, slot = ["Reimu A - Yukari", "Next Stage"], {"mode": 0, "stage_unlock": 0, "progressive_stage": 1}
+		self.assertIsNone(locked(play(2, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, slot, received))
+		self.assertEqual(locked(play(3, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, slot, received), "Reimu A Stage 3")
 
 	def test_normal_mode_stages_are_always_open(self):
 		from ..detect import locked
