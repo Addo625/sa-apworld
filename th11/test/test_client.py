@@ -568,6 +568,20 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 			await ctx.poll(game_memory(), prev, 0)
 		self.assertIn("Normal isn't unlocked: this run sends no checks", "\n".join(logs.output))
 
+	async def test_locked_run_buzzes_once(self):
+		"""86: a run on anything locked plays the menu buzzer once at its start; an unlocked run doesn't."""
+		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))
+		ctx = self.context("Reimu B - Suika", "Lower Difficulty", "Lower Difficulty", sound=True)
+		prev, runs = await ctx.poll(menu_memory(menu=3, cursor=1), None, 0)
+		memory = game_memory()
+		state, runs = await ctx.poll(memory, prev, runs)  # Practice S3: Reimu A, locked
+		await ctx.poll(memory, state, runs)
+		self.assertEqual(memory.writes.count(buzz), 1)
+		ctx = self.context(*UNLOCKED, sound=True)
+		memory = game_memory()
+		await ctx.poll(memory, prev, 0)
+		self.assertNotIn(buzz, memory.writes)
+
 	async def test_poll_moves_cursor_off_locked_difficulty(self):
 		ctx = self.context("Reimu A - Yukari", "Lower Difficulty")  # Hard and Lunatic open
 		memory = menu_memory(menu=1, cursor=0)

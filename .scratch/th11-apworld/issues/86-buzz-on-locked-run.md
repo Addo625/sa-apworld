@@ -1,6 +1,6 @@
 # 86: A run on anything locked buzzes in the game
 
-Status: ready-for-agent
+Status: done
 Blocked by: None
 
 ## Problem

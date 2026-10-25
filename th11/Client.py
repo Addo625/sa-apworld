@@ -159,8 +159,9 @@ class TouhouContext(CommonContext):
 		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received) if prev else ([], 0)
 		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
 			locked = detect.locked(state, shots, lower, self.slot_data, received)
-			if locked:  # nothing in game says so (probe 32 R6 M3)
+			if locked:  # the game itself doesn't say so (probe 32 R6 M3): the buzzer does (86)
 				logger.info(f"{locked} isn't unlocked: this run sends no checks")
+				self.play_sound(controller, "trap")
 		if self.slot is None or prev is None:
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:
