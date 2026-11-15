@@ -60,6 +60,21 @@ class TestDetect(unittest.TestCase):
 			ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
 		self.assertEqual(step(play(3, True), play(3), 0)[0], ids("[Reimu] Yuugi - Midboss"))  # timed out, no card seen
 
+	def test_detect_stage3_midboss_card_ends(self):
+		"""89: Yuugi stays up; her first card ending sends only the midboss check and leaves the run count alone."""
+		self.assertEqual(step(play(3, True), play(3, True), 0, cards=1, card_ended=True),
+			(ids("[Reimu] Yuugi - Midboss"), 0))
+		self.assertEqual(step(play(3, True), play(3, True), 0, cards=2, card_ended=True), ([], 0))  # a boss card
+		self.assertEqual(step(play(3, True), play(3, True), 0, cards=1), ([], 0))  # the card still running
+		self.assertEqual(step(play(1, True), play(1, True), 0, cards=1, card_ended=True), ([], 0))  # Stage 3 only
+
+	def test_detect_stage3_midboss_card_end_on_a_quit(self):
+		self.assertEqual(step(play(3, True), play(3, True, ADDR_MENU=0), 0, cards=1, card_ended=True)[0], [])
+		self.assertEqual(step(play(3, True), play(3, True, ADDR_LIVES=-1), 0, cards=1, card_ended=True)[0], [])
+		retry = step(play(3, True, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=500), play(3, True, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0),
+			0, cards=1, card_ended=True)
+		self.assertEqual(retry[0], [])
+
 	def test_detect_stage3_single_run(self):
 		"""Yuugi stays from midboss into boss (22): one run, four cards, every check."""
 		self.assertEqual(step(play(3, True), play(3), 0, cards=4)[0],

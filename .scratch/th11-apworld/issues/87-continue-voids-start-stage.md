@@ -41,3 +41,4 @@ Design C (from 19, as in the IN apworld) keeps Start as fair as Practice: once a
 
 ## Comments
 - 2026-10-25 Claude: done. ADDR_CONTINUES stays thprac-sourced until batch 74 R3. Runs found before the first connect are never voided (a ponytail in Client.poll).
+- 2026-11-15 Claude: batch 74 R3 confirmed it in game.

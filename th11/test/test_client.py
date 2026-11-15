@@ -630,6 +630,33 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		self.assertIn(location_table["[Reimu] Yuugi Defeated"], ctx.sent[-1]["locations"])
 		self.assertEqual(ctx.run_cards, set())
 
+	async def test_stage3_midboss_sends_when_its_card_ends(self):
+		"""89, batch 74 R1: Yuugi stays up from midboss into boss; her midboss card (0x1B, flags 67) ending sends the
+		midboss check at once, and the field drop after her three cards sends the rest."""
+		from ..Locations import location_table
+		ctx = self.context(*UNLOCKED, "Next Stage", "Next Stage")
+		ctx.slot_data = {"progressive_stage": 1}
+		spell, boss = 0x3300000, 0x3100000
+
+		def stage3(boss=0, card=None):
+			memory = game_memory(boss=boss, ADDR_STAGE=3)
+			memory.set(BASE + Variables.ADDR_SPELL_ID[0], spell.to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_ID[1], (card or 0).to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_FLAGS[1], (67 if card is not None else 0).to_bytes(4, "little"))
+			return memory
+
+		prev, runs = await ctx.poll(stage3(), None, 0)
+		for memory in (stage3(boss), stage3(boss, 0x1B), stage3(boss, 0x1B)):
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertEqual(ctx.sent, [])
+		prev, runs = await ctx.poll(stage3(boss), prev, runs)  # the midboss card ends, Yuugi stays
+		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Yuugi - Midboss"],)}])
+		for memory in (stage3(boss, 0x1C), stage3(boss), stage3(boss, 0x1D), stage3(boss), stage3(boss, 0x1E)):
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertEqual(len(ctx.sent), 1)  # boss cards ending send nothing
+		await ctx.poll(stage3(), prev, runs)
+		self.assertIn(location_table["[Reimu] Stage 3 Clear"], ctx.sent[-1]["locations"])
+
 	async def test_start_run_announces_a_locked_stage_on_entry(self):
 		"""88: a Start run moves on by itself; entering a stage that isn't open logs and buzzes once, an open one doesn't."""
 		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))

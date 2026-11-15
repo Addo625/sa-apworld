@@ -44,6 +44,7 @@ class TouhouContext(CommonContext):
 		self.captures_sent = set()  # capture location names sent this session, before the server echoes them
 		self.runs_found = []  # (state, run index, cards) of runs ended before the first connect, mapped once slot_data is in
 		self.run_cards = set()  # spell card IDs declared during the current boss-field run (73)
+		self.active_card = None  # the card running at the last poll, to see it end (89)
 		self.stage_continues = None  # continues used when the current stage began (87); None outside play
 		self.void_logged = None  # the stage whose voided checks were last logged
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
@@ -166,14 +167,18 @@ class TouhouContext(CommonContext):
 		# ponytail: before the first connect slot_data can't say the seed is Practice, so nothing is voided and a
 		# continued stage's runs found then still count; keep a voided flag with runs_found if that matters.
 		stage_continues = self.stage_continues if shots is not None else None
+		card = None
 		if state.boss_present and (read_entry(controller, Variables.ADDR_SPELL_FLAGS) or 0) & Variables.SPELL_ACTIVE:
 			card = read_entry(controller, Variables.ADDR_SPELL_ID)
-			if card in range(Variables.SPELL_CARD_COUNT):
-				self.run_cards.add(card)
-		cards = len(self.run_cards)
+			card = card if card in range(Variables.SPELL_CARD_COUNT) else None
+		if card is not None:
+			self.run_cards.add(card)
+		cards, card_ended = len(self.run_cards), self.active_card is not None and card != self.active_card
+		self.active_card = card
 		if not state.boss_present:  # the field run ended: a kill, a quit, a retry or a stage change
 			self.run_cards.clear()
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received, stage_continues, cards) if prev else ([], 0)
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received, stage_continues, cards,
+			card_ended) if prev else ([], 0)
 		if state.in_game and self.void_logged != state.stage and detect.voided(state, stage_continues, self.slot_data):
 			self.void_logged = state.stage
 			logger.info(f"A continue in Stage {state.stage}: its checks wait for a clear without one")

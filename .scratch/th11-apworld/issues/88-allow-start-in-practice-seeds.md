@@ -30,3 +30,4 @@ Blocked by: 87
 
 ## Comments
 - 2026-10-25 Claude: done. A locked stage entered mid-run logs "this stage sends no checks" and buzzes. Power at each stage start in a Start run goes to batch 74 R3.
+- 2026-11-15 Claude: batch 74 R3 confirmed it in game.

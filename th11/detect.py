@@ -75,26 +75,33 @@ def restarted(prev, state):
 	return prev.score is not None and state.score is not None and state.score < prev.score
 
 
-def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None, stage_continues=None, cards=0):
+def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None, stage_continues=None, cards=0,
+	card_ended=False):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
 	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected).
-	stage_continues: the continues count when this stage began (see voided). cards: see run_checks."""
+	stage_continues: the continues count when this stage began (see voided). cards: see run_checks.
+	card_ended: the spell card active last poll has ended."""
 	restart = restarted(prev, state)
 	if not prev.in_game or prev.stage != state.stage or restart:
 		runs = 0
 	ended = prev.boss_present and not state.boss_present
+	# Yuugi stays on the field from midboss into boss (batch 74 R1): her midboss ends with the run's first card, killed
+	# or timed out alike. Only its own check goes out; the field drop sends the rest.
+	midboss = state.stage == 3 and prev.boss_present and state.boss_present and card_ended and cards == 1
 	# A drop with a menu exit (S9), at or right after a game over (61 R4: lives -1 with the boss still up), or on a
 	# retry is a quit, not a kill.
-	if not ended or not state.in_game or state.menu is not None or -1 in (state.lives, prev.lives) or restart:
+	if not (ended or midboss) or not state.in_game or state.menu is not None or -1 in (state.lives, prev.lives) or restart:
 		return [], runs
+	counted = runs + 1 if ended else runs
 	if state.stage not in range(1, 8) or state.character is None:
-		return [], runs + 1
+		return [], counted
 	if shots is not None and locked(state, shots, lower, slot_data or {}, received):
-		return [], runs + 1
+		return [], counted
 	if voided(state, stage_continues, slot_data or {}):
-		return [], runs + 1
-	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
-	return run_locations(state, runs, slot_data or {}, lower, cards), runs + 1
+		return [], counted
+	# ponytail: a midboss that leaves on its timer counts as beaten (74 R1: a timed-out Yuugi midboss looks like a kill);
+	# add a defeat signal (HP, spell bonus) if that matters.
+	return run_locations(state, runs, slot_data or {}, lower, cards), counted
 
 
 def run_locations(state, run, slot_data, lower, cards=0):
