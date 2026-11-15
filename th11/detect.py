@@ -9,12 +9,15 @@ from .state import PRACTICE_FLAG
 from .Variables import DIFFICULTY_LIST, STAGE4_APPEARANCES, STAGES_LIST, lowest_unlocked
 
 
-def run_checks(stage):
-	"""Checks sent when each boss-field run of a stage ends, the last one with the clear."""
+def run_checks(stage, cards=0):
+	"""Checks sent when each boss-field run of a stage ends, the last one with the clear.
+	cards: distinct spell cards seen during the run (Stage 3 only)."""
 	checks = STAGES_LIST[stage - 1]
-	if stage == 3:  # Yuugi stays from midboss into boss: one run. Ticket 22 splits it by spell ID.
-		runs = [checks]
-	elif stage == 4:  # Two cat-Orin runs (ticket 25), then Satori.
+	if stage == 3:
+		# Yuugi sometimes stays from midboss into boss (22), sometimes leaves between them (73), so any run may be
+		# the last. The midboss declares one card, Yuugi three before she falls: 2+ cards seen means she fell.
+		return [checks + ["Stage 3 Clear"]] if cards >= 2 else [checks[:1]]
+	if stage == 4:  # Two cat-Orin runs (ticket 25), then Satori.
 		runs = [[check] for check in STAGE4_APPEARANCES] + [checks]
 	else:
 		runs = [[check] for check in checks]
@@ -48,12 +51,18 @@ def locked(state, shots, lower, slot_data, received=None):
 		return state.shot or "this shot type"
 	if state.difficulty in range(4) and state.difficulty not in unlocked_difficulties(lower, slot_data):
 		return DIFFICULTY_LIST[state.difficulty]
-	if (slot_data.get("mode", Mode.option_practice) == Mode.option_practice and state.stage in range(1, 7)
-		and state.flags is not None and not state.flags & PRACTICE_FLAG):
-		return "Start (the normal game; this seed plays from Practice)"
 	if received is not None and state.stage in range(1, 8) and not stage_open(received, slot_data, state.shot, state.stage):
 		return f"{state.shot} Stage {'Extra' if state.stage == 7 else state.stage}"
 	return None
+
+
+def voided(state, stage_continues, slot_data):
+	"""A continue used in this stage of a Practice seed's Start run (87): the stage's checks wait for a clear without
+	one, as a Practice retry restarts the stage. stage_continues: the continues count when the stage began; None (or
+	an unreadable count) voids nothing. Normal-mode seeds keep unlimited continues (18-20 deferred)."""
+	return (slot_data.get("mode", Mode.option_practice) == Mode.option_practice and state.stage in range(1, 7)
+		and state.flags is not None and not state.flags & PRACTICE_FLAG
+		and None not in (state.continues, stage_continues) and state.continues > stage_continues)
 
 
 def restarted(prev, state):
@@ -66,27 +75,37 @@ def restarted(prev, state):
 	return prev.score is not None and state.score is not None and state.score < prev.score
 
 
-def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None):
+def step(prev, state, runs=0, slot_data=None, lower=0, shots=None, received=None, stage_continues=None, cards=0,
+	card_ended=False):
 	"""-> (location IDs, boss runs ended so far this stage). Pass the returned runs to the next call.
-	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected)."""
+	shots: unlocked shot types; a run on a locked shot or difficulty sends nothing. None: don't check (not connected).
+	stage_continues: the continues count when this stage began (see voided). cards: see run_checks.
+	card_ended: the spell card active last poll has ended."""
 	restart = restarted(prev, state)
 	if not prev.in_game or prev.stage != state.stage or restart:
 		runs = 0
 	ended = prev.boss_present and not state.boss_present
+	# Yuugi stays on the field from midboss into boss (batch 74 R1): her midboss ends with the run's first card, killed
+	# or timed out alike. Only its own check goes out; the field drop sends the rest.
+	midboss = state.stage == 3 and prev.boss_present and state.boss_present and card_ended and cards == 1
 	# A drop with a menu exit (S9), at or right after a game over (61 R4: lives -1 with the boss still up), or on a
 	# retry is a quit, not a kill.
-	if not ended or not state.in_game or state.menu is not None or -1 in (state.lives, prev.lives) or restart:
+	if not (ended or midboss) or not state.in_game or state.menu is not None or -1 in (state.lives, prev.lives) or restart:
 		return [], runs
+	counted = runs + 1 if ended else runs
 	if state.stage not in range(1, 8) or state.character is None:
-		return [], runs + 1
+		return [], counted
 	if shots is not None and locked(state, shots, lower, slot_data or {}, received):
-		return [], runs + 1
-	# ponytail: a midboss that leaves on its timer counts as beaten; add a defeat signal (HP, spell bonus) if that matters.
-	return run_locations(state, runs, slot_data or {}, lower), runs + 1
+		return [], counted
+	if voided(state, stage_continues, slot_data or {}):
+		return [], counted
+	# ponytail: a midboss that leaves on its timer counts as beaten (74 R1: a timed-out Yuugi midboss looks like a kill);
+	# add a defeat signal (HP, spell bonus) if that matters.
+	return run_locations(state, runs, slot_data or {}, lower, cards), counted
 
 
-def run_locations(state, run, slot_data, lower):
-	"""Location IDs for the run-th boss-field run of state's stage ending."""
-	checks = run_checks(state.stage)
-	names = checks[run] if run < len(checks) else []
+def run_locations(state, run, slot_data, lower, cards=0):
+	"""Location IDs for the run-th boss-field run of state's stage ending (Stage 3 goes by cards, not the index)."""
+	checks = run_checks(state.stage, cards)
+	names = checks[0] if state.stage == 3 else checks[run] if run < len(checks) else []
 	return [location_table[name] for name in location_names(state, names, slot_data, lower)]

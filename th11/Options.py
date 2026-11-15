@@ -5,7 +5,8 @@ from Options import Choice, DeathLink, DefaultOnToggle, PerGameCommonOptions, Ra
 
 class Mode(Choice):
 	"""Which mode you play.
-	practice: stages unlock with Next Stage items, played from Practice.
+	practice: stages unlock with Next Stage items, played from Practice. A Start run counts too, but a continue voids
+	the rest of that stage's checks.
 	normal_dynamic: full runs from stage 1; gates are lives, power, difficulty and character. The difficulty is
 	always the lowest unlocked one, never Easy. With difficulty_check this acts as normal_static.
 	normal_static: same, but the difficulty is the one you pick.
@@ -325,6 +326,14 @@ class PowerDrainTrap(Range):
 	default = 15
 
 
+class TrapDuration(Range):
+	"""Seconds the No Focus, Reverse Movement, Aya Speed and Power Drain traps last. Freeze always lasts 3 seconds."""
+	display_name = "Trap duration"
+	range_start = 5
+	range_end = 60
+	default = 20
+
+
 class DeathLinkTrigger(Choice):
 	"""When your death is sent to the others with DeathLink. Can be changed in the client with /deathlink_trigger.
 	life: every life lost.
@@ -407,6 +416,7 @@ class TH11Options(PerGameCommonOptions):
 	aya_speed_trap: AyaSpeedTrap
 	freeze_trap: FreezeTrap
 	power_drain_trap: PowerDrainTrap
+	trap_duration: TrapDuration
 	death_link: DeathLink
 	death_link_trigger: DeathLinkTrigger
 	death_link_amnesty: DeathLinkAmnesty

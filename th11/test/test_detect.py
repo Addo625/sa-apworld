@@ -52,8 +52,33 @@ class TestDetect(unittest.TestCase):
 	def test_detect_negative_game_over(self):
 		self.assertEqual(step(play(boss=True), play(ADDR_LIVES=-1), 1), ([], 1))
 
+	def test_detect_stage3_midboss_alone(self):
+		"""73: Yuugi leaves after her midboss (one card): only the midboss check; the boss run (three cards) the rest."""
+		midboss, runs = step(play(3, True), play(3), 0, cards=1)
+		self.assertEqual(midboss, ids("[Reimu] Yuugi - Midboss"))
+		self.assertEqual(step(play(3, True), play(3), runs, cards=3)[0],
+			ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
+		self.assertEqual(step(play(3, True), play(3), 0)[0], ids("[Reimu] Yuugi - Midboss"))  # timed out, no card seen
+
+	def test_detect_stage3_midboss_card_ends(self):
+		"""89: Yuugi stays up; her first card ending sends only the midboss check and leaves the run count alone."""
+		self.assertEqual(step(play(3, True), play(3, True), 0, cards=1, card_ended=True),
+			(ids("[Reimu] Yuugi - Midboss"), 0))
+		self.assertEqual(step(play(3, True), play(3, True), 0, cards=2, card_ended=True), ([], 0))  # a boss card
+		self.assertEqual(step(play(3, True), play(3, True), 0, cards=1), ([], 0))  # the card still running
+		self.assertEqual(step(play(1, True), play(1, True), 0, cards=1, card_ended=True), ([], 0))  # Stage 3 only
+
+	def test_detect_stage3_midboss_card_end_on_a_quit(self):
+		self.assertEqual(step(play(3, True), play(3, True, ADDR_MENU=0), 0, cards=1, card_ended=True)[0], [])
+		self.assertEqual(step(play(3, True), play(3, True, ADDR_LIVES=-1), 0, cards=1, card_ended=True)[0], [])
+		retry = step(play(3, True, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=500), play(3, True, ADDR_GAME_FLAGS=0x10, ADDR_SCORE=0),
+			0, cards=1, card_ended=True)
+		self.assertEqual(retry[0], [])
+
 	def test_detect_stage3_single_run(self):
-		self.assertEqual(run_stage(3, 1), ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
+		"""Yuugi stays from midboss into boss (22): one run, four cards, every check."""
+		self.assertEqual(step(play(3, True), play(3), 0, cards=4)[0],
+			ids("[Reimu] Yuugi - Midboss", "[Reimu] Yuugi Defeated", "[Reimu] Stage 3 Clear"))
 
 	def test_detect_stage4_first_appearance(self):
 		self.assertEqual(run_stage(4, 1), ids("[Reimu] Cat Orin - First Appearance"))
@@ -185,16 +210,12 @@ class TestStageGate(unittest.TestCase):
 		self.assertIsNone(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot, received + ["Next Stage"]))
 		self.assertIsNone(locked(play(3, ADDR_DIFFICULTY=3), self.SHOTS, 0, slot))  # no received list: no stage check
 
-	def test_practice_seed_ignores_start_runs(self):
-		"""55: a normal Start run (no Practice flag) in a Practice seed sends nothing; Extra and normal seeds are unaffected."""
+	def test_practice_seed_start_runs_follow_stage_locks(self):
+		"""88: a Start run (no Practice flag) in a Practice seed counts for open stages, as a Practice run would."""
 		from ..detect import locked
-		received, slot = ["Reimu A - Yukari", "Next Stage"], {"mode": 0}
-		start = locked(play(1, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, slot, received)
-		self.assertTrue(start.startswith("Start"))
-		self.assertIsNone(locked(play(1, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0x10), self.SHOTS, 0, slot, received))
-		self.assertIsNone(locked(play(1, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, {"mode": 2}, received))
-		extra = {"mode": 0, "extra_stage": 2}
-		self.assertIsNone(locked(play(7, ADDR_DIFFICULTY=4, ADDR_GAME_FLAGS=0), self.SHOTS, 0, extra, received + ["Extra Stage"]))
+		received, slot = ["Reimu A - Yukari", "Next Stage"], {"mode": 0, "stage_unlock": 0, "progressive_stage": 1}
+		self.assertIsNone(locked(play(2, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, slot, received))
+		self.assertEqual(locked(play(3, ADDR_DIFFICULTY=3, ADDR_GAME_FLAGS=0), self.SHOTS, 0, slot, received), "Reimu A Stage 3")
 
 	def test_normal_mode_stages_are_always_open(self):
 		from ..detect import locked
@@ -206,3 +227,27 @@ class TestStageGate(unittest.TestCase):
 		received = ["Reimu A - Yukari"] + ["Next Stage"] * 5
 		self.assertEqual(locked(play(7, ADDR_DIFFICULTY=4), self.SHOTS, 0, slot, received), "Reimu A Stage Extra")
 		self.assertIsNone(locked(play(7, ADDR_DIFFICULTY=4), self.SHOTS, 0, slot, received + ["Extra Stage"]))
+
+
+class TestContinueVoids(unittest.TestCase):
+	"""87: a continue in a Practice seed's Start run voids the rest of that stage's checks."""
+	PRACTICE_SEED = {"mode": 0}
+
+	def boss_drop(self, stage_continues, slot_data=None, **values):
+		values = {"ADDR_GAME_FLAGS": 0, "ADDR_CONTINUES": 1, **values}
+		return step(play(2, True, **values), play(2, **values), 1, slot_data or self.PRACTICE_SEED,
+			stage_continues=stage_continues)
+
+	def test_continue_in_stage_voids(self):
+		self.assertEqual(self.boss_drop(0), ([], 2))
+
+	def test_no_continue_counts(self):
+		self.assertEqual(self.boss_drop(1)[0], ids("[Reimu] Parsee Defeated", "[Reimu] Stage 2 Clear"))
+
+	def test_practice_run_and_normal_seed_ignore_continues(self):
+		self.assertNotEqual(self.boss_drop(0, ADDR_GAME_FLAGS=0x10)[0], [])
+		self.assertNotEqual(self.boss_drop(0, {"mode": 2})[0], [])
+
+	def test_unreadable_continues_void_nothing(self):
+		self.assertNotEqual(self.boss_drop(None)[0], [])
+		self.assertNotEqual(self.boss_drop(0, ADDR_CONTINUES=None)[0], [])

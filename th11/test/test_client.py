@@ -471,7 +471,7 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		from unittest import mock
 		from .. import traps
 		lives = (BASE + Variables.ADDR_LIVES, (2).to_bytes(4, "little"))
-		sound = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (Variables.SOUND_IDS["life_lost"]).to_bytes(4, "little"))
+		sound = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, (Variables.SOUND_IDS["trap"]).to_bytes(4, "little"))
 		with mock.patch.object(traps, "ENTER_DELAY", 0):
 			memory = game_memory(lives=3)
 			await self.context("-1 Life", sound=True).poll(memory, None, 0)
@@ -485,8 +485,25 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		from .. import traps
 		with mock.patch.object(traps, "ENTER_DELAY", 0):
 			memory = game_memory(lives=0)
-			await self.context("-1 Life", sound=True).poll(memory, None, 0)
-		self.assertEqual(memory.writes, [])  # no write, no redraw
+			await self.context("-1 Life").poll(memory, None, 0)
+		self.assertEqual(memory.writes, [])  # no lives write (and no sound with /itemsound off)
+
+	async def test_every_trap_buzzes_when_it_begins(self):
+		"""84: a speed trap buzzes the moment it starts; while it waits (speeds unreadable, or another trap on), silence."""
+		from unittest import mock
+		from .. import traps
+		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))
+		with mock.patch.object(traps, "ENTER_DELAY", 0):
+			memory = game_memory(lives=3)
+			ctx = self.context("No Focus", sound=True)
+			await ctx.poll(memory, None, 0)  # no player object: the speeds are unreadable, so it waits
+			self.assertNotIn(buzz, memory.writes)
+			player = 0x3200000
+			memory.set(BASE + Variables.ADDR_PLAYER_PTR, player.to_bytes(4, "little"))
+			for entry, speed in zip(traps.SPEED_ENTRIES, (576, 256, 407, 181)):
+				memory.set(player + getattr(Variables, entry)[1], speed.to_bytes(4, "little"))
+			await ctx.poll(memory, None, 0)
+			self.assertIn(buzz, memory.writes)
 
 	async def test_poll_trap_sees_item_written_same_tick(self):
 		from unittest import mock
@@ -550,6 +567,113 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		with self.assertLogs("Client", "INFO") as logs:
 			await ctx.poll(game_memory(), prev, 0)
 		self.assertIn("Normal isn't unlocked: this run sends no checks", "\n".join(logs.output))
+
+	async def test_locked_run_buzzes_once(self):
+		"""86: a run on anything locked plays the menu buzzer once at its start; an unlocked run doesn't."""
+		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))
+		ctx = self.context("Reimu B - Suika", "Lower Difficulty", "Lower Difficulty", sound=True)
+		prev, runs = await ctx.poll(menu_memory(menu=3, cursor=1), None, 0)
+		memory = game_memory()
+		state, runs = await ctx.poll(memory, prev, runs)  # Practice S3: Reimu A, locked
+		await ctx.poll(memory, state, runs)
+		self.assertEqual(memory.writes.count(buzz), 1)
+		ctx = self.context(*UNLOCKED, sound=True)
+		memory = game_memory()
+		await ctx.poll(memory, prev, 0)
+		self.assertNotIn(buzz, memory.writes)
+
+	async def test_continue_in_start_run_voids_the_stage(self):
+		"""87: a Start run in a Practice seed (flags 0): a continue mid-stage logs once and the boss sends nothing; the
+		next stage, entered with the counter already up, counts."""
+		from ..Locations import location_table
+		ctx = self.context(*UNLOCKED, "Next Stage", "Next Stage")
+		ctx.slot_data = {"mode": 0, "progressive_stage": 1}  # Stages 1-3 open
+		start = {"ADDR_GAME_FLAGS": 0, "ADDR_STAGE": 2}
+		prev, runs = await ctx.poll(menu_memory(menu=0, cursor=0), None, 0)
+		prev, runs = await ctx.poll(game_memory(ADDR_CONTINUES=0, **start), prev, runs)
+		self.assertEqual(ctx.stage_continues, 0)
+		with self.assertLogs("Client", "INFO") as logs:
+			prev, runs = await ctx.poll(game_memory(boss=0x3100000, ADDR_CONTINUES=1, **start), prev, runs)
+			prev, runs = await ctx.poll(game_memory(ADDR_CONTINUES=1, **start), prev, runs)
+		self.assertEqual([line for line in logs.output if "continue" in line],
+			["INFO:Client:A continue in Stage 2: its checks wait for a clear without one"])
+		self.assertEqual(ctx.sent, [])
+		start["ADDR_STAGE"] = 3
+		prev, runs = await ctx.poll(game_memory(ADDR_CONTINUES=1, **start), prev, runs)
+		self.assertEqual(ctx.stage_continues, 1)
+		prev, runs = await ctx.poll(game_memory(boss=0x3100000, ADDR_CONTINUES=1, **start), prev, runs)
+		await ctx.poll(game_memory(ADDR_CONTINUES=1, **start), prev, runs)
+		self.assertEqual(len(ctx.sent), 1)
+		self.assertIn(location_table["[Reimu] Yuugi - Midboss"], ctx.sent[0]["locations"])
+
+	async def test_stage3_counts_cards_per_boss_run(self):
+		"""73: the distinct cards declared while the boss is up reach detect, without spell_card_keys; a field drop
+		clears them, so Yuugi's midboss (one card) sends only its check and her boss run (three) the rest."""
+		from ..Locations import location_table
+		ctx = self.context(*UNLOCKED, "Next Stage", "Next Stage")
+		ctx.slot_data = {"progressive_stage": 1}
+		spell = 0x3300000
+
+		def stage3(boss=0, card=None):
+			memory = game_memory(boss=boss, ADDR_STAGE=3)
+			memory.set(BASE + Variables.ADDR_SPELL_ID[0], spell.to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_ID[1], (card or 0).to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_FLAGS[1], (Variables.SPELL_ACTIVE if card is not None else 0).to_bytes(4, "little"))
+			return memory
+
+		prev, runs = await ctx.poll(stage3(), None, 0)
+		for memory in (stage3(0x3100000, 40), stage3(0x3100000, 40), stage3()):  # midboss: one card, twice read
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertEqual(ctx.sent[-1]["locations"], (location_table["[Reimu] Yuugi - Midboss"],))
+		for memory in (stage3(0x3100000, 41), stage3(0x3100000), stage3(0x3100000, 42), stage3(0x3100000, 43), stage3()):
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertIn(location_table["[Reimu] Yuugi Defeated"], ctx.sent[-1]["locations"])
+		self.assertEqual(ctx.run_cards, set())
+
+	async def test_stage3_midboss_sends_when_its_card_ends(self):
+		"""89, batch 74 R1: Yuugi stays up from midboss into boss; her midboss card (0x1B, flags 67) ending sends the
+		midboss check at once, and the field drop after her three cards sends the rest."""
+		from ..Locations import location_table
+		ctx = self.context(*UNLOCKED, "Next Stage", "Next Stage")
+		ctx.slot_data = {"progressive_stage": 1}
+		spell, boss = 0x3300000, 0x3100000
+
+		def stage3(boss=0, card=None):
+			memory = game_memory(boss=boss, ADDR_STAGE=3)
+			memory.set(BASE + Variables.ADDR_SPELL_ID[0], spell.to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_ID[1], (card or 0).to_bytes(4, "little"))
+			memory.set(spell + Variables.ADDR_SPELL_FLAGS[1], (67 if card is not None else 0).to_bytes(4, "little"))
+			return memory
+
+		prev, runs = await ctx.poll(stage3(), None, 0)
+		for memory in (stage3(boss), stage3(boss, 0x1B), stage3(boss, 0x1B)):
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertEqual(ctx.sent, [])
+		prev, runs = await ctx.poll(stage3(boss), prev, runs)  # the midboss card ends, Yuugi stays
+		self.assertEqual(ctx.sent, [{"cmd": "LocationChecks", "locations": (location_table["[Reimu] Yuugi - Midboss"],)}])
+		for memory in (stage3(boss, 0x1C), stage3(boss), stage3(boss, 0x1D), stage3(boss), stage3(boss, 0x1E)):
+			prev, runs = await ctx.poll(memory, prev, runs)
+		self.assertEqual(len(ctx.sent), 1)  # boss cards ending send nothing
+		await ctx.poll(stage3(), prev, runs)
+		self.assertIn(location_table["[Reimu] Stage 3 Clear"], ctx.sent[-1]["locations"])
+
+	async def test_start_run_announces_a_locked_stage_on_entry(self):
+		"""88: a Start run moves on by itself; entering a stage that isn't open logs and buzzes once, an open one doesn't."""
+		buzz = (BASE + Variables.ADDR_CUSTOM_SOUND_ID, Variables.SOUND_IDS["trap"].to_bytes(4, "little"))
+		ctx = self.context(*UNLOCKED, "Next Stage", sound=True)
+		ctx.slot_data = {"mode": 0, "stage_unlock": 0, "progressive_stage": 1}  # Stages 1-2 open
+		start = {"ADDR_GAME_FLAGS": 0}
+		prev, runs = await ctx.poll(menu_memory(menu=0, cursor=0), None, 0)
+		with self.assertLogs("Client", "INFO") as logs:
+			memory = game_memory(ADDR_STAGE=2, **start)
+			prev, runs = await ctx.poll(memory, prev, runs)
+			self.assertNotIn(buzz, memory.writes)
+			memory = game_memory(ADDR_STAGE=3, **start)
+			prev, runs = await ctx.poll(memory, prev, runs)
+			await ctx.poll(memory, prev, runs)
+		self.assertEqual(memory.writes.count(buzz), 1)
+		self.assertEqual([line for line in logs.output if "isn't unlocked" in line],
+			["INFO:Client:Reimu A Stage 3 isn't unlocked: this stage sends no checks"])
 
 	async def test_poll_moves_cursor_off_locked_difficulty(self):
 		ctx = self.context("Reimu A - Yukari", "Lower Difficulty")  # Hard and Lunatic open

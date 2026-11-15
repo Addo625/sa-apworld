@@ -10,9 +10,12 @@ from .receive import in_run
 logger = logging.getLogger("Client")
 
 TRAPS = {name for name, data in item_table.items() if data.category == "Traps"}
-# Speed traps change the four speeds (int32, speed x 128), one at a time, and restore them after these seconds.
-TIMED = {"No Focus": 20, "Reverse Movement": 20, "Aya Speed": 20, "Freeze": 3}
-DRAIN_SECONDS = 20  # Power Drain: -1 power unit (0.05) per second for this long
+DEFAULT_DURATION = 20  # the trap_duration option's default: No Focus, Reverse Movement, Aya Speed and Power Drain
+FREEZE_SECONDS = 3  # Freeze stops the player outright, so it stays short whatever trap_duration says
+# Speed traps change the four speeds (int32, speed x 128), one at a time, and restore them after these seconds
+# (the defaults; TrapState.duration replaces the 20s).
+TIMED = {"No Focus": DEFAULT_DURATION, "Reverse Movement": DEFAULT_DURATION, "Aya Speed": DEFAULT_DURATION, "Freeze": FREEZE_SECONDS}
+DRAIN_SECONDS = DEFAULT_DURATION  # Power Drain: -1 power unit (0.05) per second for this long (default)
 ENTER_DELAY = 2  # seconds in a run before traps fire, so stage setup doesn't overwrite them (EoSD)
 SPEED_ENTRIES = ["ADDR_SPEED_NORMAL", "ADDR_SPEED_FOCUS", "ADDR_SPEED_NORMAL_D", "ADDR_SPEED_FOCUS_D"]
 
@@ -29,7 +32,9 @@ def trapped_speeds(name, saved):
 
 
 class TrapState:
-	def __init__(self):
+	def __init__(self, duration=DEFAULT_DURATION):
+		self.duration = duration  # trap_duration: seconds the timed traps (all but Freeze) last
+		self.fired = None  # the trap the last tick fired, for its sound
 		self.queue = []  # received, not fired yet; waits outside a run
 		self.entered = None  # time the current run was first seen
 		self.speed = None  # (name, ends at, saved speeds) of the active speed trap
@@ -43,7 +48,8 @@ def speeds_sourced():
 
 def tick(traps, now, state, speeds):
 	"""One poll: fire the first queued trap that can fire, run timers. speeds: the 4 speed ints, None if unreadable.
-	-> (int writes [(entry, value)], speed writes (4 ints) or None)."""
+	-> (int writes [(entry, value)], speed writes (4 ints) or None). traps.fired names the trap fired, or None."""
+	traps.fired = None
 	if not in_run(state):
 		# ponytail: like EoSD, nothing is written outside a run (the player object may be gone) and an active
 		# speed trap is forgotten; this assumes each stage rebuilds the player's speeds (probe batch 44 R4 checks
@@ -62,18 +68,19 @@ def tick(traps, now, state, speeds):
 		if name in TIMED and speeds_sourced() and (traps.speed or speeds is None):
 			continue  # one speed trap at a time, and only with the speeds readable
 		traps.queue.remove(name)  # one trap per tick, so a backlog doesn't land at once (EoSD)
+		traps.fired = name
 		logger.info(f"Trap: {name}")
 		if name == "-50% Power" and power is not None:
 			power //= 2
 		elif name == "-1 Life":
 			lives = max(lives - 1, 0)  # takes the last spare life, never a game over
 		elif name == "Power Drain":
-			traps.drain_until = max(traps.drain_until, now) + DRAIN_SECONDS
+			traps.drain_until = max(traps.drain_until, now) + traps.duration
 		elif not speeds_sourced():
 			logger.info(f"{name}: pending the speed addresses")
 		else:
 			saved = new_speeds or speeds  # a trap that just expired restores first
-			traps.speed = (name, now + TIMED[name], saved)
+			traps.speed = (name, now + (FREEZE_SECONDS if name == "Freeze" else traps.duration), saved)
 			new_speeds = trapped_speeds(name, saved)
 		break
 	if now < traps.drain_until and now - traps.drained_at >= 1 and power:

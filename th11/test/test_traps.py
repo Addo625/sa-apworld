@@ -20,9 +20,9 @@ def run(lives=3, power=40, in_game=True):
 	return GameState(in_game, False, None, None, 1, 1, "Reimu", "Reimu A", lives, power)
 
 
-def fired(*names, state=None, speeds=SPEEDS):
+def fired(*names, state=None, speeds=SPEEDS, duration=20):
 	"""A TrapState that entered the run at T0, ticked once at LIVE with `names` queued."""
-	traps = TrapState()
+	traps = TrapState(duration)
 	tick(traps, T0, state or run(), speeds)
 	traps.queue = list(names)
 	return traps, tick(traps, LIVE, state or run(), speeds)
@@ -53,6 +53,23 @@ class TestInstantTraps(unittest.TestCase):
 
 	def test_power_drain_stops_at_zero(self):
 		self.assertEqual(fired("Power Drain", state=run(power=0))[1], ([], None))
+
+
+class TestTrapDuration(unittest.TestCase):
+	"""83: trap_duration sets how long the timed traps last; Freeze keeps its 3 seconds."""
+	def test_no_focus_lasts_the_duration(self):
+		traps, (_, trapped) = fired("No Focus", duration=30)
+		self.assertEqual(tick(traps, LIVE + 29.5, run(), trapped), ([], None))  # past the old 20 s: still on
+		self.assertEqual(tick(traps, LIVE + 30, run(), trapped), ([], SPEEDS))
+
+	def test_power_drain_lasts_the_duration(self):
+		traps, _ = fired("Power Drain", state=run(power=40), duration=5)
+		self.assertEqual(tick(traps, LIVE + 4, run(power=39), SPEEDS), ([(Variables.ADDR_POWER, 38)], None))
+		self.assertEqual(tick(traps, LIVE + 5, run(power=38), SPEEDS), ([], None))  # over
+
+	def test_freeze_stays_short(self):
+		traps, (_, frozen) = fired("Freeze", duration=60)
+		self.assertEqual(tick(traps, LIVE + 3, run(), frozen), ([], SPEEDS))
 
 
 class TestSpeedTraps(unittest.TestCase):

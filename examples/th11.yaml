@@ -74,13 +74,16 @@ Touhou Chireiden ~ Subterranean Animism:
 
   # ---------------------------------------------------------------- Traps
   traps: 0                      # 0-100: % of filler items replaced by traps. The weights below pick which trap.
+  trap_duration: 20
+  
   power_trap: 20                # -50% Power: halves your power.
   life_trap: 0                  # -1 Life: removes a life (never a game over).
-  no_focus_trap: 20             # No Focus: focusing doesn't slow you, for 20 s.
-  reverse_movement_trap: 20     # Reverse Movement: controls reversed, for 20 s.
-  aya_speed_trap: 20            # Aya Speed: twice as fast unfocused, slower focused, for 20 s.
+  no_focus_trap: 20             # No Focus: focusing doesn't slow you, for trap_duration seconds.
+  reverse_movement_trap: 20     # Reverse Movement: controls reversed, for trap_duration seconds.
+  aya_speed_trap: 20            # Aya Speed: twice as fast unfocused, slower focused, for trap_duration seconds.
+  power_drain_trap: 15          # Power Drain: you lose 0.05 power per second, for trap_duration seconds.
+  trap_duration: 20             # 5-60: seconds No Focus, Reverse Movement, Aya Speed and Power Drain last (Freeze: 3).
   freeze_trap: 5                # Freeze: you can't move, for 3 s.
-  power_drain_trap: 15          # Power Drain: you lose 0.05 power per second, for 20 s.
 
   # ---------------------------------------------------------------- Links (client commands can change these live)
   death_link: 'false'           # 'true': your deaths are shared with other DeathLink players, and theirs with you.

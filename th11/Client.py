@@ -42,7 +42,11 @@ class TouhouContext(CommonContext):
 		self.spell_running = None  # detect_captures: (controller, card, its capture count at the start, run state)
 		self.captures_seen = set()  # captured_cards entries found this session, before the server stores them
 		self.captures_sent = set()  # capture location names sent this session, before the server echoes them
-		self.runs_found = []  # (state, run index) of runs ended before the first connect, mapped once slot_data is in
+		self.runs_found = []  # (state, run index, cards) of runs ended before the first connect, mapped once slot_data is in
+		self.run_cards = set()  # spell card IDs declared during the current boss-field run (73)
+		self.active_card = None  # the card running at the last poll, to see it end (89)
+		self.stage_continues = None  # continues used when the current stage began (87); None outside play
+		self.void_logged = None  # the stage whose voided checks were last logged
 		self.slot_data = {}  # options detect needs (shot_type, difficulty_check, ...); empty until connected
 		self.continue_lives = None  # (controller, lives) last patched; a restarted game needs it again
 		self.practice_lives = None  # the same for Practice's starting lives (49)
@@ -116,7 +120,7 @@ class TouhouContext(CommonContext):
 			self.slot_data = args.get("slot_data") or {}
 			if self.applied_for != (self.seed_name, self.slot):
 				self.applied_for, self.items_applied, self.traps_seen = (self.seed_name, self.slot), 0, 0
-				self.traps = traps.TrapState()
+				self.traps = traps.TrapState(self.slot_data.get("trap_duration", traps.DEFAULT_DURATION))
 				# A new seed starts from its options; a reconnect keeps what the commands changed.
 				self.link = deathlink.LinkState(
 					self.slot_data.get("death_link_trigger", DeathLinkTrigger.default),
@@ -156,22 +160,46 @@ class TouhouContext(CommonContext):
 		# Every seed starts with a shot type, so no items yet means ReceivedItems hasn't come: don't filter.
 		shots = guard.unlocked_shots(self.received_names()) if self.slot is not None and self.items_received else None
 		received = self.received_names() if shots is not None else None
-		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received) if prev else ([], 0)
-		if shots is not None and prev and not prev.in_game and state.in_game and state.character is not None:
+		if not state.in_game:
+			self.stage_continues = self.void_logged = None
+		elif not (prev and prev.in_game) or prev.stage != state.stage:
+			self.stage_continues, self.void_logged = state.continues, None
+		# ponytail: before the first connect slot_data can't say the seed is Practice, so nothing is voided and a
+		# continued stage's runs found then still count; keep a voided flag with runs_found if that matters.
+		stage_continues = self.stage_continues if shots is not None else None
+		card = None
+		if state.boss_present and (read_entry(controller, Variables.ADDR_SPELL_FLAGS) or 0) & Variables.SPELL_ACTIVE:
+			card = read_entry(controller, Variables.ADDR_SPELL_ID)
+			card = card if card in range(Variables.SPELL_CARD_COUNT) else None
+		if card is not None:
+			self.run_cards.add(card)
+		cards, card_ended = len(self.run_cards), self.active_card is not None and card != self.active_card
+		self.active_card = card
+		if not state.boss_present:  # the field run ended: a kill, a quit, a retry or a stage change
+			self.run_cards.clear()
+		locations, runs = detect.step(prev, state, runs, self.slot_data, lower, shots, received, stage_continues, cards,
+			card_ended) if prev else ([], 0)
+		if state.in_game and self.void_logged != state.stage and detect.voided(state, stage_continues, self.slot_data):
+			self.void_logged = state.stage
+			logger.info(f"A continue in Stage {state.stage}: its checks wait for a clear without one")
+		# A run start, or a Start run moving on to its next stage by itself (88).
+		entered = prev and state.in_game and (not prev.in_game or prev.stage != state.stage)
+		if shots is not None and entered and state.character is not None:
 			locked = detect.locked(state, shots, lower, self.slot_data, received)
-			if locked:  # nothing in game says so (probe 32 R6 M3)
-				logger.info(f"{locked} isn't unlocked: this run sends no checks")
+			if locked:  # the game itself doesn't say so (probe 32 R6 M3): the buzzer does (86)
+				logger.info(f"{locked} isn't unlocked: this {'run' if not prev.in_game else 'stage'} sends no checks")
+				self.play_sound(controller, "trap")
 		if self.slot is None or prev is None:
 			self.link_prev = None  # lives seen before a (re)attach or connect aren't this run's
 		if self.slot is None:
 			if locations:  # mapping needs slot_data (shot_type, difficulty_check): keep the raw run until connected
-				self.runs_found.append((state, runs - 1))
+				self.runs_found.append((state, runs - 1, cards))
 			return state, runs
 		self.locations_found.update(locations)
 		if shots is not None:  # with the items in, for the lock filter and check_multiple_difficulty
-			for found, run in self.runs_found:
+			for found, run, found_cards in self.runs_found:
 				if not detect.locked(found, shots, lower, self.slot_data, received):
-					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower))
+					self.locations_found.update(detect.run_locations(found, run, self.slot_data, lower, found_cards))
 			self.runs_found.clear()
 			await self.detect_captures(controller, state, lower, shots, received)
 		cursor = guard.correct(state, guard.unlocked_difficulties(lower, self.slot_data), shots)
@@ -203,8 +231,10 @@ class TouhouContext(CommonContext):
 		trap_writes, new_speeds = traps.tick(self.traps, time.monotonic(), written, None if None in speeds else speeds)
 		for entry, value in trap_writes:
 			write_int(controller, entry, value)
-		if any(entry == Variables.ADDR_LIVES for entry, _ in trap_writes):
-			self.play_sound(controller, "life_lost")  # like +1 Life: the cave redraws the stars after the sound
+		if self.traps.fired:
+			# Every trap buzzes the moment it begins, not when it arrives (it may wait for a run or another trap).
+			# After the trap's writes, so a -1 Life's stars are redrawn by the cave like +1 Life's.
+			self.play_sound(controller, "trap")
 		for name, value in zip(traps.SPEED_ENTRIES, new_speeds or []):
 			write_int(controller, getattr(Variables, name), value)
 		if "DeathLink" in self.tags:
@@ -231,8 +261,7 @@ class TouhouContext(CommonContext):
 			lives = receive.practice_lives(names, self.slot_data, self.limit_lives)
 			self.patch_practice_lives(controller, lives)
 			if self.practice_seed():
-				# Extra takes the init's non-Practice lives branch: it gets the same lives (80). Start runs use it too,
-				# but they send nothing in a Practice seed.
+				# Extra and Start runs take the init's non-Practice lives branch: they get the same lives (80, 88).
 				self.patch_continue_lives(controller, lives)
 				self.patch_practice_power(controller, receive.practice_power(names))
 		return state, runs

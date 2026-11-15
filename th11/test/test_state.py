@@ -158,3 +158,10 @@ class TestDemoFlag(unittest.TestCase):
 		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 0}).in_game)
 		self.assertTrue(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 20}).in_game)
 		self.assertFalse(decode_state({**PRACTICE_S1, "ADDR_GAME_FLAGS": 32}).boss_present)
+
+
+class TestContinues(unittest.TestCase):
+	def test_continues_decode(self):
+		"""87: the continues-used counter (thprac Globals.continues) joins the state; unread is None."""
+		self.assertEqual(decode_state({**PRACTICE_S1, "ADDR_CONTINUES": 2}).continues, 2)
+		self.assertIsNone(decode_state(PRACTICE_S1).continues)
