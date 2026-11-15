@@ -142,8 +142,7 @@ def apply_new(item_names, applied, state, limit_lives=MAX_LIVES, started=False):
 	Outside a run nothing is applied: items wait for the next run.
 	started: a Practice run just began from a menu. The game's run init already gave it every +1 Life (49) and
 	+0.50 Power (80) received, so the ones waiting from the menu aren't added again (batch 50 R4: 2 lives became 4)."""
-	# ponytail: `applied` lives in the client only, so restarting the client replays every life and power once;
-	# store it in server data storage if that's abused.
+	# The client keeps `applied` in server data storage, so a restarted client doesn't replay them (91).
 	if not in_run(state):
 		return [], applied
 	writes = []

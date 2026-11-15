@@ -318,10 +318,12 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		ctx.slot = 1
 		ctx.missing_locations = set(range(Variables.STARTING_ID, Variables.STARTING_ID + 1000))
 		ctx.items_received = received(*items)
-		ctx.sent = []
+		ctx.stored_data.update(dict.fromkeys(ctx.count_keys()))  # the server's counts arrived, none stored yet (91)
+		ctx.sent, ctx.counts_sent = [], []  # counts_sent: the item/trap counts stored on the server (91)
 
 		async def send_msgs(msgs):
-			ctx.sent += msgs
+			for msg in msgs:
+				(ctx.counts_sent if msg.get("key") in ctx.count_keys() else ctx.sent).append(msg)
 		ctx.send_msgs = send_msgs
 		return ctx
 
@@ -368,6 +370,47 @@ class TestClientLoop(unittest.IsolatedAsyncioTestCase):
 		await ctx.poll(midboss_gone, state, runs)  # the next tick: nothing new
 		self.assertEqual(len(ctx.sent), 1)
 		self.assertEqual(midboss_gone.writes, [])
+
+	async def test_restarted_client_applies_items_once(self):
+		"""91: the server keeps how many items were applied and traps queued, so a restarted client gives nothing twice."""
+		lives = BASE + Variables.ADDR_LIVES
+		names = (*UNLOCKED, "+1 Life", "-1 Life", "+1 Life")
+
+		async def restart(stored):
+			"""A fresh client whose server counts are `stored` (None: not arrived) polls a run -> (ctx, lives writes)."""
+			ctx = self.context(*names)
+			for key in ctx.count_keys():
+				ctx.stored_data.pop(key)
+			if stored is not None:
+				ctx.stored_data.update(zip(ctx.count_keys(), stored))
+			memory = game_memory(lives=2)
+			await ctx.poll(memory, None, 0)
+			return ctx, [data for address, data in memory.writes if address == lives]
+
+		ctx, writes = await restart((len(names), len(names)))
+		self.assertEqual((writes, ctx.traps.queue, ctx.counts_sent), ([], [], []))
+		ctx, writes = await restart(None)  # the counts haven't come: everything waits
+		self.assertEqual((writes, ctx.items_applied, ctx.traps.queue, ctx.counts_sent), ([], 0, [], []))
+		ctx, writes = await restart((len(names) - 1, len(names) - 2))  # the last +1 Life, and the trap, are new
+		self.assertEqual((writes, ctx.traps.queue), ([(3).to_bytes(4, "little")], ["-1 Life"]))
+		self.assertEqual(ctx.counts_sent, [{"cmd": "Set", "key": key, "default": 0, "want_reply": False,
+			"operations": [{"operation": "max", "value": len(names)}]} for key in ctx.count_keys()])
+		ctx, writes = await restart((None, None))  # a new room: nothing stored, everything applies once
+		self.assertEqual(writes, [(3).to_bytes(4, "little"), (4).to_bytes(4, "little")])
+
+	async def test_connected_waits_for_this_rooms_counts(self):
+		"""91: Connected subscribes to the counts; a new seed drops the old room's until the server sends its own."""
+		from unittest import mock
+		ctx = self.context()
+		ctx.stored_data.update(zip(ctx.count_keys(), (5, 5)))
+		with mock.patch.object(ctx, "set_notify") as notify:
+			ctx.on_package("Connected", {"slot_data": {}})
+		notify.assert_any_call(*ctx.count_keys())
+		self.assertFalse(any(key in ctx.stored_data for key in ctx.count_keys()))
+		ctx.stored_data.update(zip(ctx.count_keys(), (5, 5)))
+		with mock.patch.object(ctx, "set_notify"):
+			ctx.on_package("Connected", {"slot_data": {}})  # a reconnect to the same room keeps them
+		self.assertEqual([ctx.stored_data[key] for key in ctx.count_keys()], [5, 5])
 
 	async def test_capture_sends_its_check_during_the_run(self):
 		"""66: a card that ends with its capture count up sends the stage's next capture check right away. A card that

@@ -74,6 +74,7 @@ class ClientCase(unittest.IsolatedAsyncioTestCase):
 		ctx.patch_continue_lives = lambda controller, lives: None  # tested on its own (34, 80)
 		ctx.slot = 1
 		ctx.items_received = received(*items)
+		ctx.stored_data.update(dict.fromkeys(ctx.count_keys()))  # the server's item counts arrived (91)
 		ctx.tags.add("DeathLink")
 		ctx.deaths_sent = 0
 

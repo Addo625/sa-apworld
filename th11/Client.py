@@ -36,7 +36,7 @@ class TouhouContext(CommonContext):
 
 	def __init__(self, server_address=None, password=None):
 		super().__init__(server_address, password)
-		self.items_applied = 0  # kept across server reconnects, which replay the list from index 0
+		self.items_applied = 0  # kept across server reconnects, which replay the list from index 0, and on the server (91)
 		self.applied_for = None  # (seed, slot) items_applied counts for
 		self.locations_found = set()
 		self.spell_running = None  # detect_captures: (controller, card, its capture count at the start, run state)
@@ -120,6 +120,8 @@ class TouhouContext(CommonContext):
 			self.slot_data = args.get("slot_data") or {}
 			if self.applied_for != (self.seed_name, self.slot):
 				self.applied_for, self.items_applied, self.traps_seen = (self.seed_name, self.slot), 0, 0
+				for key in self.count_keys():  # another room's counts: wait for this one's
+					self.stored_data.pop(key, None)
 				self.traps = traps.TrapState(self.slot_data.get("trap_duration", traps.DEFAULT_DURATION))
 				# A new seed starts from its options; a reconnect keeps what the commands changed.
 				self.link = deathlink.LinkState(
@@ -128,6 +130,7 @@ class TouhouContext(CommonContext):
 				asyncio.create_task(self.update_death_link(bool(self.slot_data.get("death_link"))))
 				asyncio.create_task(self.update_ring_link(bool(self.slot_data.get("ring_link"))))
 				self.limit_lives = self.slot_data.get("limit_lives", LimitLives.default)
+			self.set_notify(*self.count_keys())
 			if self.slot_data.get("spell_card_keys"):
 				self.set_notify(self.capture_key())
 		if cmd == "Bounced" and "RingLink" in args.get("tags", []) and "RingLink" in self.tags:
@@ -209,11 +212,17 @@ class TouhouContext(CommonContext):
 			await self.check_locations(self.locations_found)
 			self.locations_found.clear()
 		names = self.received_names()
-		applied = self.items_applied
+		# The server keeps how many items were applied and traps queued, so a restarted client doesn't apply them
+		# again (91). Until its counts arrive, items and traps wait, as they do outside a run.
+		counts = [self.stored_data.get(key) for key in self.count_keys()] if all(
+			key in self.stored_data for key in self.count_keys()) else None
+		if counts is not None:
+			self.items_applied, self.traps_seen = max(self.items_applied, counts[0] or 0), max(self.traps_seen, counts[1] or 0)
+		applied, traps_seen = self.items_applied, self.traps_seen
 		# In a Practice seed the game's run init gives every run (Practice or Extra) the item lives and power (49, 80), so
 		# the items waiting since the menu are already in. A retry needs nothing: items received in play apply at once.
 		started = bool(prev and not prev.in_game and state.in_game and self.practice_seed())
-		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started)
+		writes, self.items_applied = receive.apply_new(names, applied, state, self.limit_lives, started) if counts is not None else ([], applied)
 		if started and probe.write_log:
 			logger.info(f"Run start (stage {state.stage}): {state.lives} lives, power {(state.power or 0) / 20:.2f} from the run init")
 		if self.items_applied > applied and receive.in_run(state):
@@ -224,8 +233,15 @@ class TouhouContext(CommonContext):
 		self.unlock_extra(controller, receive.extra_shots(names, self.slot_data, self.stage6_cleared()))
 		if shots is not None:
 			self.unlock_practice(controller, receive.practice_open(names, self.slot_data))
-		self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
-		self.traps_seen = len(names)
+		if counts is not None:
+			# ponytail: the server counts traps queued, not fired, so a client restarted before a queued trap fires
+			# drops it; store the queue itself if that's abused.
+			self.traps.queue += [name for name in names[self.traps_seen:] if name in traps.TRAPS]
+			self.traps_seen = len(names)
+		for key, before, now in zip(self.count_keys(), (applied, traps_seen), (self.items_applied, self.traps_seen)):
+			if now > before:  # after the writes: a crash in between replays one tick's items, never loses them
+				await self.send_msgs([{"cmd": "Set", "key": key, "default": 0, "want_reply": False,
+					"operations": [{"operation": "max", "value": now}]}])
 		speeds = [read_entry(controller, getattr(Variables, name)) for name in traps.SPEED_ENTRIES]
 		written = receive.with_writes(state, writes)
 		trap_writes, new_speeds = traps.tick(self.traps, time.monotonic(), written, None if None in speeds else speeds)
@@ -276,6 +292,10 @@ class TouhouContext(CommonContext):
 
 	def capture_key(self):
 		return f"th11_spells_{self.team}_{self.slot}"  # spell slots (63); th11_captures_ held card IDs
+
+	def count_keys(self):
+		"""Data storage keys of items_applied and traps_seen (91)."""
+		return f"th11_applied_{self.team}_{self.slot}", f"th11_traps_{self.team}_{self.slot}"
 
 	async def detect_captures(self, controller, state, lower, shots, received):
 		"""Capture checks the moment a card ends captured (66): the game keeps the running card's ID in its spell-card
