@@ -786,29 +786,52 @@ class TestParsePattern(unittest.TestCase):
 				parse_address(bad)
 
 
-class TestHookInstallFreezesGame(unittest.IsolatedAsyncioTestCase):
-	async def test_hook_written_while_game_is_suspended(self):
-		"""Batch 44 #12: a torn 5-byte hook write crashed the game; only the hook write may run frozen."""
-		from contextlib import contextmanager
-		memory = game_memory(lives=2)
-		events = []
-		original_write = memory.write_bytes
+def freeze_log(memory):
+	"""memory records ("write", address), "suspend" and "resume" in memory.events, as gameController.suspended runs."""
+	from contextlib import contextmanager
+	memory.events, original_write = [], memory.write_bytes
 
-		def write_bytes(address, data):
-			events.append(("write", address))
-			original_write(address, data)
+	def write_bytes(address, data):
+		memory.events.append(("write", address))
+		original_write(address, data)
 
-		@contextmanager
-		def suspended():
-			events.append("suspend")
+	@contextmanager
+	def suspended():
+		memory.events.append("suspend")
+		try:
 			yield
-			events.append("resume")
+		finally:
+			memory.events.append("resume")
 
-		memory.write_bytes, memory.suspended = write_bytes, suspended
+	memory.write_bytes, memory.suspended = write_bytes, suspended
+	return memory
+
+
+class TestCodePatchesFreezeGame(unittest.IsolatedAsyncioTestCase):
+	"""Batch 44 #12: a torn 5-byte hook write crashed the game. Every code patch runs its check and write frozen (92)."""
+	async def test_hook_written_while_game_is_suspended(self):
+		memory = freeze_log(game_memory(lives=2))
 		await TestClientLoop.context(self, "+1 Life", sound=True).poll(memory, None, 0)
-		hook, cave = BASE + Variables.ADDR_SOUND_HACK_1, BASE + Variables.ADDR_SOUND_HACK_2
-		self.assertLess(events.index(("write", cave)), events.index("suspend"))
-		self.assertEqual(events[events.index("suspend") + 1:events.index("resume")], [("write", hook)])
+		for site in (BASE + Variables.ADDR_SOUND_HACK_2, BASE + Variables.ADDR_SOUND_HACK_1):  # the cave, then the hook
+			at = memory.events.index(("write", site))
+			self.assertEqual((memory.events[at - 1], memory.events[at + 1]), ("suspend", "resume"))
+
+	def test_patches_write_only_frozen(self):
+		from ..patching import patch_value
+		memory = freeze_log(FakeMemory())
+		site, original, code = BASE + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"], Variables.PRACTICE_STARTING_LIVES_CODE
+		memory.set(site, original)
+		patch_value(memory, site, original, code, 3)
+		safe_patch(memory, site, code(3), original)
+		self.assertEqual(memory.events, ["suspend", ("write", site), "resume"] * 2)
+		memory.events.clear()
+		other = b"\xcc" * len(original)  # someone else's patch
+		memory.set(site, other)
+		with self.assertRaises(PatchMismatch):
+			patch_value(memory, site, original, code, 3)
+		with self.assertRaises(PatchMismatch):
+			safe_patch(memory, site, original, code(3))
+		self.assertEqual(memory.events, ["suspend", "resume"] * 2)  # a refused patch writes nothing and still resumes
 
 
 class TestPracticeLivesPatch(unittest.IsolatedAsyncioTestCase):

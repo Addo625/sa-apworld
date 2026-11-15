@@ -1,5 +1,4 @@
 import asyncio
-from contextlib import nullcontext
 import random
 import time
 
@@ -376,10 +375,8 @@ class TouhouContext(CommonContext):
 				if controller.read_bytes(base + Variables.ADDR_SOUND_HACK_2, len(Variables.SOUND_CAVE)) != Variables.SOUND_CAVE:
 					safe_patch(controller, base + Variables.ADDR_SOUND_HACK_2, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_2"], Variables.SOUND_CAVE)
 				if controller.read_bytes(base + Variables.ADDR_SOUND_HACK_1, len(Variables.SOUND_HOOK)) != Variables.SOUND_HOOK:
-					# The game runs this call every frame: a torn 5-byte write crashed it at install (batch 44 #12),
-					# so its threads are frozen for the write.
-					with getattr(controller, "suspended", nullcontext)():
-						safe_patch(controller, base + Variables.ADDR_SOUND_HACK_1, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_1"], Variables.SOUND_HOOK)
+					# The game runs this call every frame: safe_patch freezes it for the write (batch 44 #12).
+					safe_patch(controller, base + Variables.ADDR_SOUND_HACK_1, Variables.EXPECTED_BYTES["ADDR_SOUND_HACK_1"], Variables.SOUND_HOOK)
 			except PatchMismatch as e:
 				logger.error(f"Item sound ({kind}) not played, unexpected game code: {e}")
 				return
@@ -396,8 +393,7 @@ class TouhouContext(CommonContext):
 			logger.info(f"Continue lives ({lives}): pending the continue-lives code site (probe batch 32, R2)")
 			return
 		try:
-			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
-				patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
+			patch_value(controller, controller.base_address + Variables.ADDR_NORMAL_CONTINUE_LIVES, Variables.EXPECTED_BYTES["ADDR_NORMAL_CONTINUE_LIVES"], Variables.NORMAL_CONTINUE_LIVES_CODE, lives)
 		except PatchMismatch as e:
 			logger.error(f"Continue lives not patched, unexpected game code: {e}")
 
@@ -408,8 +404,7 @@ class TouhouContext(CommonContext):
 			return
 		self.practice_lives = (controller, lives)
 		try:
-			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
-				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"], Variables.PRACTICE_STARTING_LIVES_CODE, lives)
+			patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_LIVES, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_LIVES"], Variables.PRACTICE_STARTING_LIVES_CODE, lives)
 		except PatchMismatch as e:
 			logger.error(f"Practice lives not patched, unexpected game code: {e}")
 
@@ -420,8 +415,7 @@ class TouhouContext(CommonContext):
 			return
 		self.practice_power = (controller, power)
 		try:
-			with getattr(controller, "suspended", nullcontext)():  # live code: no torn write (as the sound hook)
-				patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_POWER, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"], Variables.PRACTICE_STARTING_POWER_CODE, power)
+			patch_value(controller, controller.base_address + Variables.ADDR_PRACTICE_STARTING_POWER, Variables.EXPECTED_BYTES["ADDR_PRACTICE_STARTING_POWER"], Variables.PRACTICE_STARTING_POWER_CODE, power)
 		except PatchMismatch as e:
 			logger.error(f"Practice power not patched, unexpected game code: {e}")
 
